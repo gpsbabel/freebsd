@@ -1,4 +1,4 @@
-# $FreeBSD$
+# $FreeBSD: head/share/mk/src.opts.mk 286032 2015-07-29 19:06:53Z emaste $
 #
 # Option file for FreeBSD /usr/src builds.
 #
@@ -215,7 +215,7 @@ __TT=${MACHINE}
 __DEFAULT_YES_OPTIONS+=GCC GCC_BOOTSTRAP GNUCXX
 __DEFAULT_NO_OPTIONS+=CLANG CLANG_BOOTSTRAP CLANG_FULL CLANG_IS_CC
 .elif ${__T} == "aarch64" || ${__T} == "amd64" || ${__TT} == "arm" || \
-    ${__T} == "i386"
+    ${__T} == "i386" || ${__T} == "riscv"
 # On x86 and arm, clang is enabled, and will be installed as the default cc.
 __DEFAULT_YES_OPTIONS+=CLANG CLANG_BOOTSTRAP CLANG_FULL CLANG_IS_CC
 __DEFAULT_NO_OPTIONS+=GCC GCC_BOOTSTRAP GNUCXX
@@ -228,7 +228,7 @@ __DEFAULT_NO_OPTIONS+=CLANG_BOOTSTRAP CLANG_IS_CC
 __DEFAULT_YES_OPTIONS+=GCC GCC_BOOTSTRAP GNUCXX
 __DEFAULT_NO_OPTIONS+=CLANG CLANG_BOOTSTRAP CLANG_FULL CLANG_IS_CC
 .endif
-.if ${__T} == "aarch64"
+.if ${__T} == "aarch64" || ${__T} == "riscv"
 BROKEN_OPTIONS+=BINUTILS BINUTILS_BOOTSTRAP GCC GCC_BOOTSTRAP GDB
 __DEFAULT_YES_OPTIONS+=ELFCOPY_AS_OBJCOPY
 .else

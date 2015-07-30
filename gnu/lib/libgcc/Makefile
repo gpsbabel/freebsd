@@ -1,4 +1,4 @@
-# $FreeBSD$
+# $FreeBSD: head/gnu/lib/libgcc/Makefile 284480 2015-06-16 23:36:20Z sjg $
 
 GCCDIR=	${.CURDIR}/../../../contrib/gcc
 GCCLIB=	${.CURDIR}/../../../contrib/gcclibs
@@ -55,7 +55,7 @@ LIB2FUNCS+= _fixuns${mode}si
 .endfor
 
 # Likewise double-word routines.
-.if ${TARGET_CPUARCH} != "aarch64" && ${TARGET_CPUARCH} != "arm"
+.if ${TARGET_CPUARCH} != "aarch64" && ${TARGET_CPUARCH} != "arm" && ${TARGET_CPUARCH} != "riscv"
 # These are implemented in an ARM specific file but will not be filtered out
 .for mode in sf df xf tf
 LIB2FUNCS+= _fix${mode}di _fixuns${mode}di
@@ -282,7 +282,9 @@ EH_OBJS_T = ${LIB2ADDEHSTATIC:R:S/$/.o/}
 EH_OBJS_P = ${LIB2ADDEHSTATIC:R:S/$/.po/}
 EH_OBJS_S = ${LIB2ADDEHSHARED:R:S/$/.So/}
 EH_CFLAGS = -fexceptions -D__GLIBC__=3 -DElfW=__ElfN
+.if ${TARGET_CPUARCH} != "riscv"
 SOBJS    += ${EH_OBJS_S}
+.endif
 
 .for _src in ${LIB2ADDEHSTATIC}
 ${_src:R:S/$/.o/}: ${_src} ${COMMONHDRS}

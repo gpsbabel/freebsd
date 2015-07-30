@@ -28,7 +28,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
+__FBSDID("$FreeBSD: head/sys/dev/uart/uart_cpu_fdt.c 281438 2015-04-11 17:16:23Z andrew $");
 
 #include "opt_platform.h"
 
@@ -42,7 +42,7 @@ __FBSDID("$FreeBSD$");
 #include <vm/pmap.h>
 
 #include <machine/bus.h>
-#ifndef __aarch64__
+#if !defined(__aarch64__) && !defined(__riscv__)
 #include <machine/fdt.h>
 #endif
 
@@ -54,7 +54,7 @@ __FBSDID("$FreeBSD$");
 #include <dev/uart/uart_cpu.h>
 #include <dev/uart/uart_cpu_fdt.h>
 
-#ifdef __aarch64__
+#if defined(__aarch64__) || defined(__riscv__)
 extern bus_space_tag_t fdtbus_bs_tag;
 #endif
 
