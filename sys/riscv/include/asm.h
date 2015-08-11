@@ -49,7 +49,7 @@
 	.weak alias;						\
 	.set alias,sym
 
-#define	UINT64_C(x)	(x)
+//#define	UINT64_C(x)	(x)
 
 #if defined(PIC)
 #define	PIC_SYM(x,y)	x ## @ ## y
@@ -57,6 +57,7 @@
 #define	PIC_SYM(x,y)	x
 #endif
 
+#if 0
 /*
  * Sets the trap fault handler. The exception handler will return to the
  * address in the handler register on a data abort or the xzr register to
@@ -67,5 +68,37 @@
 	ldr	tmp, [x18, #PC_CURTHREAD];	/* Load curthread */	\
 	ldr	tmp, [tmp, #TD_PCB];		/* Load the pcb */	\
 	str	handler, [tmp, #PCB_ONFAULT]	/* Set the handler */
+
+#endif /* if 0 */
+
+#define CSR_ZIMM(val) \
+	(__builtin_constant_p(val) && ((unsigned long)(val) < 0x20))
+
+#define csr_swap(csr, val)					\
+({								\
+	unsigned long __v = (unsigned long)(val);		\
+	if (CSR_ZIMM(__v)) { 					\
+		__asm__ __volatile__ (				\
+			"csrrw %0, " #csr ", %1"		\
+			: "=r" (__v) : "i" (__v));		\
+	} else {						\
+		__asm__ __volatile__ (				\
+			"csrrw %0, " #csr ", %1"		\
+			: "=r" (__v) : "r" (__v));		\
+	}							\
+	__v;							\
+})
+
+#define csr_write(csr, val)					\
+({								\
+	unsigned long __v = (unsigned long)(val);		\
+	if (CSR_ZIMM(__v)) {					\
+		__asm__ __volatile__ (				\
+			"csrw " #csr ", %0" : : "i" (__v));	\
+	} else {						\
+		__asm__ __volatile__ (				\
+			"csrw " #csr ", %0" : : "r" (__v));	\
+	}							\
+})
 
 #endif /* _MACHINE_ASM_H_ */

@@ -466,7 +466,7 @@ pmap_bootstrap_l2(vm_offset_t l1pt, vm_offset_t va, vm_offset_t l2_start)
 	/* Flush the l1 table to ram */
 	cpu_dcache_wb_range((vm_offset_t)l1, PAGE_SIZE);
 
-	return l2pt;
+	return (l2pt);
 }
 
 static vm_offset_t
@@ -597,6 +597,11 @@ pmap_bootstrap(vm_offset_t l1pt, vm_paddr_t kernstart, vm_size_t kernlen)
 
 	freemempos = KERNBASE + kernlen;
 	freemempos = roundup2(freemempos, PAGE_SIZE);
+
+	printf("l1pt 0x%016lx\n", l1pt);
+	printf("va 0x%016lx\n", va);
+	printf("freemempos 0x%016lx\n", freemempos);
+
 	/* Create the l2 tables up to VM_MAX_KERNEL_ADDRESS */
 	freemempos = pmap_bootstrap_l2(l1pt, va, freemempos);
 	/* And the l3 tables for the early devmap */

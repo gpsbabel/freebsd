@@ -31,6 +31,7 @@
 #include <sys/syscall.h>
 #include <machine/asm.h>
 #include <machine/param.h>
+#include <machine/trap.h>
 
 #define	MSTATUS_MPRV		(1 << 16)
 #define	MSTATUS_PRV0_SHIFT	1
@@ -62,20 +63,27 @@
 #define	PTE_PPN2_S	28
 #define	PTE_SIZE	8
 
+#define	INIT_STACK_SIZE	(PAGE_SIZE * 4)
+
 	.globl	kernbase
 	.set	kernbase, KERNBASE
 
-#define	INIT_STACK_SIZE	(PAGE_SIZE * 4)
-
+	/* Trap entries */
 	.text
-	.align 2
+mentry:
+	/* User mode entry point (mtvec + 0x000) */
+	.align 6
+	j bad_trap
+
+	/* Supervisor mode entry point (mtvec + 0x040) */
+	.align 6
+	j sv_trap
+
+	/* Reset vector */
+	.text
+	.align 8
 	.globl _start
 _start:
-	/* Enter supervisor mode */
-	//la	t0, 1f
-	//csrw	mepc, t0
-	//eret
-1:
 	li	s0, ((MSTATUS_VM_SV39 << MSTATUS_VM_SHIFT) | \
 		     (MSTATUS_PRV_M << MSTATUS_PRV0_SHIFT) | \
 		     (MSTATUS_PRV_S << MSTATUS_PRV1_SHIFT) | \
@@ -84,6 +92,8 @@ _start:
 
 	//la	s1, _C_LABEL(_end)	/* page aligned end of the kernel */
 	//csrw	sptbr, s1	// set the page table base
+	//la	s0, _C_LABEL(cpu_exception_handler)
+	//csrw	mtvec, s0
 
 	la	t0, 0
 	csrr	t1, mstatus
@@ -110,11 +120,12 @@ _start:
 	//sw	a7, (t0)
 
 	/* Page tables */
-	la	s1, _C_LABEL(_end)	/* page aligned end of the kernel */
+	//la	s1, _C_LABEL(_end)	/* page aligned end of the kernel */
+	la	s1, pagetable
 	srli	s2, s1, PAGE_SHIFT	/* page number (s1 >> PAGE_SHIFT) */
 
 	/* Level 2 */
-	la	a5, 0xffffffff80002000
+	la	a5, 0xffffffff80000000
 	srli	a5, a5, 0x1e		/* >> 30 */
 	andi	a5, a5, 0x1ff		/* & 0x1ff */
 	la	t0, 0			/* debug */
@@ -136,7 +147,7 @@ _start:
 	/* Level 1 */
 	addi	t1, s1, 0
 	addi	t2, s2, 0
-	li	t3, 16			/* Build 16 entries */
+	li	t3, 64			/* Build 16 entries */
 	li	t4, 0			/* Counter */
 	li	t5, 0
 2:
@@ -184,13 +195,16 @@ _start:
 	li	s0, ((MSTATUS_VM_SV39 << MSTATUS_VM_SHIFT) | \
 		     (MSTATUS_PRV_M << MSTATUS_PRV0_SHIFT) | \
 		     (MSTATUS_PRV_S << MSTATUS_PRV1_SHIFT) | \
-		     (MSTATUS_PRV_S << MSTATUS_PRV2_SHIFT));
+		     (MSTATUS_PRV_M << MSTATUS_PRV2_SHIFT));
 	csrw	mstatus, s0
 
 	/* Jump to virtual addressation */
 	la	t0, .Lmmu_on
 	add	t0, t0, s11
 	csrw	mepc, t0
+
+	//addi	t0, t0, 1
+
 	eret
 
 .Lmmu_on:
@@ -198,6 +212,15 @@ _start:
 	la	s3, initstack_end
 	mv	sp, s3
 	//sub	sp, sp, #PCB_SIZE
+
+	//csrrw   a5,mtohost,a4
+	//la	t0, _C_LABEL(cpu_exception_handler)
+	//add	t0, t0, s11
+	//csrw	stvec, t0
+	//csrw	sscratch, 0
+
+	//li	a6, 0x61
+	//ecall
 
 	/* Clear BSS  */
 	la	a0, _C_LABEL(__bss_start)
@@ -211,19 +234,44 @@ _start:
 
 	/* Loop */
 2:
-	call	_C_LABEL(c_test)
-	la	t0, 0x3f0
-	li	t1, 0x61
-	sb	t1, (t0)
-	li	t2, 0
+	//call	_C_LABEL(c_test)
+	//la	t0, 0x3f0
+	//li	t1, 0x61
+	//sb	t1, (t0)
+	//li	t2, 0
 	//beqz	t2, 2b
 
+
+	/* Fill riscv_bootparams */
+	addi	sp, sp, -32
+
+	li	t0, 0
+	sd	t0, 0(sp) /* modulep */
+
+	csrr	t0, sptbr
+	li	t1, 0xffffffff80000000
+	add	t0, t0, t1
+	sd	t0, 8(sp) /* kern_l1pt */
+
+	li	t0, 0
+	sd	t0, 16(sp) /* kern_delta */
+
+	la	t0, initstack_end
+	sd	t0, 24(sp) /* kern_stack */
+
+	mv	a0, sp
 	call	_C_LABEL(initriscv)	/* Off we go */
+	call	_C_LABEL(mi_startup)
 
 	.align  4
 initstack:
 	.space  (PAGE_SIZE * KSTACK_PAGES)
 initstack_end:
+
+ENTRY(cpu_exception_handler)
+	addi	t0, t0, 2
+	eret
+END(cpu_exception_handler)
 
 ENTRY(sigcode)
 #if 0
@@ -250,3 +298,40 @@ esigcode:
 	.global	szsigcode
 szsigcode:
 	.quad	esigcode - sigcode
+
+	.align	12
+pagetable:
+	.space  (512 * 64 * 8)
+pagetable_end:
+
+ENTRY(bad_trap)
+	j bad_trap
+END(bad_trap)
+
+sv_trap:
+	/* Save mepc, point to the next instr */
+	csrr	t1, mepc
+	addi	t1, t1, 4
+
+	li	t4, ECALL_LOW_PRINTC
+	beq	t5, t4, low_printc	
+
+	/* Exit trap */
+	csrw	mepc, t1
+	eret
+
+low_printc:
+	li	t0, 0x101000000000000
+	add	t0, t0, t6
+
+1:
+	csrrw	t0, mtohost, t0
+	bnez	t0, 1b
+
+	csrr	t0, mfromhost
+	li	t0, 0
+	csrw	mfromhost, t0
+
+	/* Exit trap */
+	csrw	mepc, t1
+	eret

@@ -156,6 +156,8 @@
 #define	VM_MIN_KERNEL_ADDRESS	(0xffffffff80000000UL)
 #define	VM_MAX_KERNEL_ADDRESS	(0xffffffff88000000UL)
 
+#define __pa(x)		((unsigned long)(x) - VM_MIN_KERNEL_ADDRESS)
+
 /* Direct Map for 64 GiB of PA: 0x0 - 0xfffffffff */
 #define	DMAP_MIN_ADDRESS	(0xffffffc000000000UL)
 #define	DMAP_MAX_ADDRESS	(0xffffffcfffffffffUL)

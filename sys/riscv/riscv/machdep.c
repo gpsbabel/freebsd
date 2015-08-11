@@ -73,7 +73,11 @@ __FBSDID("$FreeBSD$");
 #include <machine/metadata.h>
 #include <machine/pcb.h>
 #include <machine/reg.h>
+#include <machine/trap.h>
 #include <machine/vmparam.h>
+
+#include <machine/asm.h>
+#include <machine/htif.h>
 
 #ifdef VFP
 #include <machine/vfp.h>
@@ -106,6 +110,26 @@ int64_t dcache_line_size;	/* The minimum D cache line size */
 int64_t icache_line_size;	/* The minimum I cache line size */
 int64_t idcache_line_size;	/* The minimum cache line size */
 
+extern int *end;
+extern int *initstack_end;
+
+/*
+void __attribute__((noreturn)) bad_trap(void);
+void __attribute__((noreturn)) bad_trap(void)
+{
+	while (1);
+}
+*/
+
+uintptr_t mcall_trap(uintptr_t mcause, uintptr_t* regs);
+
+uintptr_t
+mcall_trap(uintptr_t mcause, uintptr_t* regs)
+{
+
+	return (0);
+}
+
 void
 c_test(void)
 {
@@ -124,6 +148,18 @@ c_test(void)
 
 	printf("%d\n", a);
 }
+
+static void 
+spike_early_putc(int c)
+{
+
+	__asm __volatile(
+		"mv	t5, %1\n"
+		"mv	t6, %0\n"
+		"ecall" :: "r"(c), "r"(ECALL_LOW_PRINTC)
+	);
+}
+early_putc_t *early_putc = spike_early_putc;
 
 static void
 cpu_startup(void *dummy)
@@ -604,6 +640,7 @@ typedef struct {
 	uint64_t attr;
 } EFI_MEMORY_DESCRIPTOR;
 
+#if 1
 static int
 add_physmap_entry(uint64_t base, uint64_t length, vm_paddr_t *physmap,
     u_int *physmap_idxp)
@@ -668,10 +705,12 @@ add_physmap_entry(uint64_t base, uint64_t length, vm_paddr_t *physmap,
 	physmap[insert_idx + 1] = base + length;
 	return (1);
 }
+#endif
 
 #define efi_next_descriptor(ptr, size) \
 	((struct efi_md *)(((uint8_t *) ptr) + size))
 
+#if 0
 static void
 add_efi_map_entries(struct efi_map_header *efihdr, vm_paddr_t *physmap,
     u_int *physmap_idxp)
@@ -762,6 +801,7 @@ add_efi_map_entries(struct efi_map_header *efihdr, vm_paddr_t *physmap,
 			break;
 	}
 }
+#endif
 
 #ifdef FDT
 static void
@@ -769,7 +809,8 @@ try_load_dtb(caddr_t kmdp)
 {
 	vm_offset_t dtbp;
 
-	dtbp = MD_FETCH(kmdp, MODINFOMD_DTBP, vm_offset_t);
+	//dtbp = MD_FETCH(kmdp, MODINFOMD_DTBP, vm_offset_t);
+	dtbp = (vm_offset_t)&fdt_static_dtb;
 	if (dtbp == (vm_offset_t)NULL) {
 		printf("ERROR loading DTB\n");
 		return;
@@ -803,38 +844,105 @@ cache_setup(void)
 	idcache_line_size = MIN(dcache_line_size, icache_line_size);
 }
 
-void
-initriscv(struct arm64_bootparams *abp)
+/*
+ * Fake up a boot descriptor table
+ */
+vm_offset_t
+fake_preload_metadata(struct riscv_bootparams *rvbp __unused)
 {
-	struct efi_map_header *efihdr;
+#ifdef DDB
+	vm_offset_t zstart = 0, zend = 0;
+#endif
+	vm_offset_t lastaddr;
+	int i = 0;
+	static uint32_t fake_preload[35];
+
+	fake_preload[i++] = MODINFO_NAME;
+	fake_preload[i++] = strlen("kernel") + 1;
+	strcpy((char*)&fake_preload[i++], "kernel");
+	i += 1;
+	fake_preload[i++] = MODINFO_TYPE;
+	fake_preload[i++] = strlen("elf kernel") + 1;
+	strcpy((char*)&fake_preload[i++], "elf kernel");
+	i += 2;
+	fake_preload[i++] = MODINFO_ADDR;
+	fake_preload[i++] = sizeof(vm_offset_t);
+	fake_preload[i++] = (uint64_t)0xffffffff80000200; //KERNVIRTADDR;
+	fake_preload[i++] = MODINFO_SIZE;
+	fake_preload[i++] = sizeof(uint32_t);
+	printf("end is 0x%016lx\n", (uint64_t)&end);
+	fake_preload[i++] = (uint64_t)&end - (uint64_t)0xffffffff80000200; //KERNVIRTADDR;
+#ifdef DDBremoveme
+	if (*(uint32_t *)KERNVIRTADDR == MAGIC_TRAMP_NUMBER) {
+		fake_preload[i++] = MODINFO_METADATA|MODINFOMD_SSYM;
+		fake_preload[i++] = sizeof(vm_offset_t);
+		fake_preload[i++] = *(uint32_t *)(KERNVIRTADDR + 4);
+		fake_preload[i++] = MODINFO_METADATA|MODINFOMD_ESYM;
+		fake_preload[i++] = sizeof(vm_offset_t);
+		fake_preload[i++] = *(uint32_t *)(KERNVIRTADDR + 8);
+		lastaddr = *(uint32_t *)(KERNVIRTADDR + 8);
+		zend = lastaddr;
+		zstart = *(uint32_t *)(KERNVIRTADDR + 4);
+		db_fetch_ksymtab(zstart, zend);
+	} else
+#endif
+		lastaddr = (vm_offset_t)&end;
+	fake_preload[i++] = 0;
+	fake_preload[i] = 0;
+	preload_metadata = (void *)fake_preload;
+
+	return (lastaddr);
+}
+
+void
+initriscv(struct riscv_bootparams *rvbp)
+{
+	//struct efi_map_header *efihdr;
 	struct pcpu *pcpup;
 	vm_offset_t lastaddr;
 	caddr_t kmdp;
-	vm_paddr_t mem_len;
-	int i;
+	//vm_paddr_t mem_len;
+	//int i;
 
-	while (1);
+	printf("preload metadata\n");
 
 	/* Set the module data location */
-	preload_metadata = (caddr_t)(uintptr_t)(abp->modulep);
+	lastaddr = fake_preload_metadata(rvbp);
+	//preload_metadata = (caddr_t)(uintptr_t)(rvbp->modulep);
+
+	printf("preload metadata done\n");
 
 	/* Find the kernel address */
 	kmdp = preload_search_by_type("elf kernel");
 	if (kmdp == NULL)
 		kmdp = preload_search_by_type("elf64 kernel");
 
-	boothowto = MD_FETCH(kmdp, MODINFOMD_HOWTO, int);
-	kern_envp = MD_FETCH(kmdp, MODINFOMD_ENVP, char *);
+	if (kmdp == NULL)
+		printf("elf kernel not found\n");
+	else
+		printf("elf kernel found\n");
+
+	printf("boothowto\n");
+
+	boothowto = 0; //MD_FETCH(kmdp, MODINFOMD_HOWTO, int);
+
+	printf("kern_envp\n");
+	kern_envp = NULL; //MD_FETCH(kmdp, MODINFOMD_ENVP, char *);
+
+	printf("try load dtb\n");
 
 #ifdef FDT
 	try_load_dtb(kmdp);
 #endif
 
 	/* Find the address to start allocating from */
-	lastaddr = MD_FETCH(kmdp, MODINFOMD_KERNEND, vm_offset_t);
+	//lastaddr = MD_FETCH(kmdp, MODINFOMD_KERNEND, vm_offset_t);
+
+	printf("Load the physical memory ranges\n");
 
 	/* Load the physical memory ranges */
 	physmap_idx = 0;
+#if 0
 	efihdr = (struct efi_map_header *)preload_search_info(kmdp,
 	    MODINFO_METADATA | MODINFOMD_EFI_MAP);
 	add_efi_map_entries(efihdr, physmap, &physmap_idx);
@@ -843,6 +951,9 @@ initriscv(struct arm64_bootparams *abp)
 	mem_len = 0;
 	for (i = 0; i < physmap_idx; i += 2)
 		mem_len += physmap[i + 1] - physmap[i];
+#endif
+
+	add_physmap_entry(0, 0x8000000, physmap, &physmap_idx);
 
 	/* Set the pcpu data, this is needed by pmap_bootstrap */
 	pcpup = &__pcpu[0];
@@ -860,27 +971,64 @@ initriscv(struct arm64_bootparams *abp)
 
 	PCPU_SET(curthread, &thread0);
 
+	printf("init_param1\n");
+
 	/* Do basic tuning, hz etc */
 	init_param1();
 
+	printf("rvbp->kern_stack 0x%016lx\n", rvbp->kern_stack);
+	printf("rvbp->kern_l1pt 0x%016lx\n", rvbp->kern_l1pt);
+	printf("rvbp->kern_delta 0x%016lx\n", rvbp->kern_delta);
+	printf("lastaddr 0x%016lx KERNBASE 0x%016lx\n", lastaddr, KERNBASE);
+
+	printf("cache_setup\n");
 	cache_setup();
 
+	//while (1);
+
+	// pmap_bootstrap(vm_offset_t l1pt, vm_paddr_t kernstart, vm_size_t kernlen)
+
+	/* Bootstrap enough of pmap to enter the kernel proper */
+
+	vm_paddr_t kernstart;
+	vm_size_t kernlen;
+
+	//kernstart = KERNBASE - rvbp->kern_delta;
+	kernstart = (KERNBASE + 0x200);
+	kernlen = (lastaddr - KERNBASE);
+	pmap_bootstrap(rvbp->kern_l1pt, kernstart, kernlen);
+
+#if 0
 	/* Bootstrap enough of pmap  to enter the kernel proper */
-	pmap_bootstrap(abp->kern_l1pt, KERNBASE - abp->kern_delta,
+	pmap_bootstrap(rvbp->kern_l1pt, KERNBASE - rvbp->kern_delta,
 	    lastaddr - KERNBASE);
 
 	arm_devmap_bootstrap(0, NULL);
+#endif
 
+	printf("cninit\n");
 	cninit();
 
-	init_proc0(abp->kern_stack);
+	printf("init proc0 kernstack 0x%016lx\n", rvbp->kern_stack);
+	init_proc0(rvbp->kern_stack);
+
+	printf("msgbuf init\n");
 	msgbufinit(msgbufp, msgbufsize);
+
+	printf("mutex init\n");
 	mutex_init();
+
+	printf("init param2\n");
 	init_param2(physmem);
 
+	printf("dbg monitor init\n");
 	dbg_monitor_init();
+
+	printf("kdb_init\n");
 	kdb_init();
 
 	early_boot = 0;
-}
 
+	printf("initriscv done\n");
+	//while (1);
+}

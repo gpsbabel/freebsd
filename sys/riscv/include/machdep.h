@@ -29,7 +29,7 @@
 #ifndef _MACHINE_MACHDEP_H_
 #define	_MACHINE_MACHDEP_H_
 
-struct arm64_bootparams {
+struct riscv_bootparams {
 	vm_offset_t	modulep;
 	vm_offset_t	kern_l1pt;	/* L1 page table for the kernel */
 	uint64_t	kern_delta;
@@ -39,7 +39,8 @@ struct arm64_bootparams {
 extern vm_paddr_t physmap[];
 extern u_int physmap_idx;
 
-void initriscv(struct arm64_bootparams *);
+vm_offset_t fake_preload_metadata(struct riscv_bootparams *rbp);
+void initriscv(struct riscv_bootparams *);
 void c_test(void);
 
 #endif /* _MACHINE_MACHDEP_H_ */
