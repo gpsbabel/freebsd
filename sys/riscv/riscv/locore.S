@@ -109,29 +109,16 @@ _start:
 	la	gp, _gp
 
 	/* Page tables */
-	//lw	a7, (zero)		// load memory size
-	//slli	a7, a7, (20-PAGE_SHIFT)	// convert MB to pages
-	//la	t0, physmem
-	//add	a7, a7, 1
-	//sw	a7, (t0)		// store it in physmem
-
-	//la	t0, 0
-	//la	a7, physmem
-	//sw	a7, (t0)
-
-	/* Page tables */
-	//la	s1, _C_LABEL(_end)	/* page aligned end of the kernel */
 	la	s1, pagetable
-	srli	s2, s1, PAGE_SHIFT	/* page number (s1 >> PAGE_SHIFT) */
+	srli	s2, s1, PAGE_SHIFT	/* Page number (s1 >> PAGE_SHIFT) */
 
 	/* Level 2 */
 	la	a5, 0xffffffff80000000
 	srli	a5, a5, 0x1e		/* >> 30 */
 	andi	a5, a5, 0x1ff		/* & 0x1ff */
-	la	t0, 0			/* debug */
-	sw	a5, (t0)		/* debug */
 	li	t4, (PTE_VALID | (PTE_TYPE_PTR_G << PTE_TYPE_S))
-	slli	t5, s2, PTE_PPN0_S	/* (_end << PTE_PPN0_S) */
+	addi	s2, s2, 0		/* TODO: Link to next level */
+	slli	t5, s2, PTE_PPN0_S	/* (s2 << PTE_PPN0_S) */
 	or	t6, t4, t5
 
 	/* Store single level2 PTE entry to position */
@@ -140,56 +127,26 @@ _start:
 	add	t0, s1, a5
 	sd	t6, (t0)
 
-	la	t0, 0		/* debug */
-	la	a7, physmem	/* debug */
-	sw	a7, (t0)	/* debug */
-
-	/* Level 1 */
-	addi	t1, s1, 0
-	addi	t2, s2, 0
-	li	t3, 64			/* Build 16 entries */
+	/* Level 1 superpages */
+	la	s1, pagetable
+	li	t3, 508			/* Build 508 entries */
 	li	t4, 0			/* Counter */
 	li	t5, 0
 2:
-	li	t0, (PTE_VALID | (PTE_TYPE_PTR_G << PTE_TYPE_S))
-	addi	t2, t2, 1		/* Next level PN for current PTE */
-	slli	t5, t2, PTE_PPN0_S	/* << PTE_PPN0_S */
-	or	t5, t5, t0
-	sd	t5, (t1)		/* Store PTE entry to position _end + 0 */
-	addi	t1, t1, PTE_SIZE
-
-	/* Level 0 */
-	li	a0, 0		/* Counter */
-	li	a3, 512
-	li	a1, 4096
-	mulw	a2, t2, a1	/* Current level base address */
-3:
 	li	t0, (PTE_VALID | (PTE_TYPE_SRWX << PTE_TYPE_S))
-	slli	a4, a0, PTE_PPN0_S	/* (a0 << PTE_PPN0_S) */
-	add	a4, a4, t0
-	slli	a5, t4, PTE_PPN1_S
-	add	a4, a4, a5
-	sd	a4, (a2)
-	addi	a2, a2, PTE_SIZE
-
-	addi	a0, a0, 1
-	bltu	a0, a3, 3b
+	slli	t2, t4, PTE_PPN1_S	/* << PTE_PPN1_S */
+	or	t5, t0, t2
+	sd	t5, (s1)		/* Store PTE entry to position */
+	addi	s1, s1, PTE_SIZE
 
 	addi	t4, t4, 1
 	bltu	t4, t3, 2b
 
-	/* Page table base */
+	/* Page tables base */
+	la	s1, pagetable
 	csrw	sptbr, s1
 
-	/* Debug */
-	la	s1, 0
-	la	s2, physmem
-	sw	s2, (s1)
-
-	/* Debug */
-	li	s10, PAGE_SIZE
-	la	t1, 0x8
-	sw	s1, (t1)
+	/* Page tables END */
 
 	/* Enter supervisor mode */
 	li	s0, ((MSTATUS_VM_SV39 << MSTATUS_VM_SHIFT) | \
@@ -301,7 +258,9 @@ szsigcode:
 
 	.align	12
 pagetable:
-	.space  (512 * 64 * 8)
+	.space  PAGE_SIZE
+pagetable_l1:
+	.space	PAGE_SIZE
 pagetable_end:
 
 ENTRY(bad_trap)
