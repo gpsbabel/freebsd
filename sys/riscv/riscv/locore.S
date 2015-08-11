@@ -57,7 +57,8 @@
 #define	PTE_TYPE_M	0xf
 #define	PTE_TYPE_PTR	0
 #define	PTE_TYPE_PTR_G	1
-#define	PTE_TYPE_SRWX	0xf		/* Supervisor Read Write Execute */
+#define	PTE_TYPE_SRWX	0xb		/* Supervisor Read Write Execute */
+#define	PTE_TYPE_SRWX_G	0xf		/* Supervisor Read Write Execute Global */
 #define	PTE_PPN0_S	10
 #define	PTE_PPN1_S	19
 #define	PTE_PPN2_S	28
@@ -110,14 +111,14 @@ _start:
 
 	/* Page tables */
 	la	s1, pagetable
-	srli	s2, s1, PAGE_SHIFT	/* Page number (s1 >> PAGE_SHIFT) */
+	la	s2, pagetable_l1	/* Link to next level PN */
+	srli	s2, s2, PAGE_SHIFT
 
 	/* Level 2 */
 	la	a5, 0xffffffff80000000
 	srli	a5, a5, 0x1e		/* >> 30 */
 	andi	a5, a5, 0x1ff		/* & 0x1ff */
 	li	t4, (PTE_VALID | (PTE_TYPE_PTR_G << PTE_TYPE_S))
-	addi	s2, s2, 0		/* TODO: Link to next level */
 	slli	t5, s2, PTE_PPN0_S	/* (s2 << PTE_PPN0_S) */
 	or	t6, t4, t5
 
@@ -127,13 +128,13 @@ _start:
 	add	t0, s1, a5
 	sd	t6, (t0)
 
-	/* Level 1 superpages */
-	la	s1, pagetable
-	li	t3, 508			/* Build 508 entries */
+	/* Level 1 superpages (1 GB) */
+	la	s1, pagetable_l1
+	li	t3, 512			/* Build 512 entries */
 	li	t4, 0			/* Counter */
 	li	t5, 0
 2:
-	li	t0, (PTE_VALID | (PTE_TYPE_SRWX << PTE_TYPE_S))
+	li	t0, (PTE_VALID | (PTE_TYPE_SRWX_G << PTE_TYPE_S))
 	slli	t2, t4, PTE_PPN1_S	/* << PTE_PPN1_S */
 	or	t5, t0, t2
 	sd	t5, (s1)		/* Store PTE entry to position */
@@ -205,7 +206,7 @@ _start:
 	li	t0, 0
 	sd	t0, 0(sp) /* modulep */
 
-	csrr	t0, sptbr
+	la	t0, pagetable_l1
 	li	t1, 0xffffffff80000000
 	add	t0, t0, t1
 	sd	t0, 8(sp) /* kern_l1pt */
@@ -280,6 +281,7 @@ sv_trap:
 	eret
 
 low_printc:
+	li	t5, 0
 	li	t0, 0x101000000000000
 	add	t0, t0, t6
 
