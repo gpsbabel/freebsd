@@ -160,9 +160,6 @@ _start:
 	la	t0, .Lmmu_on
 	add	t0, t0, s11
 	csrw	mepc, t0
-
-	//addi	t0, t0, 1
-
 	eret
 
 .Lmmu_on:
@@ -170,15 +167,6 @@ _start:
 	la	s3, initstack_end
 	mv	sp, s3
 	//sub	sp, sp, #PCB_SIZE
-
-	//csrrw   a5,mtohost,a4
-	//la	t0, _C_LABEL(cpu_exception_handler)
-	//add	t0, t0, s11
-	//csrw	stvec, t0
-	//csrw	sscratch, 0
-
-	//li	a6, 0x61
-	//ecall
 
 	/* Clear BSS  */
 	la	a0, _C_LABEL(__bss_start)
@@ -189,16 +177,6 @@ _start:
 	sb	zero, 0(a0)
 	addi	a0, a0, 1
 	bltu	a0, s1, 1b
-
-	/* Loop */
-2:
-	//call	_C_LABEL(c_test)
-	//la	t0, 0x3f0
-	//li	t1, 0x61
-	//sb	t1, (t0)
-	//li	t2, 0
-	//beqz	t2, 2b
-
 
 	/* Fill riscv_bootparams */
 	addi	sp, sp, -32
