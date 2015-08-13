@@ -84,7 +84,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: head/sys/arm64/arm64/pmap.c 285537 2015-07-14 12:37:47Z andrew $");
+__FBSDID("$FreeBSD$");
 
 /*
  *	Manages physical address maps.
@@ -394,7 +394,7 @@ pmap_early_page_idx(vm_offset_t l1pt, vm_offset_t va, u_int *l1_slot,
 	KASSERT((l1[*l1_slot] & ATTR_DESCR_MASK) == L1_TABLE,
 	   ("Invalid bootstrap L1 table"));
 	/* Find the address of the L2 table */
-	l2 = NULL;//RISCVTODO (pt_entry_t *)init_pt_va;
+	l2 = NULL; //RISCVTODO (pt_entry_t *)init_pt_va;
 	*l2_slot = pmap_l2_index(va);
 
 	return (l2);
@@ -423,8 +423,13 @@ pmap_bootstrap_dmap(vm_offset_t l1pt)
 	l1 = (pd_entry_t *)l1pt;
 	l1_slot = pmap_l1_index(DMAP_MIN_ADDRESS);
 
-	for (pa = 0; va < DMAP_MAX_ADDRESS;
-	    pa += L1_SIZE, va += L1_SIZE, l1_slot++) {
+	printf("pmap_bootstrap_dmap 0\n");
+
+	for (pa = 0; va < DMAP_MAX_ADDRESS; pa += L1_SIZE, va += L1_SIZE, l1_slot++) {
+
+		printf("va 0x%016lx DMAP_MIN_ADDRESS 0x%016lx DMAP_MAX_ADDRESS 0x%016lx\n",
+			va, DMAP_MIN_ADDRESS, DMAP_MAX_ADDRESS);
+
 		KASSERT(l1_slot < Ln_ENTRIES, ("Invalid L1 index"));
 
 		pmap_load_store(&l1[l1_slot],
@@ -432,6 +437,7 @@ pmap_bootstrap_dmap(vm_offset_t l1pt)
 		    ATTR_IDX(CACHED_MEMORY) | L1_BLOCK);
 	}
 
+	printf("pmap_bootstrap_dmap 1\n");
 	cpu_dcache_wb_range((vm_offset_t)l1, PAGE_SIZE);
 	cpu_tlb_flushID();
 }
@@ -466,7 +472,7 @@ pmap_bootstrap_l2(vm_offset_t l1pt, vm_offset_t va, vm_offset_t l2_start)
 	/* Flush the l1 table to ram */
 	cpu_dcache_wb_range((vm_offset_t)l1, PAGE_SIZE);
 
-	return (l2pt);
+	return l2pt;
 }
 
 static vm_offset_t
@@ -520,7 +526,7 @@ pmap_bootstrap(vm_offset_t l1pt, vm_paddr_t kernstart, vm_size_t kernlen)
 	physmem = 0;
 
 	printf("pmap_bootstrap %lx %lx %lx\n", l1pt, kernstart, kernlen);
-	printf("%lx\n", l1pt);
+	printf("l1pt: %lx\n", l1pt);
 	printf("%lx\n", (KERNBASE >> L1_SHIFT) & Ln_ADDR_MASK);
 
 	/* Set this early so we can use the pagetable walking functions */
@@ -533,7 +539,9 @@ pmap_bootstrap(vm_offset_t l1pt, vm_paddr_t kernstart, vm_size_t kernlen)
 	rw_init(&pvh_global_lock, "pmap pv global");
 
 	/* Create a direct map region early so we can use it for pa -> va */
+	printf("pmap_bootstrap_dmap\n");
 	pmap_bootstrap_dmap(l1pt);
+	printf("pmap_bootstrap_dmap done\n");
 
 	va = KERNBASE;
 	pa = KERNBASE - kern_delta;
@@ -557,6 +565,8 @@ pmap_bootstrap(vm_offset_t l1pt, vm_paddr_t kernstart, vm_size_t kernlen)
 		    phys_avail[avail_slot]) >> PAGE_SHIFT;
 		avail_slot += 2;
 	}
+
+	printf("Add the memory before the kernel\n");
 
 	/* Add the memory before the kernel */
 	if (physmap[avail_slot] < pa) {
@@ -597,11 +607,6 @@ pmap_bootstrap(vm_offset_t l1pt, vm_paddr_t kernstart, vm_size_t kernlen)
 
 	freemempos = KERNBASE + kernlen;
 	freemempos = roundup2(freemempos, PAGE_SIZE);
-
-	printf("l1pt 0x%016lx\n", l1pt);
-	printf("va 0x%016lx\n", va);
-	printf("freemempos 0x%016lx\n", freemempos);
-
 	/* Create the l2 tables up to VM_MAX_KERNEL_ADDRESS */
 	freemempos = pmap_bootstrap_l2(l1pt, va, freemempos);
 	/* And the l3 tables for the early devmap */
@@ -722,41 +727,36 @@ pmap_invalidate_page(pmap_t pmap, vm_offset_t va)
 PMAP_INLINE void
 pmap_invalidate_range(pmap_t pmap, vm_offset_t sva, vm_offset_t eva)
 {
+#if 0
 	vm_offset_t addr;
 
 	sched_pin();
 	sva >>= PAGE_SHIFT;
 	eva >>= PAGE_SHIFT;
-#if 0
 	__asm __volatile("dsb	sy");
-#endif
 	for (addr = sva; addr < eva; addr++) {
-#if 0
 		__asm __volatile(
 		    "tlbi vaae1is, %0" : : "r"(addr));
-#endif
 	}
-#if 0
 	__asm __volatile(
 	    "dsb  sy	\n"
 	    "isb	\n");
-#endif
 	sched_unpin();
+#endif
 }
 
 PMAP_INLINE void
 pmap_invalidate_all(pmap_t pmap)
 {
-
-	sched_pin();
 #if 0
+	sched_pin();
 	__asm __volatile(
 	    "dsb  sy		\n"
 	    "tlbi vmalle1is	\n"
 	    "dsb  sy		\n"
 	    "isb		\n");
-#endif
 	sched_unpin();
+#endif
 }
 
 /*
@@ -1449,7 +1449,7 @@ static vm_page_t
 reclaim_pv_chunk(pmap_t locked_pmap, struct rwlock **lockp)
 {
 
-	panic("reclaim_pv_chunk");
+	panic("ARM64TODO: reclaim_pv_chunk");
 }
 
 /*
@@ -2456,6 +2456,18 @@ pmap_copy_pages(vm_page_t ma[], vm_offset_t a_offset, vm_page_t mb[],
 	}
 }
 
+vm_offset_t
+pmap_quick_enter_page(vm_page_t m)
+{
+
+	return (PHYS_TO_DMAP(VM_PAGE_TO_PHYS(m)));
+}
+
+void
+pmap_quick_remove_page(vm_offset_t addr)
+{
+}
+
 /*
  * Returns true if the pmap's pv is one of the first
  * 16 pvs linked to from this page.  This count may
@@ -2896,7 +2908,7 @@ retry:
 				 * at all. We need to be able to set it in
 				 * the exception handler.
 				 */
-				panic("TODO: safe_to_clear_referenced\n");
+				panic("ARM64TODO: safe_to_clear_referenced\n");
 			} else if ((pmap_load(l3) & ATTR_SW_WIRED) == 0) {
 				/*
 				 * Wired pages cannot be paged out so
@@ -2964,7 +2976,7 @@ pmap_clear_modify(vm_page_t m)
 	if ((m->aflags & PGA_WRITEABLE) == 0)
 		return;
 
-	/* TODO: We lack support for tracking if a page is modified */
+	/* ARM64TODO: We lack support for tracking if a page is modified */
 }
 
 void *
@@ -2986,7 +2998,17 @@ void
 pmap_page_set_memattr(vm_page_t m, vm_memattr_t ma)
 {
 
-	panic("pmap_page_set_memattr");
+	m->md.pv_memattr = ma;
+
+	/*
+	 * ARM64TODO: Implement the below (from the amd64 pmap)
+	 * If "m" is a normal page, update its direct mapping.  This update
+	 * can be relied upon to perform any cache operations that are
+	 * required for data coherence.
+	 */
+	if ((m->flags & PG_FICTITIOUS) == 0 &&
+	    PHYS_IN_DMAP(VM_PAGE_TO_PHYS(m)))
+		panic("ARM64TODO: pmap_page_set_memattr");
 }
 
 /*
@@ -2996,7 +3018,7 @@ int
 pmap_mincore(pmap_t pmap, vm_offset_t addr, vm_paddr_t *locked_pa)
 {
 
-	panic("pmap_mincore");
+	panic("ARM64TODO: pmap_mincore");
 }
 
 void
@@ -3018,7 +3040,7 @@ void
 pmap_sync_icache(pmap_t pm, vm_offset_t va, vm_size_t sz)
 {
 
-	panic("pmap_sync_icache");
+	panic("ARM64TODO: pmap_sync_icache");
 }
 
 /*
@@ -3102,7 +3124,7 @@ pmap_unmap_io_transient(vm_page_t page[], vm_offset_t vaddr[], int count,
 	for (i = 0; i < count; i++) {
 		paddr = VM_PAGE_TO_PHYS(page[i]);
 		if (paddr >= DMAP_MAX_PHYSADDR) {
-			panic("pmap_unmap_io_transient: TODO: Unmap data");
+			panic("ARM64TODO: pmap_unmap_io_transient: Unmap data");
 		}
 	}
 }

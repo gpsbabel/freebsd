@@ -130,25 +130,6 @@ mcall_trap(uintptr_t mcause, uintptr_t* regs)
 	return (0);
 }
 
-void
-c_test(void)
-{
-	uint64_t a;
-	uint32_t b;
-	uint32_t c;
-
-	a = 0xffffffff80002000;
-	a >>= 30;
-	a &= 0x1ff;
-
-	b = 5;
-	c = 23;
-
-	printf("%d\n", (b * c));
-
-	printf("%d\n", a);
-}
-
 static void 
 spike_early_putc(int c)
 {

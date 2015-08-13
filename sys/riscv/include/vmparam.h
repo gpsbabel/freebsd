@@ -33,7 +33,7 @@
  *
  *	from: @(#)vmparam.h     5.9 (Berkeley) 5/12/91
  *	from: FreeBSD: src/sys/i386/include/vmparam.h,v 1.33 2000/03/30
- * $FreeBSD: head/sys/arm64/include/vmparam.h 284147 2015-06-08 04:59:32Z alc $
+ * $FreeBSD$
  */
 
 #ifndef	_MACHINE_VMPARAM_H_
@@ -128,12 +128,12 @@
  * We limit the size of the two spaces to 39 bits each.
  *
  * Upper region:	0xffffffffffffffff
- *			0xffffff8000000000
+ *			0xffffffff80000000
  *
- * Hole:		0xffffff7fffffffff
- *			0x0000008000000000
+ * Hole:		0xffffffff7fffffff
+ *			0x0000000080000000
  *
- * Lower region:	0x0000007fffffffff
+ * Lower region:	0x000000007fffffff
  *			0x0000000000000000
  *
  * We use the upper region for the kernel, and the lower region for userland.
@@ -152,21 +152,22 @@
 #define	VM_MIN_ADDRESS		(0x0000000000000000UL)
 #define	VM_MAX_ADDRESS		(0xffffffffffffffffUL)
 
-/* 32 GiB of kernel addresses */
+/* 128 MiB of kernel addresses */
 #define	VM_MIN_KERNEL_ADDRESS	(0xffffffff80000000UL)
 #define	VM_MAX_KERNEL_ADDRESS	(0xffffffff88000000UL)
 
-#define __pa(x)		((unsigned long)(x) - VM_MIN_KERNEL_ADDRESS)
-
-/* Direct Map for 64 GiB of PA: 0x0 - 0xfffffffff */
-#define	DMAP_MIN_ADDRESS	(0xffffffc000000000UL)
-#define	DMAP_MAX_ADDRESS	(0xffffffcfffffffffUL)
+/* Direct Map for 512 MiB of PA: 0x0 - 0x1fffffff */
+#define	DMAP_MIN_ADDRESS	(0xffffffffc0000000UL)
+#define	DMAP_MAX_ADDRESS	(0xffffffffdfffffffUL)
 
 #define	DMAP_MIN_PHYSADDR	(0x0000000000000000UL)
 #define	DMAP_MAX_PHYSADDR	(DMAP_MAX_ADDRESS - DMAP_MIN_ADDRESS)
 
 /* True if pa is in the dmap range */
 #define	PHYS_IN_DMAP(pa)	((pa) <= DMAP_MAX_PHYSADDR)
+/* True if va is in the dmap range */
+#define	VIRT_IN_DMAP(va)	((va) >= DMAP_MIN_ADDRESS && \
+    (va) <= DMAP_MAX_ADDRESS)
 
 #define	PHYS_TO_DMAP(pa)						\
 ({									\
@@ -178,14 +179,14 @@
 
 #define	DMAP_TO_PHYS(va)						\
 ({									\
-	KASSERT(((va) <= DMAP_MAX_ADDRESS || (va) >= DMAP_MIN_ADDRESS),	\
+	KASSERT(VIRT_IN_DMAP(va),					\
 	    ("%s: VA out of range, VA: 0x%lx", __func__,		\
 	    (vm_offset_t)(va)));					\
 	(va) & ~DMAP_MIN_ADDRESS;					\
 })
 
 #define	VM_MIN_USER_ADDRESS	(0x0000000000000000UL)
-#define	VM_MAX_USER_ADDRESS	(0x0000008000000000UL)
+#define	VM_MAX_USER_ADDRESS	(0x0000000080000000UL)
 
 #define	VM_MINUSER_ADDRESS	(VM_MIN_USER_ADDRESS)
 #define	VM_MAXUSER_ADDRESS	(VM_MAX_USER_ADDRESS)
@@ -222,6 +223,8 @@
 #ifndef	VM_INITIAL_PAGEIN
 #define	VM_INITIAL_PAGEIN	16
 #endif
+
+#define	UMA_MD_SMALL_ALLOC
 
 extern u_int tsb_kernel_ldd_phys;
 extern vm_offset_t vm_max_kernel_address;

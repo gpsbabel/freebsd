@@ -14,13 +14,13 @@ __FBSDID("$FreeBSD$");
 void
 htif_test(void)
 {
-	char id[HTIF_MAX_ID] __aligned(HTIF_ALIGN);
+	//char id[HTIF_MAX_ID] __aligned(HTIF_ALIGN);
 	int i;
 
 	for (i = 0; i < HTIF_MAX_DEV; i++) {
 
-		htif_tohost(i, HTIF_CMD_IDENTIFY, (__pa(id) << 8) | 0xFF);
-		htif_fromhost();
+		//htif_tohost(i, HTIF_CMD_IDENTIFY, (__pa(id) << 8) | 0xFF);
+		//htif_fromhost();
 	}
 
 }

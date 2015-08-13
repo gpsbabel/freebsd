@@ -62,6 +62,7 @@
 #define	PTE_PPN0_S	10
 #define	PTE_PPN1_S	19
 #define	PTE_PPN2_S	28
+#define	PTE_PPN3_S	37
 #define	PTE_SIZE	8
 
 #define	INIT_STACK_SIZE	(PAGE_SIZE * 4)
@@ -85,7 +86,7 @@ mentry:
 	.align 8
 	.globl _start
 _start:
-	li	s0, ((MSTATUS_VM_SV39 << MSTATUS_VM_SHIFT) | \
+	li	s0, ((MSTATUS_VM_SV48 << MSTATUS_VM_SHIFT) | \
 		     (MSTATUS_PRV_M << MSTATUS_PRV0_SHIFT) | \
 		     (MSTATUS_PRV_S << MSTATUS_PRV1_SHIFT) | \
 		     (MSTATUS_PRV_U << MSTATUS_PRV2_SHIFT));
@@ -110,26 +111,45 @@ _start:
 	la	gp, _gp
 
 	/* Page tables */
+
+	/* Level 0 */
 	la	s1, pagetable
 	la	s2, pagetable_l1	/* Link to next level PN */
 	srli	s2, s2, PAGE_SHIFT
 
-	/* Level 2 */
-	la	a5, 0xffffffff80000000
+	li	a5, 0xffffffff80000000
+	srli	a5, a5, 39
+	andi	a5, a5, 0x1ff
+	li	t4, (PTE_VALID | (PTE_TYPE_PTR_G << PTE_TYPE_S))
+	slli	t5, s2, PTE_PPN0_S	/* (s2 << PTE_PPN0_S) */
+	or	t6, t4, t5
+
+	/* Store single level0 PTE entry to position */
+	li	a6, PTE_SIZE
+	mulw	a5, a5, a6
+	add	t0, s1, a5
+	sd	t6, (t0)
+
+	/* Level 1 */
+	la	s1, pagetable_l1
+	la	s2, pagetable_l2	/* Link to next level PN */
+	srli	s2, s2, PAGE_SHIFT
+
+	li	a5, 0xffffffff80000000
 	srli	a5, a5, 0x1e		/* >> 30 */
 	andi	a5, a5, 0x1ff		/* & 0x1ff */
 	li	t4, (PTE_VALID | (PTE_TYPE_PTR_G << PTE_TYPE_S))
 	slli	t5, s2, PTE_PPN0_S	/* (s2 << PTE_PPN0_S) */
 	or	t6, t4, t5
 
-	/* Store single level2 PTE entry to position */
+	/* Store single level1 PTE entry to position */
 	li	a6, PTE_SIZE
 	mulw	a5, a5, a6
 	add	t0, s1, a5
 	sd	t6, (t0)
 
-	/* Level 1 superpages (1 GB) */
-	la	s1, pagetable_l1
+	/* Level 2 superpages (1 GB) */
+	la	s1, pagetable_l2
 	li	t3, 512			/* Build 512 entries */
 	li	t4, 0			/* Counter */
 	li	t5, 0
@@ -150,7 +170,7 @@ _start:
 	/* Page tables END */
 
 	/* Enter supervisor mode */
-	li	s0, ((MSTATUS_VM_SV39 << MSTATUS_VM_SHIFT) | \
+	li	s0, ((MSTATUS_VM_SV48 << MSTATUS_VM_SHIFT) | \
 		     (MSTATUS_PRV_M << MSTATUS_PRV0_SHIFT) | \
 		     (MSTATUS_PRV_S << MSTATUS_PRV1_SHIFT) | \
 		     (MSTATUS_PRV_M << MSTATUS_PRV2_SHIFT));
@@ -239,6 +259,8 @@ szsigcode:
 pagetable:
 	.space  PAGE_SIZE
 pagetable_l1:
+	.space	PAGE_SIZE
+pagetable_l2:
 	.space	PAGE_SIZE
 pagetable_end:
 
