@@ -223,7 +223,6 @@ restart:
 	 * their subsystem (primary key) and order (secondary key).
 	 */
 	for (sipp = sysinit; sipp < sysinit_end; sipp++) {
-		printf("sipp 0x%016lx\n", (uint64_t)sipp);
 		for (xipp = sipp + 1; xipp < sysinit_end; xipp++) {
 			if ((*sipp)->subsystem < (*xipp)->subsystem ||
 			     ((*sipp)->subsystem == (*xipp)->subsystem &&

@@ -684,6 +684,9 @@ add_physmap_entry(uint64_t base, uint64_t length, vm_paddr_t *physmap,
 	/* Insert the new entry. */
 	physmap[insert_idx] = base;
 	physmap[insert_idx + 1] = base + length;
+
+	printf("physmap[%d] = 0x%016lx\n", insert_idx, base);
+	printf("physmap[%d] = 0x%016lx\n", insert_idx + 1, base + length);
 	return (1);
 }
 #endif
@@ -836,7 +839,7 @@ fake_preload_metadata(struct riscv_bootparams *rvbp __unused)
 #endif
 	vm_offset_t lastaddr;
 	int i = 0;
-	static uint32_t fake_preload[35];
+	static uint64_t fake_preload[35];
 
 	fake_preload[i++] = MODINFO_NAME;
 	fake_preload[i++] = strlen("kernel") + 1;
@@ -848,11 +851,11 @@ fake_preload_metadata(struct riscv_bootparams *rvbp __unused)
 	i += 2;
 	fake_preload[i++] = MODINFO_ADDR;
 	fake_preload[i++] = sizeof(vm_offset_t);
-	fake_preload[i++] = (uint64_t)0xffffffff80000200; //KERNVIRTADDR;
+	fake_preload[i++] = (uint64_t)0xffffffffc0000200; //KERNVIRTADDR;
 	fake_preload[i++] = MODINFO_SIZE;
-	fake_preload[i++] = sizeof(uint32_t);
+	fake_preload[i++] = sizeof(uint64_t);
 	printf("end is 0x%016lx\n", (uint64_t)&end);
-	fake_preload[i++] = (uint64_t)&end - (uint64_t)0xffffffff80000200; //KERNVIRTADDR;
+	fake_preload[i++] = (uint64_t)&end - (uint64_t)0xffffffffc0000200; //KERNVIRTADDR;
 #ifdef DDBremoveme
 	if (*(uint32_t *)KERNVIRTADDR == MAGIC_TRAMP_NUMBER) {
 		fake_preload[i++] = MODINFO_METADATA|MODINFOMD_SSYM;
@@ -935,6 +938,7 @@ initriscv(struct riscv_bootparams *rvbp)
 #endif
 
 	add_physmap_entry(0, 0x8000000, physmap, &physmap_idx);
+	printf("physmap_idx %d\n", physmap_idx);
 
 	/* Set the pcpu data, this is needed by pmap_bootstrap */
 	pcpup = &__pcpu[0];
@@ -974,8 +978,8 @@ initriscv(struct riscv_bootparams *rvbp)
 	vm_paddr_t kernstart;
 	vm_size_t kernlen;
 
-	//kernstart = KERNBASE - rvbp->kern_delta;
-	kernstart = (KERNBASE + 0x200);
+	kernstart = KERNBASE - rvbp->kern_delta;
+	//kernstart = (KERNBASE + 0x200);
 	kernlen = (lastaddr - KERNBASE);
 	pmap_bootstrap(rvbp->kern_l1pt, kernstart, kernlen);
 

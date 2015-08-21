@@ -5,9 +5,6 @@ ident		GENERIC
 cpu		CPU_RISCV
 machine		riscv
 
-makeoptions	MODULES_OVERRIDE=""
-makeoptions	WITHOUT_MODULES="ahc"
-
 makeoptions	NO_MODULES=1	# We don't yet support modules on arm64
 
 options 	HZ=100

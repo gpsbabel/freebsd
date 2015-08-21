@@ -128,9 +128,9 @@
  * We limit the size of the two spaces to 39 bits each.
  *
  * Upper region:	0xffffffffffffffff
- *			0xffffffff80000000
+ *			0xffffffffc0000000
  *
- * Hole:		0xffffffff7fffffff
+ * Hole:		0xffffffffbfffffff
  *			0x0000000080000000
  *
  * Lower region:	0x000000007fffffff
@@ -153,12 +153,12 @@
 #define	VM_MAX_ADDRESS		(0xffffffffffffffffUL)
 
 /* 128 MiB of kernel addresses */
-#define	VM_MIN_KERNEL_ADDRESS	(0xffffffff80000000UL)
-#define	VM_MAX_KERNEL_ADDRESS	(0xffffffff88000000UL)
+#define	VM_MIN_KERNEL_ADDRESS	(0xffffffffc0000000UL)
+#define	VM_MAX_KERNEL_ADDRESS	(0xffffffffc8000000UL)
 
 /* Direct Map for 512 MiB of PA: 0x0 - 0x1fffffff */
-#define	DMAP_MIN_ADDRESS	(0xffffffffc0000000UL)
-#define	DMAP_MAX_ADDRESS	(0xffffffffdfffffffUL)
+#define	DMAP_MIN_ADDRESS	(0xffffffffd0000000UL)
+#define	DMAP_MAX_ADDRESS	(0xffffffffefffffffUL)
 
 #define	DMAP_MIN_PHYSADDR	(0x0000000000000000UL)
 #define	DMAP_MAX_PHYSADDR	(DMAP_MAX_ADDRESS - DMAP_MIN_ADDRESS)
@@ -224,7 +224,7 @@
 #define	VM_INITIAL_PAGEIN	16
 #endif
 
-#define	UMA_MD_SMALL_ALLOC
+//#define	UMA_MD_SMALL_ALLOC
 
 extern u_int tsb_kernel_ldd_phys;
 extern vm_offset_t vm_max_kernel_address;

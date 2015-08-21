@@ -68,7 +68,8 @@ get_curthread(void)
 	//__asm __volatile("ld	%0, tp" : "=&r"(td));
 
 	//RISCVTODO
-	register struct thread *td __asm__("tp");
+	//register struct thread *td __asm__("tp");
+	register struct thread *td __asm__("gp");
 
 	return (td);
 }

@@ -32,6 +32,7 @@
 #include <machine/asm.h>
 #include <machine/param.h>
 #include <machine/trap.h>
+#include <machine/pte.h>
 
 #define	MSTATUS_MPRV		(1 << 16)
 #define	MSTATUS_PRV0_SHIFT	1
@@ -51,19 +52,6 @@
 #define	MSTATUS_VM_SV32		8
 #define	MSTATUS_VM_SV39		9
 #define	MSTATUS_VM_SV48		10
-
-#define	PTE_VALID	(1 << 0)	/* Valid */
-#define	PTE_TYPE_S	1
-#define	PTE_TYPE_M	0xf
-#define	PTE_TYPE_PTR	0
-#define	PTE_TYPE_PTR_G	1
-#define	PTE_TYPE_SRWX	0xb		/* Supervisor Read Write Execute */
-#define	PTE_TYPE_SRWX_G	0xf		/* Supervisor Read Write Execute Global */
-#define	PTE_PPN0_S	10
-#define	PTE_PPN1_S	19
-#define	PTE_PPN2_S	28
-#define	PTE_PPN3_S	37
-#define	PTE_SIZE	8
 
 #define	INIT_STACK_SIZE	(PAGE_SIZE * 4)
 
@@ -102,22 +90,24 @@ _start:
 	sw	t1, (t0)
 	
 	/* li	s11, VM_MAX_KERNEL_ADDRESS */
-	li	s11, 0xffffffff80000000
+	li	s11, 0xffffffffc0000000
 
 	li	s10, PAGE_SIZE
 	li	s9, (PAGE_SIZE * KSTACK_PAGES)
 
 	/* Load the gp address so we can use it */
-	la	gp, _gp
+	la	t0, _gp
+	add	t0, t0, s11
+	mv	gp, t0
 
 	/* Page tables */
 
 	/* Level 0 */
-	la	s1, pagetable
+	la	s1, pagetable_l0
 	la	s2, pagetable_l1	/* Link to next level PN */
 	srli	s2, s2, PAGE_SHIFT
 
-	li	a5, 0xffffffff80000000
+	li	a5, 0xffffffffc0000000
 	srli	a5, a5, 39
 	andi	a5, a5, 0x1ff
 	li	t4, (PTE_VALID | (PTE_TYPE_PTR_G << PTE_TYPE_S))
@@ -135,7 +125,7 @@ _start:
 	la	s2, pagetable_l2	/* Link to next level PN */
 	srli	s2, s2, PAGE_SHIFT
 
-	li	a5, 0xffffffff80000000
+	li	a5, 0xffffffffc0000000
 	srli	a5, a5, 0x1e		/* >> 30 */
 	andi	a5, a5, 0x1ff		/* & 0x1ff */
 	li	t4, (PTE_VALID | (PTE_TYPE_PTR_G << PTE_TYPE_S))
@@ -164,7 +154,7 @@ _start:
 	bltu	t4, t3, 2b
 
 	/* Page tables base */
-	la	s1, pagetable
+	la	s1, pagetable_l0
 	csrw	sptbr, s1
 
 	/* Page tables END */
@@ -205,11 +195,9 @@ _start:
 	sd	t0, 0(sp) /* modulep */
 
 	la	t0, pagetable_l1
-	li	t1, 0xffffffff80000000
-	add	t0, t0, t1
 	sd	t0, 8(sp) /* kern_l1pt */
 
-	li	t0, 0
+	li	t0, 0xffffffffbffffe00
 	sd	t0, 16(sp) /* kern_delta */
 
 	la	t0, initstack_end
@@ -256,13 +244,17 @@ szsigcode:
 	.quad	esigcode - sigcode
 
 	.align	12
-pagetable:
+pagetable_l0:
 	.space  PAGE_SIZE
 pagetable_l1:
 	.space	PAGE_SIZE
 pagetable_l2:
 	.space	PAGE_SIZE
 pagetable_end:
+
+	.globl init_pt_va
+init_pt_va:
+	.quad pagetable_l2	/* XXX: Keep page tables VA */
 
 ENTRY(bad_trap)
 	j bad_trap

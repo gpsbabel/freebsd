@@ -584,11 +584,18 @@ atomic_swap_64(volatile uint64_t *p, uint64_t val)
 	//int res;
 
 	old = 0;
+
+	__asm __volatile(
+	    "amoswap.d %0, %2, %1"
+	    : "=&r"(old), "+A" (*p)
+	    : "r" (val)
+	);
+
 #if 0
 	__asm __volatile(
 	    "1: ldxr	%0, [%2]      \n"
-	    "   stxr1	%w1, %3, [%2] \n"
-            "   cbnz	%w1, 1b       \n"
+	    "   stxr	%w1, %3, [%2] \n"
+	    "   cbnz	%w1, 1b       \n"
 	    : "=&r"(old), "=&r"(res), "+r" (p), "+r" (val) : : "cc", "memory"
 	);
 #endif

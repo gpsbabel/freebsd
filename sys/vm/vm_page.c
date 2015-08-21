@@ -422,6 +422,8 @@ vm_page_startup(vm_offset_t vaddr)
 	vm_paddr_t low_water, high_water;
 	int biggestone;
 
+	printf("%s: vaddr 0x%016lx\n",vaddr);
+
 	biggestsize = 0;
 	biggestone = 0;
 	vaddr = round_page(vaddr);
@@ -453,6 +455,7 @@ vm_page_startup(vm_offset_t vaddr)
 			high_water = phys_avail[i + 1];
 	}
 
+	printf("biggestone %d\n", biggestone);
 	end = phys_avail[biggestone+1];
 
 	/*
@@ -476,6 +479,8 @@ vm_page_startup(vm_offset_t vaddr)
 	new_end = trunc_page(new_end);
 	mapped = pmap_map(&vaddr, new_end, end,
 	    VM_PROT_READ | VM_PROT_WRITE);
+	printf("vaddr 0x%016lx mapped to 0x%016lx new_end 0x%016lx end 0x%016lx size 0x%016x\n",
+			vaddr, mapped, new_end, end, (end - new_end));
 	bzero((void *)mapped, end - new_end);
 	uma_startup((void *)mapped, boot_pages);
 
@@ -599,15 +604,22 @@ vm_page_startup(vm_offset_t vaddr)
 		pa = phys_avail[i];
 		last_pa = phys_avail[i + 1];
 		while (pa < last_pa) {
+			//printf("adding page 0x%016lx\n", pa);
 			vm_phys_add_page(pa);
 			pa += PAGE_SIZE;
 		}
 	}
 
+	printf("tailq init\n");
 	TAILQ_INIT(&blacklist_head);
+
+	printf("blacklist load\n");
 	vm_page_blacklist_load(&list, &listend);
+
+	printf("blacklist check\n");
 	vm_page_blacklist_check(list, listend);
 
+	printf("list\n");
 	list = kern_getenv("vm.blacklist");
 	vm_page_blacklist_check(list, NULL);
 
@@ -618,6 +630,8 @@ vm_page_startup(vm_offset_t vaddr)
 	 */
 	vm_reserv_init();
 #endif
+
+	printf("vm page startup done vaddr 0x%016lx\n", vaddr);
 	return (vaddr);
 }
 

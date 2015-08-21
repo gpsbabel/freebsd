@@ -270,7 +270,9 @@ kobj_create(kobj_class_t cls,
 	/*
 	 * Allocate and initialise the new object.
 	 */
+	printf("%s: 1\n", __func__);
 	obj = malloc(cls->size, mtype, mflags | M_ZERO);
+	printf("%s: 2\n", __func__);
 	if (!obj)
 		return NULL;
 	kobj_init(obj, cls);
