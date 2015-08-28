@@ -117,8 +117,6 @@ struct idmac_desc {
 
 struct dwmmc_softc {
 	struct resource		*res[2];
-	bus_space_tag_t		bst;
-	bus_space_handle_t	bsh;
 	device_t		dev;
 	void			*intr_cookie;
 	struct mmc_host		host;
@@ -483,10 +481,12 @@ parse_fdt(struct dwmmc_softc *sc)
 	 * what the clock is supplied for our device.
 	 * For now rely on the value specified in FDT.
 	 */
-	if ((len = OF_getproplen(node, "bus-frequency")) <= 0)
-		return (ENXIO);
-	OF_getencprop(node, "bus-frequency", dts_value, len);
-	sc->bus_hz = dts_value[0];
+	if (sc->bus_hz == 0) {
+		if ((len = OF_getproplen(node, "bus-frequency")) <= 0)
+			return (ENXIO);
+		OF_getencprop(node, "bus-frequency", dts_value, len);
+		sc->bus_hz = dts_value[0];
+	}
 
 	/*
 	 * Platform-specific stuff
@@ -562,10 +562,6 @@ dwmmc_attach(device_t dev)
 		device_printf(dev, "could not allocate resources\n");
 		return (ENXIO);
 	}
-
-	/* Memory interface */
-	sc->bst = rman_get_bustag(sc->res[0]);
-	sc->bsh = rman_get_bushandle(sc->res[0]);
 
 	/* Setup interrupt handler. */
 	error = bus_setup_intr(dev, sc->res[1], INTR_TYPE_NET | INTR_MPSAFE,
@@ -651,7 +647,7 @@ dwmmc_attach(device_t dev)
 	WRITE4(sc, SDMMC_CTRL, SDMMC_CTRL_INT_ENABLE);
 
 	sc->host.f_min = 400000;
-	sc->host.f_max = 200000000;
+	sc->host.f_max = min(200000000, sc->bus_hz);
 	sc->host.host_ocr = MMC_OCR_320_330 | MMC_OCR_330_340;
 	sc->host.caps = MMC_CAP_4_BIT_DATA;
 
