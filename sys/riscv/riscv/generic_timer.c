@@ -197,7 +197,7 @@ disable_user_access(void)
 static unsigned
 arm_tmr_get_timecount(struct timecounter *tc)
 {
-
+	printf("gettimecount\n");
 	return (get_cntxct(arm_tmr_sc->physical));
 }
 
@@ -449,6 +449,8 @@ DELAY(int usec)
 {
 	int32_t counts, counts_per_usec;
 	uint32_t first, last;
+
+	printf("DELAY %d\n", usec);
 
 	/*
 	 * Check the timers are setup, if not just

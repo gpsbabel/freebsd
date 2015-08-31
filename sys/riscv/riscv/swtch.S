@@ -40,6 +40,7 @@ __FBSDID("$FreeBSD: head/sys/arm64/arm64/swtch.S 285316 2015-07-09 13:23:29Z and
  * void cpu_throw(struct thread *old, struct thread *new)
  */
 ENTRY(cpu_throw)
+	call	panic
 #if 0
 #ifdef VFP
 	/* Backup the new thread pointer around a call to C code */
@@ -99,6 +100,7 @@ END(cpu_throw)
  * x3 to x7, x16 and x17 are caller saved
  */
 ENTRY(cpu_switch)
+	call	panic
 #if 0
 	/* Store the new curthread */
 	str	x1, [x18, #PC_CURTHREAD]
@@ -199,6 +201,7 @@ ENTRY(cpu_switch)
 END(cpu_switch)
 
 ENTRY(fork_trampoline)
+	call	panic
 #if 0
 	mov	x0, x8
 	mov	x1, x9
@@ -252,6 +255,7 @@ ENTRY(fork_trampoline)
 END(fork_trampoline)
 
 ENTRY(savectx)
+	call	panic
 #if 0
 	/* Store the callee-saved registers */
 	stp	x8,  x9,  [x0, #PCB_REGS + 8 * 8]

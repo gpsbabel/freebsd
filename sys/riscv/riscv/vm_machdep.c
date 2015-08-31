@@ -62,6 +62,8 @@ cpu_fork(struct thread *td1, struct proc *p2, struct thread *td2, int flags)
 	struct pcb *pcb2;
 	struct trapframe *tf;
 
+	//panic("cpu_fork");
+
 	if ((flags & RFPROC) == 0)
 		return;
 
@@ -91,7 +93,7 @@ cpu_fork(struct thread *td1, struct proc *p2, struct thread *td2, int flags)
 	bcopy(td1->td_frame, tf, sizeof(*tf));
 	tf->tf_x[0] = 0;
 	tf->tf_x[1] = 0;
-	tf->tf_spsr = 0;
+	//tf->tf_spsr = 0;
 
 	td2->td_frame = tf;
 
@@ -137,15 +139,15 @@ cpu_set_syscall_retval(struct thread *td, int error)
 	case 0:
 		frame->tf_x[0] = td->td_retval[0];
 		frame->tf_x[1] = td->td_retval[1];
-		frame->tf_spsr &= ~PSR_C;	/* carry bit */
+		//frame->tf_spsr &= ~PSR_C;	/* carry bit */
 		break;
 	case ERESTART:
-		frame->tf_elr -= 4;
+		//frame->tf_elr -= 4;
 		break;
 	case EJUSTRETURN:
 		break;
 	default:
-		frame->tf_spsr |= PSR_C;	/* carry bit */
+		//frame->tf_spsr |= PSR_C;	/* carry bit */
 		frame->tf_x[0] = error;
 		break;
 	}
@@ -161,6 +163,9 @@ cpu_set_syscall_retval(struct thread *td, int error)
 void
 cpu_set_upcall(struct thread *td, struct thread *td0)
 {
+
+	//panic("cpu_set_upcall");
+
 	bcopy(td0->td_frame, td->td_frame, sizeof(struct trapframe));
 	bcopy(td0->td_pcb, td->td_pcb, sizeof(struct pcb));
 
@@ -186,8 +191,10 @@ cpu_set_upcall_kse(struct thread *td, void (*entry)(void *), void *arg,
 {
 	struct trapframe *tf = td->td_frame;
 
-	tf->tf_sp = STACKALIGN(stack->ss_sp + stack->ss_size);
-	tf->tf_elr = (register_t)entry;
+	panic("cpu_set_upcall_kse");
+
+	//tf->tf_sp = STACKALIGN(stack->ss_sp + stack->ss_size);
+	//tf->tf_elr = (register_t)entry;
 	tf->tf_x[0] = (register_t)arg;
 }
 

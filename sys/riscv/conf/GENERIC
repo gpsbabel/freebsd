@@ -79,7 +79,7 @@ device		uart_ns8250
 device		pty
 device		snp
 device		md
-device		random			# Entropy device
+# device		random			# Entropy device
 
 # I2C support
 #device 	iicbus
@@ -93,14 +93,14 @@ device		gpio
 #device		pass
 
 # USB support
-options 	USB_HOST_ALIGN=64	# Align usb buffers to cache line size.
-device		usb
-options 	USB_DEBUG
+#options 	USB_HOST_ALIGN=64	# Align usb buffers to cache line size.
+#device		usb
+#options 	USB_DEBUG
 #options 	USB_REQ_DEBUG
 #options 	USB_VERBOSE
 #device 	uhci
 #device 	ohci
-device		ehci
+#device		ehci
 
 #device		umass
 

@@ -134,11 +134,13 @@ static void
 spike_early_putc(int c)
 {
 
-	__asm __volatile(
-		"mv	t5, %1\n"
-		"mv	t6, %0\n"
-		"ecall" :: "r"(c), "r"(ECALL_LOW_PRINTC)
-	);
+	__asm __volatile("ecall");
+
+	//__asm __volatile(
+	//	"mv	t5, %1\n"
+	//	"mv	t6, %0\n"
+	//	"ecall" :: "r"(c), "r"(ECALL_LOW_PRINTC)
+	//);
 }
 early_putc_t *early_putc = spike_early_putc;
 
@@ -175,15 +177,15 @@ bzero(void *buf, size_t len)
 int
 fill_regs(struct thread *td, struct reg *regs)
 {
-	struct trapframe *frame;
+	//struct trapframe *frame;
 
-	frame = td->td_frame;
-	regs->sp = frame->tf_sp;
-	regs->lr = frame->tf_lr;
-	regs->elr = frame->tf_elr;
-	regs->spsr = frame->tf_spsr;
+	//frame = td->td_frame;
+	//regs->sp = frame->tf_sp;
+	//regs->lr = frame->tf_lr;
+	//regs->elr = frame->tf_elr;
+	//regs->spsr = frame->tf_spsr;
 
-	memcpy(regs->x, frame->tf_x, sizeof(regs->x));
+	//memcpy(regs->x, frame->tf_x, sizeof(regs->x));
 
 	return (0);
 }
@@ -191,15 +193,15 @@ fill_regs(struct thread *td, struct reg *regs)
 int
 set_regs(struct thread *td, struct reg *regs)
 {
-	struct trapframe *frame;
+	//struct trapframe *frame;
 
-	frame = td->td_frame;
-	frame->tf_sp = regs->sp;
-	frame->tf_lr = regs->lr;
-	frame->tf_elr = regs->elr;
-	frame->tf_spsr = regs->spsr;
+	//frame = td->td_frame;
+	//frame->tf_sp = regs->sp;
+	//frame->tf_lr = regs->lr;
+	//frame->tf_elr = regs->elr;
+	//frame->tf_spsr = regs->spsr;
 
-	memcpy(frame->tf_x, regs->x, sizeof(frame->tf_x));
+	//memcpy(frame->tf_x, regs->x, sizeof(frame->tf_x));
 
 	return (0);
 }
@@ -286,9 +288,9 @@ exec_setregs(struct thread *td, struct image_params *imgp, u_long stack)
 
 	memset(tf, 0, sizeof(struct trapframe));
 
-	tf->tf_sp = stack;
-	tf->tf_lr = imgp->entry_addr;
-	tf->tf_elr = imgp->entry_addr;
+	//tf->tf_sp = stack;
+	//tf->tf_lr = imgp->entry_addr;
+	//tf->tf_elr = imgp->entry_addr;
 }
 
 /* Sanity check these are the same size, they will be memcpy'd to and fro */
@@ -304,18 +306,18 @@ get_mcontext(struct thread *td, mcontext_t *mcp, int clear_ret)
 
 	if (clear_ret & GET_MC_CLEAR_RET) {
 		mcp->mc_gpregs.gp_x[0] = 0;
-		mcp->mc_gpregs.gp_spsr = tf->tf_spsr & ~PSR_C;
+		//mcp->mc_gpregs.gp_spsr = tf->tf_spsr & ~PSR_C;
 	} else {
 		mcp->mc_gpregs.gp_x[0] = tf->tf_x[0];
-		mcp->mc_gpregs.gp_spsr = tf->tf_spsr;
+		//mcp->mc_gpregs.gp_spsr = tf->tf_spsr;
 	}
 
 	memcpy(&mcp->mc_gpregs.gp_x[1], &tf->tf_x[1],
 	    sizeof(mcp->mc_gpregs.gp_x[1]) * (nitems(mcp->mc_gpregs.gp_x) - 1));
 
-	mcp->mc_gpregs.gp_sp = tf->tf_sp;
-	mcp->mc_gpregs.gp_lr = tf->tf_lr;
-	mcp->mc_gpregs.gp_elr = tf->tf_elr;
+	//mcp->mc_gpregs.gp_sp = tf->tf_sp;
+	//mcp->mc_gpregs.gp_lr = tf->tf_lr;
+	//mcp->mc_gpregs.gp_elr = tf->tf_elr;
 
 	return (0);
 }
@@ -327,10 +329,10 @@ set_mcontext(struct thread *td, mcontext_t *mcp)
 
 	memcpy(tf->tf_x, mcp->mc_gpregs.gp_x, sizeof(tf->tf_x));
 
-	tf->tf_sp = mcp->mc_gpregs.gp_sp;
-	tf->tf_lr = mcp->mc_gpregs.gp_lr;
-	tf->tf_elr = mcp->mc_gpregs.gp_elr;
-	tf->tf_spsr = mcp->mc_gpregs.gp_spsr;
+	//tf->tf_sp = mcp->mc_gpregs.gp_sp;
+	//tf->tf_lr = mcp->mc_gpregs.gp_lr;
+	//tf->tf_elr = mcp->mc_gpregs.gp_elr;
+	//tf->tf_spsr = mcp->mc_gpregs.gp_spsr;
 
 	return (0);
 }
@@ -519,9 +521,9 @@ makectx(struct trapframe *tf, struct pcb *pcb)
 	for (i = 0; i < PCB_LR; i++)
 		pcb->pcb_x[i] = tf->tf_x[i];
 
-	pcb->pcb_x[PCB_LR] = tf->tf_lr;
-	pcb->pcb_pc = tf->tf_elr;
-	pcb->pcb_sp = tf->tf_sp;
+	//pcb->pcb_x[PCB_LR] = tf->tf_lr;
+	//pcb->pcb_pc = tf->tf_elr;
+	//pcb->pcb_sp = tf->tf_sp;
 }
 
 void
@@ -544,7 +546,7 @@ sendsig(sig_t catcher, ksiginfo_t *ksi, sigset_t *mask)
 	mtx_assert(&psp->ps_mtx, MA_OWNED);
 
 	tf = td->td_frame;
-	onstack = sigonstack(tf->tf_sp);
+	//onstack = sigonstack(tf->tf_sp);
 
 	CTR4(KTR_SIG, "sendsig: td=%p (%s) catcher=%p sig=%d", td, p->p_comm,
 	    catcher, sig);
@@ -558,7 +560,7 @@ sendsig(sig_t catcher, ksiginfo_t *ksi, sigset_t *mask)
 		td->td_sigstk.ss_flags |= SS_ONSTACK;
 #endif
 	} else {
-		fp = (struct sigframe *)td->td_frame->tf_sp;
+		//fp = (struct sigframe *)td->td_frame->tf_sp;
 	}
 
 	/* Make room, keeping the stack aligned */
@@ -588,9 +590,9 @@ sendsig(sig_t catcher, ksiginfo_t *ksi, sigset_t *mask)
 	tf->tf_x[1] = (register_t)&fp->sf_si;
 	tf->tf_x[2] = (register_t)&fp->sf_uc;
 
-	tf->tf_elr = (register_t)catcher;
-	tf->tf_sp = (register_t)fp;
-	tf->tf_lr = (register_t)(PS_STRINGS - *(p->p_sysent->sv_szsigcode));
+	//tf->tf_elr = (register_t)catcher;
+	//tf->tf_sp = (register_t)fp;
+	//tf->tf_lr = (register_t)(PS_STRINGS - *(p->p_sysent->sv_szsigcode));
 
 	CTR3(KTR_SIG, "sendsig: return td=%p pc=%#x sp=%#x", td, tf->tf_elr,
 	    tf->tf_sp);
@@ -839,23 +841,25 @@ fake_preload_metadata(struct riscv_bootparams *rvbp __unused)
 #endif
 	vm_offset_t lastaddr;
 	int i = 0;
-	static uint64_t fake_preload[35];
+	static uint32_t fake_preload[35];
 
 	fake_preload[i++] = MODINFO_NAME;
 	fake_preload[i++] = strlen("kernel") + 1;
 	strcpy((char*)&fake_preload[i++], "kernel");
 	i += 1;
 	fake_preload[i++] = MODINFO_TYPE;
-	fake_preload[i++] = strlen("elf kernel") + 1;
-	strcpy((char*)&fake_preload[i++], "elf kernel");
-	i += 2;
+	fake_preload[i++] = strlen("elf64 kernel") + 1;
+	strcpy((char*)&fake_preload[i++], "elf64 kernel");
+	i += 3;
 	fake_preload[i++] = MODINFO_ADDR;
 	fake_preload[i++] = sizeof(vm_offset_t);
 	fake_preload[i++] = (uint64_t)0xffffffffc0000200; //KERNVIRTADDR;
+	i += 1;
 	fake_preload[i++] = MODINFO_SIZE;
 	fake_preload[i++] = sizeof(uint64_t);
 	printf("end is 0x%016lx\n", (uint64_t)&end);
 	fake_preload[i++] = (uint64_t)&end - (uint64_t)0xffffffffc0000200; //KERNVIRTADDR;
+	i += 1;
 #ifdef DDBremoveme
 	if (*(uint32_t *)KERNVIRTADDR == MAGIC_TRAMP_NUMBER) {
 		fake_preload[i++] = MODINFO_METADATA|MODINFOMD_SSYM;
@@ -953,6 +957,8 @@ initriscv(struct riscv_bootparams *rvbp)
 	    "mov x18, %0 \n"
 	    "msr tpidr_el1, %0" :: "r"(pcpup));
 #endif
+	__asm __volatile(
+	    "mv gp, %0 \n" :: "r"(pcpup));
 
 	PCPU_SET(curthread, &thread0);
 

@@ -441,6 +441,8 @@ kproc_kthread_add(void (*func)(void *), void *arg,
 	char buf[100];
 	struct thread *td;
 
+	//printf("%s\n", __func__);
+
 	if (*procptr == 0) {
 		error = kproc_create(func, arg,
 		    	procptr, flags, pages, "%s", procname);
@@ -458,7 +460,8 @@ kproc_kthread_add(void (*func)(void *), void *arg,
 		return (0); 
 	}
 	va_start(ap, fmt);
-	vsnprintf(buf, sizeof(buf), fmt, ap);
+	//RISCVTODO
+	//vsnprintf(buf, sizeof(buf), fmt, ap);
 	va_end(ap);
 	error = kthread_add(func, arg, *procptr,
 		    tdptr, flags, pages, "%s", buf);

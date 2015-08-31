@@ -96,6 +96,10 @@
 #define	 EXCP_WATCHPT_EL1	0x35	/* Watchpoint, from same EL */
 #define	 EXCP_BRK		0x3c	/* Breakpoint */
 
+/* RISC-V */
+#define	 EXCP_LOAD_ACCESS_FAULT		0x5
+#define	 EXCP_STORE_ACCESS_FAULT	0x7
+
 /* ICC_CTLR_EL1 */
 #define	ICC_CTLR_EL1_EOIMODE	(1U << 1)
 

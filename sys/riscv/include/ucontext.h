@@ -34,7 +34,8 @@
 #define	_MACHINE_UCONTEXT_H_
 
 struct gpregs {
-	unsigned long long gp_x[30];
+	//unsigned long long gp_x[30];
+	unsigned long long gp_x[31];
 	unsigned long long gp_lr;
 	unsigned long long gp_sp;
 	unsigned long long gp_elr;

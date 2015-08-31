@@ -73,7 +73,7 @@ __FBSDID("$FreeBSD: head/sys/arm64/arm64/trap.c 285315 2015-07-09 13:07:12Z andr
 extern register_t fsu_intr_fault;
 
 /* Called from exception.S */
-void do_el1h_sync(struct trapframe *);
+void do_trap(struct trapframe *);
 void do_el0_sync(struct trapframe *);
 void do_el0_error(struct trapframe *);
 
@@ -158,12 +158,15 @@ data_abort(struct trapframe *frame, uint64_t esr, int lower)
 	td = curthread;
 	pcb = td->td_pcb;
 
+	printf("sbadaddr 0x%016lx\n", frame->tf_sbadaddr);
+	//while (1);
+
 	/*
 	 * Special case for fuswintr and suswintr. These can't sleep so
 	 * handle them early on in the trap handler.
 	 */
 	if (__predict_false(pcb->pcb_onfault == (vm_offset_t)&fsu_intr_fault)) {
-		frame->tf_elr = pcb->pcb_onfault;
+		//frame->tf_elr = pcb->pcb_onfault;
 		return;
 	}
 
@@ -179,9 +182,14 @@ data_abort(struct trapframe *frame, uint64_t esr, int lower)
 		else
 			map = &td->td_proc->p_vmspace->vm_map;
 	}
+	/* RISCVTODO */
+	map = kernel_map;
 
-	va = trunc_page(far);
-	ftype = ((esr >> 6) & 1) ? VM_PROT_READ | VM_PROT_WRITE : VM_PROT_READ;
+	//va = trunc_page(far);
+	va = frame->tf_sbadaddr;
+
+	//ftype = ((esr >> 6) & 1) ? VM_PROT_READ | VM_PROT_WRITE : VM_PROT_READ;
+	ftype = frame->tf_scause == EXCP_LOAD_ACCESS_FAULT ? VM_PROT_READ : VM_PROT_WRITE;
 
 	if (map != kernel_map) {
 		/*
@@ -203,6 +211,7 @@ data_abort(struct trapframe *frame, uint64_t esr, int lower)
 		 * Don't have to worry about process locking or stacks in the
 		 * kernel.
 		 */
+		//printf("map is 0x%016lx\n", map);
 		error = vm_fault(map, va, ftype, VM_FAULT_NORMAL);
 	}
 
@@ -218,10 +227,11 @@ data_abort(struct trapframe *frame, uint64_t esr, int lower)
 			if (td->td_intr_nesting_level == 0 &&
 			    pcb->pcb_onfault != 0) {
 				frame->tf_x[0] = error;
-				frame->tf_elr = pcb->pcb_onfault;
+				//frame->tf_elr = pcb->pcb_onfault;
 				return;
 			}
-			panic("vm_fault failed: %lx", frame->tf_elr);
+			panic("vm_fault failed");
+			//panic("vm_fault failed: %lx", frame->tf_elr);
 		}
 	}
 
@@ -230,14 +240,17 @@ data_abort(struct trapframe *frame, uint64_t esr, int lower)
 }
 
 void
-do_el1h_sync(struct trapframe *frame)
+do_trap(struct trapframe *frame)
 {
-	uint32_t exception;
+	uint64_t exception;
 	uint64_t esr;
 
 	/* Read the esr register to get the exception details */
 	esr = 0;//READ_SPECIALREG(esr_el1);
-	exception = 0;//ESR_ELx_EXCEPTION(esr);
+	exception = frame->tf_scause;
+
+	printf("scause 0x%016lx sbadaddr 0x%016lx sepc 0x%016lx\n",
+			exception, frame->tf_sbadaddr, frame->tf_sepc);
 
 #ifdef KDTRACE_HOOKS
 	if (dtrace_trap_func != NULL && (*dtrace_trap_func)(frame, exception))
@@ -258,14 +271,18 @@ do_el1h_sync(struct trapframe *frame)
 	    (exception == EXCP_DATA_ABORT && ((esr & ISS_DATA_ISV) == 0)),
 	    ("Invalid instruction length in exception"));
 
-	CTR4(KTR_TRAP,
-	    "do_el1_sync: curthread: %p, esr %lx, elr: %lx, frame: %p",
-	    curthread, esr, frame->tf_elr, frame);
+	//CTR4(KTR_TRAP,
+	//    "do_el1_sync: curthread: %p, esr %lx, elr: %lx, frame: %p",
+	//    curthread, esr, frame->tf_elr, frame);
 
 	switch(exception) {
-	case EXCP_FP_SIMD:
-	case EXCP_TRAP_FP:
-		panic("VFP exception in the kernel");
+	case EXCP_LOAD_ACCESS_FAULT:
+	case EXCP_STORE_ACCESS_FAULT:
+		data_abort(frame, esr, 0);
+		break;
+	//case EXCP_FP_SIMD:
+	//case EXCP_TRAP_FP:
+	//	panic("VFP exception in the kernel");
 	case EXCP_DATA_ABORT:
 		data_abort(frame, esr, 0);
 		break;

@@ -77,7 +77,6 @@ SECTIONS
   . = ALIGN(0x1000) + (. & (0x1000 - 1)) ; 
   .data    :
   {
-    _gp = . + 0x800;
     *(.data)
     *(.gnu.linkonce.d*)
     CONSTRUCTORS

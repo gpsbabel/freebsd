@@ -39,6 +39,7 @@ breakpoint(void)
 
 	//RISCVTODO
 	//__asm("brk #0");
+	__asm("ebreak");
 }
 
 static __inline register_t

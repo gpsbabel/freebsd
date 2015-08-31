@@ -40,12 +40,12 @@ typedef	uint64_t	pt_entry_t;		/* page table entry */
 
 /* Block and Page attributes */
 /* TODO: Add the upper attributes */
-#define	ATTR_MASK_H	UINT64_C(0xfff0000000000000)
-#define	ATTR_MASK_L	UINT64_C(0x0000000000000fff)
-#define	ATTR_MASK	(ATTR_MASK_H | ATTR_MASK_L)
+//#define	ATTR_MASK_H	UINT64_C(0xfff0000000000000)
+//#define	ATTR_MASK_L	UINT64_C(0x0000000000000fff)
+//#define	ATTR_MASK	(ATTR_MASK_H | ATTR_MASK_L)
 /* Bits 58:55 are reserved for software */
-#define	ATTR_SW_MANAGED	(1UL << 56)
-#define	ATTR_SW_WIRED	(1UL << 55)
+//#define	ATTR_SW_MANAGED	(1UL << 56)
+//#define	ATTR_SW_WIRED	(1UL << 55)
 #define	ATTR_nG		(1 << 11)
 #define	ATTR_AF		(1 << 10)
 #define	ATTR_SH(x)	((x) << 8)
@@ -111,9 +111,16 @@ typedef	uint64_t	pt_entry_t;		/* page table entry */
 
 /* RISC-V */
 
+#define	ATTR_MASK	0x3ff
+/* Bits 9:7 are reserved for software */
+#define	ATTR_SW_MANAGED	(1UL << 8)
+#define	ATTR_SW_WIRED	(1UL << 7)
+#define	ATTR_DIRTY	(1 << 6) /* Virtual page is written */
+#define	ATTR_REF	(1 << 5) /* Virtual page is referenced */
+
 #define	PTE_VALID	(1 << 0)	/* Valid */
 #define	PTE_TYPE_S	1
-#define	PTE_TYPE_M	0xf
+#define	PTE_TYPE_M	(0xf << PTE_TYPE_S)
 #define	PTE_TYPE_PTR	0
 #define	PTE_TYPE_PTR_G	1
 #define	PTE_TYPE_SRWX	0xb		/* Supervisor Read Write Execute */
