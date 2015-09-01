@@ -71,12 +71,18 @@
 		#size-cells = <2>;
 		#interrupt-cells = <1>;
 
-		/*
-		 * Declare mips,mips4k since BERI doesn't (yet) have a PIC, so
-		 * we use mips4k coprocessor 0 interrupt management directly.
-		 */
-		compatible = "simple-bus", "mips,mips4k";
-		/* ranges = <>; */
+		compatible = "simple-bus";
+		ranges;
+
+		pic0: pic@0 {
+			compatible = "riscv,pic";
+			interrupt-controller;
+		};
+
+		timer0: timer@0 {
+			compatible = "riscv,timer";
+			interrupt-parent = < &pic0 >;
+		};
 
 		beripic0: beripic@7f804000 {
 			compatible = "sri-cambridge,beri-pic";

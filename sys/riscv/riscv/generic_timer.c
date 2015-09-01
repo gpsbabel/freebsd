@@ -265,11 +265,8 @@ arm_tmr_fdt_probe(device_t dev)
 	if (!ofw_bus_status_okay(dev))
 		return (ENXIO);
 
-	if (ofw_bus_is_compatible(dev, "arm,armv7-timer")) {
-		device_set_desc(dev, "ARMv7 Generic Timer");
-		return (BUS_PROBE_DEFAULT);
-	} else if (ofw_bus_is_compatible(dev, "arm,armv8-timer")) {
-		device_set_desc(dev, "ARMv8 Generic Timer");
+	if (ofw_bus_is_compatible(dev, "riscv,timer")) {
+		device_set_desc(dev, "RISC-V Timer");
 		return (BUS_PROBE_DEFAULT);
 	}
 
@@ -327,6 +324,9 @@ static int
 arm_tmr_attach(device_t dev)
 {
 	struct arm_tmr_softc *sc;
+
+	panic("arm_tmr_attach\n");
+
 #ifdef FDT
 	phandle_t node;
 	pcell_t clock;
