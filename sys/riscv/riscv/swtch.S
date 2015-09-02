@@ -100,6 +100,8 @@ END(cpu_throw)
  * x3 to x7, x16 and x17 are caller saved
  */
 ENTRY(cpu_switch)
+	la	a0, .Lcpu_switch_panic_str
+	li	a1, 0x61
 	call	panic
 #if 0
 	/* Store the new curthread */

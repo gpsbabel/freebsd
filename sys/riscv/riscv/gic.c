@@ -114,11 +114,13 @@ struct arm_gic_softc {
 	uint32_t		nirqs;
 };
 
+#if 0
 static struct resource_spec arm_gic_spec[] = {
 	{ SYS_RES_MEMORY,	0,	RF_ACTIVE },	/* Distributor registers */
 	{ SYS_RES_MEMORY,	1,	RF_ACTIVE },	/* CPU Interrupt Intf. registers */
 	{ -1, 0 }
 };
+#endif
 
 static struct arm_gic_softc *arm_gic_sc = NULL;
 
@@ -240,20 +242,20 @@ static int
 arm_gic_attach(device_t dev)
 {
 	struct		arm_gic_softc *sc;
-	int		i;
-	uint32_t	icciidr;
+	//int		i;
+	//uint32_t	icciidr;
 
 	if (arm_gic_sc)
 		return (ENXIO);
 
 	sc = device_get_softc(dev);
 
-	panic("pic attach\n");
+	//panic("pic attach\n");
 
-	if (bus_alloc_resources(dev, arm_gic_spec, sc->gic_res)) {
-		device_printf(dev, "could not allocate resources\n");
-		return (ENXIO);
-	}
+	//if (bus_alloc_resources(dev, arm_gic_spec, sc->gic_res)) {
+	//	device_printf(dev, "could not allocate resources\n");
+	//	return (ENXIO);
+	//}
 
 	sc->gic_dev = dev;
 	arm_gic_sc = sc;
@@ -261,6 +263,13 @@ arm_gic_attach(device_t dev)
 	/* Initialize mutex */
 	mtx_init(&sc->mutex, "GIC lock", "", MTX_SPIN);
 
+	sc->nirqs = 2;
+	arm_register_root_pic(dev, sc->nirqs);
+
+	return (0);
+
+
+#if 0
 	/* Distributor Interface */
 	sc->gic_d_bst = rman_get_bustag(sc->gic_res[0]);
 	sc->gic_d_bsh = rman_get_bushandle(sc->gic_res[0]);
@@ -314,6 +323,8 @@ arm_gic_attach(device_t dev)
 
 	/* Enable interrupt distribution */
 	gic_d_write_4(sc, GICD_CTLR, 0x01);
+
+#endif
 
 	return (0);
 }

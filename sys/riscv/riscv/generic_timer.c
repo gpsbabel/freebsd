@@ -91,10 +91,7 @@ struct arm_tmr_softc {
 static struct arm_tmr_softc *arm_tmr_sc = NULL;
 
 static struct resource_spec timer_spec[] = {
-	{ SYS_RES_IRQ,		0,	RF_ACTIVE },	/* Secure */
-	{ SYS_RES_IRQ,		1,	RF_ACTIVE },	/* Non-secure */
-	{ SYS_RES_IRQ,		2,	RF_ACTIVE },	/* Virt */
-	{ SYS_RES_IRQ,		3,	RF_ACTIVE | RF_OPTIONAL	}, /* Hyp */
+	{ SYS_RES_IRQ,		0,	RF_ACTIVE },
 	{ -1, 0 }
 };
 
@@ -134,11 +131,14 @@ get_cntxct(bool physical)
 {
 	uint64_t val;
 
+	__asm __volatile("csrr %0, stime" : "=&r"(val));
+	//printf("val is %d\n", val);
+
 	//isb();
-	if (physical)
-		val = 0;//get_el0(cntpct);
-	else
-		val = 0;//get_el0(cntvct);
+	//if (physical)
+	//	val = 0;//get_el0(cntpct);
+	//else
+	//	val = 0;//get_el0(cntvct);
 
 	return (val);
 }
@@ -206,6 +206,8 @@ arm_tmr_start(struct eventtimer *et, sbintime_t first, sbintime_t period)
 {
 	struct arm_tmr_softc *sc;
 	int counts, ctrl;
+
+	printf("arm_tmr_start first %d period %d\n", first, period);
 
 	sc = (struct arm_tmr_softc *)et->et_priv;
 
@@ -325,14 +327,11 @@ arm_tmr_attach(device_t dev)
 {
 	struct arm_tmr_softc *sc;
 
-	panic("arm_tmr_attach\n");
-
 #ifdef FDT
 	phandle_t node;
 	pcell_t clock;
 #endif
 	int error;
-	int i;
 
 	sc = device_get_softc(dev);
 	if (arm_tmr_sc)
@@ -373,14 +372,12 @@ arm_tmr_attach(device_t dev)
 
 	arm_tmr_sc = sc;
 
-	/* Setup secure, non-secure and virtual IRQs handler */
-	for (i = 0; i < 3; i++) {
-		error = bus_setup_intr(dev, sc->res[i], INTR_TYPE_CLK,
-		    arm_tmr_intr, NULL, sc, &sc->ihl[i]);
-		if (error) {
-			device_printf(dev, "Unable to alloc int resource.\n");
-			return (ENXIO);
-		}
+	/* Setup IRQs handler */
+	error = bus_setup_intr(dev, sc->res[0], INTR_TYPE_CLK,
+	    arm_tmr_intr, NULL, sc, &sc->ihl[0]);
+	if (error) {
+		device_printf(dev, "Unable to alloc int resource.\n");
+		return (ENXIO);
 	}
 
 	disable_user_access();
