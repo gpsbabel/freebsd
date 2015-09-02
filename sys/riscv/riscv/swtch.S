@@ -34,7 +34,7 @@
 
 #include <machine/asm.h>
 
-__FBSDID("$FreeBSD: head/sys/arm64/arm64/swtch.S 285316 2015-07-09 13:23:29Z andrew $");
+__FBSDID("$FreeBSD$");
 
 /*
  * void cpu_throw(struct thread *old, struct thread *new)
@@ -94,15 +94,83 @@ END(cpu_throw)
 /*
  * void cpu_switch(struct thread *old, struct thread *new, struct mtx *mtx)
  *
- * x0 = old
- * x1 = new
- * x2 = mtx
+ * a0 = old
+ * a1 = new
+ * a2 = mtx
  * x3 to x7, x16 and x17 are caller saved
  */
 ENTRY(cpu_switch)
-	la	a0, .Lcpu_switch_panic_str
-	li	a1, 0x61
-	call	panic
+	//la	a0, .Lcpu_switch_panic_str
+	//li	a1, 0x61
+	//call	panic
+
+	/* Store the new curthread */
+	sd	a0, PC_CURTHREAD(gp)
+	/* And the new pcb */
+	ld	t0, TD_PCB(a1)
+	sd	t0, PC_CURPCB(gp)
+
+	/*
+	 * Save the old context.
+	 */
+	ld	t0, TD_PCB(a0)
+
+	/* Store the callee-saved registers */
+	sd	x1, (PCB_REGS + 1 * 8)(t0)
+	sd	x8, (PCB_REGS + 8 * 8)(t0)
+	sd	x9, (PCB_REGS + 9 * 8)(t0)
+	sd	x18, (PCB_REGS + 18 * 8)(t0)
+	sd	x19, (PCB_REGS + 19 * 8)(t0)
+	sd	x20, (PCB_REGS + 20 * 8)(t0)
+	sd	x21, (PCB_REGS + 21 * 8)(t0)
+	sd	x22, (PCB_REGS + 22 * 8)(t0)
+	sd	x23, (PCB_REGS + 23 * 8)(t0)
+	sd	x24, (PCB_REGS + 24 * 8)(t0)
+	sd	x25, (PCB_REGS + 25 * 8)(t0)
+	sd	x26, (PCB_REGS + 26 * 8)(t0)
+	sd	x27, (PCB_REGS + 27 * 8)(t0)
+	/* And the old stack pointer */
+	sd	sp, (PCB_SP)(t0)
+
+	/*
+	 * Restore the saved context.
+	 */
+	ld	t0, TD_PCB(a1)
+
+	/*
+	 * TODO: We may need to flush the cache here if switching
+	 * to a user process.
+	 */
+
+	/* Switch to the new pmap */
+	ld	t1, PCB_L1ADDR(t0)
+	//msr	ttbr0_el1, t1
+
+	/* Invalidate the TLB */
+
+	/* Release the old thread */
+	sd	a2, TD_LOCK(a0)
+
+	/* Restore the registers */
+	ld	sp, (PCB_SP)(t0)
+	//mv	sp, t1
+	//msr	tpidr_el0, t2
+
+	ld	x1, (PCB_REGS + 1 * 8)(t0)
+	ld	x8, (PCB_REGS + 8 * 8)(t0)
+	ld	x9, (PCB_REGS + 9 * 8)(t0)
+	ld	x18, (PCB_REGS + 18 * 8)(t0)
+	ld	x19, (PCB_REGS + 19 * 8)(t0)
+	ld	x20, (PCB_REGS + 20 * 8)(t0)
+	ld	x21, (PCB_REGS + 21 * 8)(t0)
+	ld	x22, (PCB_REGS + 22 * 8)(t0)
+	ld	x23, (PCB_REGS + 23 * 8)(t0)
+	ld	x24, (PCB_REGS + 24 * 8)(t0)
+	ld	x25, (PCB_REGS + 25 * 8)(t0)
+	ld	x26, (PCB_REGS + 26 * 8)(t0)
+	ld	x27, (PCB_REGS + 27 * 8)(t0)
+
+	ret
 #if 0
 	/* Store the new curthread */
 	str	x1, [x18, #PC_CURTHREAD]
@@ -203,6 +271,8 @@ ENTRY(cpu_switch)
 END(cpu_switch)
 
 ENTRY(fork_trampoline)
+	la	a0, .Lcpu_switch_panic_str
+	li	a1, 0x62
 	call	panic
 #if 0
 	mov	x0, x8
