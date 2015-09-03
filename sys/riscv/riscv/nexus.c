@@ -273,6 +273,8 @@ nexus_setup_intr(device_t dev, device_t child, struct resource *res, int flags,
 {
 	int error;
 
+	printf("%s\n", __func__);
+
 	if ((rman_get_flags(res) & RF_SHAREABLE) == 0)
 		flags |= INTR_EXCL;
 
@@ -283,6 +285,8 @@ nexus_setup_intr(device_t dev, device_t child, struct resource *res, int flags,
 
 	error = arm_setup_intr(device_get_nameunit(child), filt, intr,
 	    arg, rman_get_start(res), flags, cookiep);
+
+	printf("%s done\n", __func__);
 
 	return (error);
 }

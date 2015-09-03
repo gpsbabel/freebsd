@@ -5,6 +5,7 @@ riscv/riscv/pmap.c		standard
 riscv/riscv/devmap.c		standard
 riscv/riscv/clock.c		standard
 riscv/riscv/gic.c		standard
+riscv/riscv/gic_fdt.c		standard
 riscv/riscv/nexus.c		standard
 riscv/riscv/elf_machdep.c	standard
 riscv/riscv/intr_machdep.c	standard

@@ -387,12 +387,15 @@ sv_trap:
 	csrr	t1, mepc
 	addi	t1, t1, 4
 
-	//li	t4, ECALL_LOW_PRINTC
-	//beq	t5, t4, low_printc
+	li	t4, ECALL_LOW_PRINTC
+	beq	t5, t4, low_printc
+
+	li	t4, ECALL_MTIMECMP
+	beq	t5, t4, set_mtimecmp
 
 	/* Exit trap */
-	//csrw	mepc, t1
-	//eret
+	csrw	mepc, t1
+	eret
 
 low_printc:
 	//li	t5, 0
@@ -413,4 +416,10 @@ low_printc:
 
 	ld	t0, 0(x16)
 	ld	t1, 8(x16)
+	eret
+
+set_mtimecmp:
+	csrw	mtimecmp, a0
+	/* Exit trap */
+	csrw    mepc, t1
 	eret

@@ -1,5 +1,6 @@
 /*-
  * Copyright (c) 2011 The FreeBSD Foundation
+ * Copyright (c) 2014 Andrew Turner
  * All rights reserved.
  *
  * Developed by Damjan Marion <damjan.marion@gmail.com>
@@ -49,11 +50,11 @@ __FBSDID("$FreeBSD$");
 #include <machine/bus.h>
 #include <machine/intr.h>
 #include <machine/smp.h>
+#include <machine/asm.h>
 
-#include <dev/fdt/fdt_common.h>
-#include <dev/ofw/openfirm.h>
-#include <dev/ofw/ofw_bus.h>
-#include <dev/ofw/ofw_bus_subr.h>
+#include <arm64/arm64/gic.h>
+
+#include "pic_if.h"
 
 /* We are using GICv2 register naming */
 
@@ -98,21 +99,19 @@ __FBSDID("$FreeBSD$");
 #define GICD_ICFGR_TRIG_EDGE	(1 << 1)
 #define GICD_ICFGR_TRIG_MASK	0x2
 
-#ifndef	GIC_DEFAULT_ICFGR_INIT
-#define	GIC_DEFAULT_ICFGR_INIT	0x00000000
-#endif
+//#define	NR_IRQS		2
+//#define	IRQ_SOFTWARE	0
+//#define	IRQ_TIMER	1
 
-struct arm_gic_softc {
-	device_t		gic_dev;
-	struct resource *	gic_res[3];
-	bus_space_tag_t		gic_c_bst;
-	bus_space_tag_t		gic_d_bst;
-	bus_space_handle_t	gic_c_bsh;
-	bus_space_handle_t	gic_d_bsh;
-	uint8_t			ver;
-	struct mtx		mutex;
-	uint32_t		nirqs;
+enum {
+	IRQ_SOFTWARE,
+	IRQ_TIMER,
+	NIRQS
 };
+#define	SIE_SSIE	(1 << 1)
+#define	SIE_STIE	(1 << 5)
+
+#define	SR_IE		(1 << 0)
 
 #if 0
 static struct resource_spec arm_gic_spec[] = {
@@ -133,34 +132,14 @@ static struct arm_gic_softc *arm_gic_sc = NULL;
 #define	gic_d_write_4(_sc, _reg, _val)		\
     bus_space_write_4((_sc)->gic_d_bst, (_sc)->gic_d_bsh, (_reg), (_val))
 
-#if 0
-static int gic_config_irq(int irq, enum intr_trigger trig,
-    enum intr_polarity pol);
-static void gic_post_filter(void *);
-#endif
+static pic_dispatch_t gic_dispatch;
+static pic_eoi_t gic_eoi;
+static pic_mask_t gic_mask_irq;
+static pic_unmask_t gic_unmask_irq;
 
-static struct ofw_compat_data compat_data[] = {
-	{"riscv,pic",		true},
-	{NULL,			false}
-};
-
-static int
-arm_gic_probe(device_t dev)
-{
-
-	if (!ofw_bus_status_okay(dev))
-		return (ENXIO);
-
-	if (!ofw_bus_search_compatible(dev, compat_data)->ocd_data)
-		return (ENXIO);
-
-	device_set_desc(dev, "RISC-V Interrupt Controller");
-	return (BUS_PROBE_DEFAULT);
-}
-
-#if 0
+#ifdef SMP
 static void
-arm_gic_init_secondary(device_t dev)
+gic_init_secondary(device_t dev)
 {
 	struct arm_gic_softc *sc = device_get_softc(dev);
 	int i;
@@ -191,53 +170,6 @@ arm_gic_init_secondary(device_t dev)
 }
 #endif
 
-#if 0
-int
-gic_decode_fdt(uint32_t iparent, uint32_t *intr, int *interrupt,
-    int *trig, int *pol)
-{
-	static u_int num_intr_cells;
-
-	if (num_intr_cells == 0) {
-		if (OF_searchencprop(OF_node_from_xref(iparent),
-		    "#interrupt-cells", &num_intr_cells,
-		    sizeof(num_intr_cells)) == -1) {
-			num_intr_cells = 1;
-		}
-	}
-
-	if (num_intr_cells == 1) {
-		*interrupt = fdt32_to_cpu(intr[0]);
-		*trig = INTR_TRIGGER_CONFORM;
-		*pol = INTR_POLARITY_CONFORM;
-	} else {
-		if (fdt32_to_cpu(intr[0]) == 0)
-			*interrupt = fdt32_to_cpu(intr[1]) + GIC_FIRST_SPI;
-		else
-			*interrupt = fdt32_to_cpu(intr[1]) + GIC_FIRST_PPI;
-		/*
-		 * In intr[2], bits[3:0] are trigger type and level flags.
-		 *   1 = low-to-high edge triggered
-		 *   2 = high-to-low edge triggered
-		 *   4 = active high level-sensitive
-		 *   8 = active low level-sensitive
-		 * The hardware only supports active-high-level or rising-edge.
-		 */
-		if (fdt32_to_cpu(intr[2]) & 0x0a) {
-			printf("unsupported trigger/polarity configuration "
-			    "0x%2x\n", fdt32_to_cpu(intr[2]) & 0x0f);
-			return (ENOTSUP);
-		}
-		*pol  = INTR_POLARITY_CONFORM;
-		if (fdt32_to_cpu(intr[2]) & 0x01)
-			*trig = INTR_TRIGGER_EDGE;
-		else
-			*trig = INTR_TRIGGER_LEVEL;
-	}
-	return (0);
-}
-#endif
-
 static int
 arm_gic_attach(device_t dev)
 {
@@ -249,8 +181,6 @@ arm_gic_attach(device_t dev)
 		return (ENXIO);
 
 	sc = device_get_softc(dev);
-
-	//panic("pic attach\n");
 
 	//if (bus_alloc_resources(dev, arm_gic_spec, sc->gic_res)) {
 	//	device_printf(dev, "could not allocate resources\n");
@@ -266,8 +196,7 @@ arm_gic_attach(device_t dev)
 	sc->nirqs = 2;
 	arm_register_root_pic(dev, sc->nirqs);
 
-	return (0);
-
+	csr_set(sstatus, SR_IE);
 
 #if 0
 	/* Distributor Interface */
@@ -285,9 +214,7 @@ arm_gic_attach(device_t dev)
 	sc->nirqs = gic_d_read_4(sc, GICD_TYPER);
 	sc->nirqs = 32 * ((sc->nirqs & 0x1f) + 1);
 
-	/* Set up function pointers */
-	//arm_post_filter = gic_post_filter;
-	//arm_config_irq = gic_config_irq;
+	arm_register_root_pic(dev, sc->nirqs);
 
 	icciidr = gic_c_read_4(sc, GICC_IIDR);
 	device_printf(dev,"pn 0x%x, arch 0x%x, rev 0x%x, implementer 0x%x irqs %u\n",
@@ -296,7 +223,7 @@ arm_gic_attach(device_t dev)
 
 	/* Set all global interrupts to be level triggered, active low. */
 	for (i = 32; i < sc->nirqs; i += 16) {
-		gic_d_write_4(sc, GICD_ICFGR(i >> 4), GIC_DEFAULT_ICFGR_INIT);
+		gic_d_write_4(sc, GICD_ICFGR(i >> 4), 0x00000000);
 	}
 
 	/* Disable all interrupts. */
@@ -323,96 +250,51 @@ arm_gic_attach(device_t dev)
 
 	/* Enable interrupt distribution */
 	gic_d_write_4(sc, GICD_CTLR, 0x01);
-
 #endif
 
 	return (0);
 }
 
-#if 0
-static int
-arm_gic_next_irq(struct arm_gic_softc *sc, int last_irq)
-{
-	uint32_t active_irq;
-
-	active_irq = gic_c_read_4(sc, GICC_IAR);
-
-	/*
-	 * Immediatly EOIR the SGIs, because doing so requires the other
-	 * bits (ie CPU number), not just the IRQ number, and we do not
-	 * have this information later.
-	 */
-	if ((active_irq & 0x3ff) <= GIC_LAST_IPI)
-		gic_c_write_4(sc, GICC_EOIR, active_irq);
-	active_irq &= 0x3FF;
-
-	if (active_irq == 0x3FF) {
-		if (last_irq == -1)
-			printf("Spurious interrupt detected\n");
-		return -1;
-	}
-
-	return active_irq;
-}
-#endif
-
-#if 0
-static int
-arm_gic_config(device_t dev, int irq, enum intr_trigger trig,
-    enum intr_polarity pol)
+static void gic_dispatch(device_t dev, struct trapframe *frame)
 {
 	struct arm_gic_softc *sc = device_get_softc(dev);
-	uint32_t reg;
-	uint32_t mask;
+	uint32_t active_irq;
+	int first = 1;
 
-	/* Function is public-accessible, so validate input arguments */
-	if ((irq < 0) || (irq >= sc->nirqs))
-		goto invalid_args;
-	if ((trig != INTR_TRIGGER_EDGE) && (trig != INTR_TRIGGER_LEVEL) &&
-	    (trig != INTR_TRIGGER_CONFORM))
-		goto invalid_args;
-	if ((pol != INTR_POLARITY_HIGH) && (pol != INTR_POLARITY_LOW) &&
-	    (pol != INTR_POLARITY_CONFORM))
-		goto invalid_args;
+	while (1) {
+		active_irq = gic_c_read_4(sc, GICC_IAR);
 
-	mtx_lock_spin(&sc->mutex);
+		/*
+		 * Immediatly EOIR the SGIs, because doing so requires the other
+		 * bits (ie CPU number), not just the IRQ number, and we do not
+		 * have this information later.
+		 */
 
-	reg = gic_d_read_4(sc, GICD_ICFGR(irq >> 4));
-	mask = (reg >> 2*(irq % 16)) & 0x3;
+		if ((active_irq & 0x3ff) <= GIC_LAST_IPI)
+			gic_c_write_4(sc, GICC_EOIR, active_irq);
+		active_irq &= 0x3FF;
 
-	if (pol == INTR_POLARITY_LOW) {
-		mask &= ~GICD_ICFGR_POL_MASK;
-		mask |= GICD_ICFGR_POL_LOW;
-	} else if (pol == INTR_POLARITY_HIGH) {
-		mask &= ~GICD_ICFGR_POL_MASK;
-		mask |= GICD_ICFGR_POL_HIGH;
+		if (active_irq == 0x3FF) {
+			if (first)
+				printf("Spurious interrupt detected\n");
+			return;
+		}
+
+		arm_dispatch_intr(active_irq, frame);
+		first = 0;
 	}
-
-	if (trig == INTR_TRIGGER_LEVEL) {
-		mask &= ~GICD_ICFGR_TRIG_MASK;
-		mask |= GICD_ICFGR_TRIG_LVL;
-	} else if (trig == INTR_TRIGGER_EDGE) {
-		mask &= ~GICD_ICFGR_TRIG_MASK;
-		mask |= GICD_ICFGR_TRIG_EDGE;
-	}
-
-	/* Set mask */
-	reg = reg & ~(0x3 << 2*(irq % 16));
-	reg = reg | (mask << 2*(irq % 16));
-	gic_d_write_4(sc, GICD_ICFGR(irq >> 4), reg);
-
-	mtx_unlock_spin(&sc->mutex);
-
-	return (0);
-
-invalid_args:
-	device_printf(dev, "gic_config_irg, invalid parameters\n");
-	return (EINVAL);
 }
-#endif
 
 static void
-arm_gic_mask(device_t dev, int irq)
+gic_eoi(device_t dev, u_int irq)
+{
+	struct arm_gic_softc *sc = device_get_softc(dev);
+
+	gic_c_write_4(sc, GICC_EOIR, irq);
+}
+
+void
+gic_mask_irq(device_t dev, u_int irq)
 {
 	struct arm_gic_softc *sc = device_get_softc(dev);
 
@@ -420,20 +302,32 @@ arm_gic_mask(device_t dev, int irq)
 	gic_c_write_4(sc, GICC_EOIR, irq);
 }
 
-static void
-arm_gic_unmask(device_t dev, int irq)
+void
+gic_unmask_irq(device_t dev, u_int irq)
 {
-	struct arm_gic_softc *sc = device_get_softc(dev);
+	struct arm_gic_softc *sc;
 
-	//if (irq > GIC_LAST_IPI)
-	//	arm_irq_memory_barrier(irq);
+	sc = device_get_softc(dev);
 
-	gic_d_write_4(sc, GICD_ISENABLER(irq >> 5), (1UL << (irq & 0x1F)));
+	switch (irq) {
+	case IRQ_TIMER:
+		csr_set(sie, SIE_STIE);
+		break;
+	case IRQ_SOFTWARE:
+		csr_set(sie, SIE_SSIE);
+		break;
+	default:
+		panic("Unknown irq %d\n", irq);
+	}
+
+	//panic("%s: %d\n", __func__, irq);
+	//printf("%s: %d\n", __func__, irq);
+	//gic_d_write_4(sc, GICD_ISENABLER(irq >> 5), (1UL << (irq & 0x1F)));
 }
 
 #ifdef SMP
 static void
-arm_gic_ipi_send(device_t dev, cpuset_t cpus, u_int ipi)
+gic_ipi_send(device_t dev, cpuset_t cpus, u_int ipi)
 {
 	struct arm_gic_softc *sc = device_get_softc(dev);
 	uint32_t val = 0, i;
@@ -469,97 +363,23 @@ arm_gic_ipi_clear(device_t dev, int ipi)
 }
 #endif
 
-#if 0
-static void
-gic_post_filter(void *arg)
-{
-	struct arm_gic_softc *sc = arm_gic_sc;
-	uintptr_t irq = (uintptr_t) arg;
-
-	//if (irq > GIC_LAST_IPI)
-	//	arm_irq_memory_barrier(irq);
-	gic_c_write_4(sc, GICC_EOIR, irq);
-}
-#endif
-
-#if 0
-static int
-gic_config_irq(int irq, enum intr_trigger trig, enum intr_polarity pol)
-{
-
-	return (arm_gic_config(arm_gic_sc->gic_dev, irq, trig, pol));
-}
-#endif
-
-void
-arm_mask_irq(u_int nb)
-{
-
-	arm_gic_mask(arm_gic_sc->gic_dev, nb);
-}
-
-void
-arm_unmask_irq(u_int nb)
-{
-
-	arm_gic_unmask(arm_gic_sc->gic_dev, nb);
-}
-
-#if 0
-int
-arm_get_next_irq(int last_irq)
-{
-
-	return (arm_gic_next_irq(arm_gic_sc, last_irq));
-}
-
-void
-arm_init_secondary_ic(void)
-{
-
-	arm_gic_init_secondary(arm_gic_sc->gic_dev);
-}
-#endif
-
-#ifdef SMP
-void
-pic_ipi_send(cpuset_t cpus, u_int ipi)
-{
-
-	arm_gic_ipi_send(arm_gic_sc->gic_dev, cpus, ipi);
-}
-
-int
-pic_ipi_read(int i)
-{
-
-	return (arm_gic_ipi_read(arm_gic_sc->gic_dev, i));
-}
-
-void
-pic_ipi_clear(int ipi)
-{
-
-	arm_gic_ipi_clear(arm_gic_sc->gic_dev, ipi);
-}
-#endif
-
 static device_method_t arm_gic_methods[] = {
 	/* Device interface */
-	DEVMETHOD(device_probe,		arm_gic_probe),
 	DEVMETHOD(device_attach,	arm_gic_attach),
+
+	/* pic_if */
+	DEVMETHOD(pic_dispatch,		gic_dispatch),
+	DEVMETHOD(pic_eoi,		gic_eoi),
+	DEVMETHOD(pic_mask,		gic_mask_irq),
+	DEVMETHOD(pic_unmask,		gic_unmask_irq),
+
+#ifdef SMP
+	DEVMETHOD(pic_init_secondary,	gic_init_secondary),
+	DEVMETHOD(pic_ipi_send,		gic_ipi_send),
+#endif
+
 	{ 0, 0 }
 };
 
-static driver_t arm_gic_driver = {
-	"gic",
-	arm_gic_methods,
-	sizeof(struct arm_gic_softc),
-};
-
-static devclass_t arm_gic_devclass;
-
-EARLY_DRIVER_MODULE(gic, simplebus, arm_gic_driver, arm_gic_devclass, 0, 0,
-    BUS_PASS_INTERRUPT + BUS_PASS_ORDER_MIDDLE);
-EARLY_DRIVER_MODULE(gic, ofwbus, arm_gic_driver, arm_gic_devclass, 0, 0,
-    BUS_PASS_INTERRUPT + BUS_PASS_ORDER_MIDDLE);
+DEFINE_CLASS_0(gic, arm_gic_driver, arm_gic_methods,
+    sizeof(struct arm_gic_softc));

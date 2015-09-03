@@ -1,6 +1,5 @@
 /*-
- * Copyright (c) 2014 Andrew Turner
- * Copyright (c) 2014-2015 The FreeBSD Foundation
+ * Copyright (c) 2015 The FreeBSD Foundation
  * All rights reserved.
  *
  * This software was developed by Andrew Turner under
@@ -26,41 +25,57 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
- * $FreeBSD: head/sys/arm64/include/reg.h 280711 2015-03-26 21:10:42Z andrew $
  */
 
-#ifndef	_MACHINE_REG_H_
-#define	_MACHINE_REG_H_
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
 
-struct reg {
-	uint64_t x[32];
-	uint64_t lr;
-	uint64_t sp;
-	uint64_t elr;
-	uint32_t spsr;
+#include <sys/types.h>
+#include <sys/bus.h>
+#include <sys/kernel.h>
+#include <sys/module.h>
+
+#include <machine/bus.h>
+
+#include <dev/fdt/fdt_common.h>
+#include <dev/ofw/openfirm.h>
+#include <dev/ofw/ofw_bus.h>
+#include <dev/ofw/ofw_bus_subr.h>
+
+#include <arm64/arm64/gic.h>
+
+static struct ofw_compat_data compat_data[] = {
+	{"riscv,pic",		true},	/* Non-standard, used in FreeBSD dts. */
+	{NULL,			false}
 };
 
-struct fpreg {
-	__uint128_t	fp_q[32];
-	uint32_t	fp_sr;
-	uint32_t	fp_cr;
+static int
+arm_gic_fdt_probe(device_t dev)
+{
+
+	if (!ofw_bus_status_okay(dev))
+		return (ENXIO);
+
+	if (!ofw_bus_search_compatible(dev, compat_data)->ocd_data)
+		return (ENXIO);
+
+	device_set_desc(dev, "ARM Generic Interrupt Controller");
+	return (BUS_PROBE_DEFAULT);
+}
+
+static device_method_t arm_gic_fdt_methods[] = {
+	/* Device interface */
+	DEVMETHOD(device_probe,		arm_gic_fdt_probe),
+
+	DEVMETHOD_END
 };
 
-struct dbreg {
-	int dummy;
-};
+DEFINE_CLASS_1(gic, arm_gic_fdt_driver, arm_gic_fdt_methods,
+    sizeof(struct arm_gic_softc), arm_gic_driver);
 
-#ifdef _KERNEL
-/*
- * XXX these interfaces are MI, so they should be declared in a MI place.
- */
-int	fill_regs(struct thread *, struct reg *);
-int	set_regs(struct thread *, struct reg *);
-int	fill_fpregs(struct thread *, struct fpreg *);
-int	set_fpregs(struct thread *, struct fpreg *);
-int	fill_dbregs(struct thread *, struct dbreg *);
-int	set_dbregs(struct thread *, struct dbreg *);
-#endif
+static devclass_t arm_gic_fdt_devclass;
 
-#endif /* !_MACHINE_REG_H_ */
+EARLY_DRIVER_MODULE(gic, simplebus, arm_gic_fdt_driver,
+    arm_gic_fdt_devclass, 0, 0, BUS_PASS_INTERRUPT + BUS_PASS_ORDER_MIDDLE);
+EARLY_DRIVER_MODULE(gic, ofwbus, arm_gic_fdt_driver, arm_gic_fdt_devclass,
+    0, 0, BUS_PASS_INTERRUPT + BUS_PASS_ORDER_MIDDLE);

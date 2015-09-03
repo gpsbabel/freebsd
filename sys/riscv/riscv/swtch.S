@@ -117,6 +117,13 @@ ENTRY(cpu_switch)
 
 	/* Store the callee-saved registers */
 	sd	x1, (PCB_REGS + 1 * 8)(t0)
+
+	sd	x3, (PCB_REGS + 3 * 8)(t0)
+	//do we need some caller-saved?
+	//sd	x5, (PCB_REGS + 5 * 8)(t0)
+	//sd	x6, (PCB_REGS + 6 * 8)(t0)
+	//sd	x7, (PCB_REGS + 7 * 8)(t0)
+
 	sd	x8, (PCB_REGS + 8 * 8)(t0)
 	sd	x9, (PCB_REGS + 9 * 8)(t0)
 	sd	x18, (PCB_REGS + 18 * 8)(t0)
@@ -130,7 +137,8 @@ ENTRY(cpu_switch)
 	sd	x26, (PCB_REGS + 26 * 8)(t0)
 	sd	x27, (PCB_REGS + 27 * 8)(t0)
 	/* And the old stack pointer */
-	sd	sp, (PCB_SP)(t0)
+	sd	x2, (PCB_REGS + 2 * 8)(t0)
+	//sd	sp, (PCB_SP)(t0)
 
 	/*
 	 * Restore the saved context.
@@ -151,12 +159,15 @@ ENTRY(cpu_switch)
 	/* Release the old thread */
 	sd	a2, TD_LOCK(a0)
 
+	ld	x3, (PCB_REGS + 3 * 8)(t0)
 	/* Restore the registers */
-	ld	sp, (PCB_SP)(t0)
+	//ld	sp, (PCB_SP)(t0)
+	ld	x2, (PCB_REGS + 2 * 8)(t0)
 	//mv	sp, t1
 	//msr	tpidr_el0, t2
 
 	ld	x1, (PCB_REGS + 1 * 8)(t0)
+
 	ld	x8, (PCB_REGS + 8 * 8)(t0)
 	ld	x9, (PCB_REGS + 9 * 8)(t0)
 	ld	x18, (PCB_REGS + 18 * 8)(t0)
@@ -169,6 +180,13 @@ ENTRY(cpu_switch)
 	ld	x25, (PCB_REGS + 25 * 8)(t0)
 	ld	x26, (PCB_REGS + 26 * 8)(t0)
 	ld	x27, (PCB_REGS + 27 * 8)(t0)
+
+	//caller-saved, used in fork_trampoline
+	ld	x6, (PCB_REGS + 6 * 8)(t0)
+	ld	x5, (PCB_REGS + 5 * 8)(t0)
+
+	//gp
+	sd	zero, (PCB_REGS + 3 * 8)(t0)
 
 	ret
 #if 0
@@ -270,10 +288,58 @@ ENTRY(cpu_switch)
 	.asciz "cpu_switch: %p\0"
 END(cpu_switch)
 
+/*
+ * fork_exit(void (*callout)(void *, struct trapframe *), void *arg,
+ *  struct trapframe *frame)
+ *
+ */
+
 ENTRY(fork_trampoline)
-	la	a0, .Lcpu_switch_panic_str
-	li	a1, 0x62
-	call	panic
+	//la	a0, .Lcpu_switch_panic_str
+	//li	a1, 0x62
+	//call	panic
+
+	mv	a0, x5
+	mv	a1, x6
+	mv	a2, sp
+	call	_C_LABEL(fork_exit)
+
+	/* Restore sp and ra */
+	ld	sp, (TF_X + 2 * 8)(sp)
+	ld	ra, (TF_X + 1 * 8)(sp)
+
+	/* Restore the registers other than sp and ra */
+	//ld	x3, (TF_X + 3 * 8)(sp)
+	ld	x4, (TF_X + 4 * 8)(sp)
+	ld	x5, (TF_X + 5 * 8)(sp)
+	ld	x6, (TF_X + 6 * 8)(sp)
+	ld	x7, (TF_X + 7 * 8)(sp)
+	ld	x8, (TF_X + 8 * 8)(sp)
+	ld	x9, (TF_X + 9 * 8)(sp)
+	ld	x10, (TF_X + 10 * 8)(sp)
+	ld	x11, (TF_X + 11 * 8)(sp)
+	ld	x12, (TF_X + 12 * 8)(sp)
+	ld	x13, (TF_X + 13 * 8)(sp)
+	ld	x14, (TF_X + 14 * 8)(sp)
+	ld	x15, (TF_X + 15 * 8)(sp)
+	ld	x16, (TF_X + 16 * 8)(sp)
+	ld	x17, (TF_X + 17 * 8)(sp)
+	ld	x18, (TF_X + 18 * 8)(sp)
+	ld	x19, (TF_X + 19 * 8)(sp)
+	ld	x20, (TF_X + 20 * 8)(sp)
+	ld	x21, (TF_X + 21 * 8)(sp)
+	ld	x22, (TF_X + 22 * 8)(sp)
+	ld	x23, (TF_X + 23 * 8)(sp)
+	ld	x24, (TF_X + 24 * 8)(sp)
+	ld	x25, (TF_X + 25 * 8)(sp)
+	ld	x26, (TF_X + 26 * 8)(sp)
+	ld	x27, (TF_X + 27 * 8)(sp)
+	ld	x28, (TF_X + 28 * 8)(sp)
+	ld	x29, (TF_X + 29 * 8)(sp)
+	ld	x30, (TF_X + 30 * 8)(sp)
+	ld	x31, (TF_X + 31 * 8)(sp)
+
+	ret
 #if 0
 	mov	x0, x8
 	mov	x1, x9

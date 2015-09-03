@@ -101,4 +101,36 @@
 	}							\
 })
 
+#define csr_set(csr,val)					\
+({								\
+	unsigned long __v = (unsigned long)(val);		\
+	if (CSR_ZIMM(__v)) {					\
+		__asm__ __volatile__ (				\
+			"csrs " #csr ", %0" : : "i" (__v));	\
+	} else {						\
+		__asm__ __volatile__ (				\
+			"csrs " #csr ", %0" : : "r" (__v));	\
+	}							\
+})
+
+#define csr_clear(csr,val)					\
+({								\
+	unsigned long __v = (unsigned long)(val);		\
+	if (CSR_ZIMM(__v)) {					\
+		__asm__ __volatile__ (				\
+			"csrc " #csr ", %0" : : "i" (__v));	\
+	} else {						\
+		__asm__ __volatile__ (				\
+			"csrc " #csr ", %0" : : "r" (__v));	\
+	}							\
+})
+
+#define csr_read(csr)						\
+({								\
+	register unsigned long __v;				\
+	__asm__ __volatile__ (					\
+		"csrr %0, " #csr : "=r" (__v));			\
+	__v;							\
+})
+
 #endif /* _MACHINE_ASM_H_ */

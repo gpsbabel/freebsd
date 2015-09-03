@@ -302,8 +302,10 @@ arm_enable_intr(void)
 			    intr->i_trig, intr->i_pol);
 		}
 
-		if (intr->i_handlers > 0)
+		if (intr->i_handlers > 0) {
+			printf("pic_unmask %d\n", intr->i_hw_irq);
 			PIC_UNMASK(root_pic, intr->i_hw_irq);
+		}
 
 	}
 	/* Enable interrupt reception on this CPU */
@@ -319,6 +321,8 @@ arm_setup_intr(const char *name, driver_filter_t *filt, driver_intr_t handler,
 	struct arm64_intr_entry *intr;
 	int error;
 
+	printf("%s\n", __func__);
+
 	intr = intr_acquire(hw_irq);
 	if (intr == NULL)
 		return (ENOMEM);
@@ -331,6 +335,8 @@ arm_setup_intr(const char *name, driver_filter_t *filt, driver_intr_t handler,
 	if (intr->i_cntidx >= NIRQS)
 		return (EINVAL);
 
+	printf("%s 1\n", __func__);
+
 	if (intr->i_event == NULL) {
 		error = intr_event_create(&intr->i_event, (void *)intr, 0,
 		    hw_irq, intr_pre_ithread, intr_post_ithread,
@@ -339,8 +345,12 @@ arm_setup_intr(const char *name, driver_filter_t *filt, driver_intr_t handler,
 			return (error);
 	}
 
+	printf("%s name %s\n", __func__, name);
+
 	error = intr_event_add_handler(intr->i_event, name, filt, handler, arg,
 	    intr_priority(flags), flags, cookiep);
+
+	printf("%s error %d\n", __func__, error);
 
 	if (!error) {
 		mtx_lock(&intr_list_lock);
@@ -354,6 +364,7 @@ arm_setup_intr(const char *name, driver_filter_t *filt, driver_intr_t handler,
 				    intr->i_pol);
 			}
 
+			printf("%s 4\n", __func__);
 			PIC_UNMASK(root_pic, intr->i_hw_irq);
 		}
 		mtx_unlock(&intr_list_lock);

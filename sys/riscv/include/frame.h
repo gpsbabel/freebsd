@@ -47,7 +47,7 @@ struct trapframe {
 	//uint64_t tf_elr;
 	//uint64_t tf_spsr;
 	uint64_t tf_sepc;
-	uint64_t tf_x[31];
+	uint64_t tf_x[32];
 	uint64_t tf_sstatus;
 	uint64_t tf_sbadaddr;
 	uint64_t tf_scause;

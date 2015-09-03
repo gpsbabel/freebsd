@@ -39,8 +39,8 @@ struct pcb {
 	uint64_t	pcb_x[31];
 	uint64_t	pcb_pc;
 	/* These two need to be in order as we access them together */
-	uint64_t	pcb_sp;
-	uint64_t	pcb_tpidr_el0;
+	//uint64_t	pcb_sp;
+	//uint64_t	pcb_tpidr_el0;
 	vm_offset_t	pcb_l1addr;
 
 	/* Fault handler, the error value is passed in x0 */

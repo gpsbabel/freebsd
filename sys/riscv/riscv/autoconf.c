@@ -65,6 +65,7 @@ static void
 configure_first(void *dummy)
 {
 
+	printf("%s\n", __func__);
 	/* nexus0 is the top of the device tree */
 	device_add_child(root_bus, "nexus", 0);
 }
@@ -73,6 +74,7 @@ static void
 configure(void *dummy)
 {
 
+	printf("%s\n", __func__);
 	/* initialize new bus architecture */
 	root_bus_configure();
 }
@@ -80,6 +82,8 @@ configure(void *dummy)
 static void
 configure_final(void *dummy)
 {
+
+	printf("%s\n", __func__);
 	arm_enable_intr();
 	cninit_finish(); 
 

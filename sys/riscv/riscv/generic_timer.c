@@ -53,6 +53,8 @@ __FBSDID("$FreeBSD: head/sys/arm/arm/generic_timer.c 284273 2015-06-11 15:45:33Z
 #include <machine/bus.h>
 #include <machine/cpu.h>
 #include <machine/intr.h>
+#include <machine/asm.h>
+#include <machine/trap.h>
 
 #ifdef FDT
 #include <dev/fdt/fdt_common.h>
@@ -117,6 +119,25 @@ static struct timecounter arm_tmr_timecount = {
 #define	set_el0(x, val)	(0)
 #define	set_el1(x, val) (0)
 #endif
+
+static void
+set_mtimecmp(int c)
+{
+
+	__asm __volatile(
+		"mv	t5, %0\n"
+		"ecall" :: "r"(ECALL_MTIMECMP)
+	);
+
+	return;
+	__asm __volatile("ecall");
+
+	__asm __volatile(
+		"mv	t5, %1\n"
+		"mv	t6, %0\n"
+		"ecall" :: "r"(c), "r"(ECALL_LOW_PRINTC)
+	);
+}
 
 static int
 get_freq(void)
@@ -213,6 +234,11 @@ arm_tmr_start(struct eventtimer *et, sbintime_t first, sbintime_t period)
 
 	if (first != 0) {
 		counts = ((uint32_t)et->et_frequency * first) >> 32;
+
+		counts += csr_read(stime);
+		set_mtimecmp(counts);
+		//csr_write(mtimecmp, counts);
+
 		ctrl = get_ctrl(sc->physical);
 		ctrl &= ~GT_CTRL_INT_MASK;
 		ctrl |= GT_CTRL_ENABLE;

@@ -134,7 +134,12 @@ static void
 spike_early_putc(int c)
 {
 
-	__asm __volatile("ecall");
+	//__asm __volatile("ecall");
+
+	__asm __volatile(
+		"mv	t5, %0\n"
+		"ecall" :: "r"(ECALL_LOW_PRINTC)
+	);
 
 	//__asm __volatile(
 	//	"mv	t5, %1\n"
