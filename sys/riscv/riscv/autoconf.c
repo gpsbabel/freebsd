@@ -83,6 +83,7 @@ static void
 configure_final(void *dummy)
 {
 
+	//panic("configure_final\n");
 	printf("%s\n", __func__);
 	arm_enable_intr();
 	cninit_finish(); 

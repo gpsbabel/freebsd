@@ -88,6 +88,7 @@ struct arm_tmr_softc {
 	uint32_t		clkfreq;
 	struct eventtimer	et;
 	bool			physical;
+	int			flag;
 };
 
 static struct arm_tmr_softc *arm_tmr_sc = NULL;
@@ -126,7 +127,8 @@ set_mtimecmp(int c)
 
 	__asm __volatile(
 		"mv	t5, %0\n"
-		"ecall" :: "r"(ECALL_MTIMECMP)
+		"mv	t6, %1\n"
+		"ecall" :: "r"(ECALL_MTIMECMP), "r"(c)
 	);
 
 	return;
@@ -138,6 +140,18 @@ set_mtimecmp(int c)
 		"ecall" :: "r"(c), "r"(ECALL_LOW_PRINTC)
 	);
 }
+
+static void
+set_mtimecmp2(int c)
+{
+
+	__asm __volatile(
+		"mv	t5, %0\n"
+		"mv	t6, %1\n"
+		"ecall" :: "r"(ECALL_MTIMECMP2), "r"(c)
+	);
+}
+
 
 static int
 get_freq(void)
@@ -218,7 +232,8 @@ disable_user_access(void)
 static unsigned
 arm_tmr_get_timecount(struct timecounter *tc)
 {
-	printf("gettimecount\n");
+	//printf("gettimecount\n");
+
 	return (get_cntxct(arm_tmr_sc->physical));
 }
 
@@ -228,16 +243,55 @@ arm_tmr_start(struct eventtimer *et, sbintime_t first, sbintime_t period)
 	struct arm_tmr_softc *sc;
 	int counts, ctrl;
 
-	printf("arm_tmr_start first %d period %d\n", first, period);
+	printf("arm_tmr_start first %d period %d sstatus 0x%016lx\n",
+			first, period, csr_read(sstatus));
+	if (csr_read(sstatus) == 0) {
+		csr_set(sstatus, 1);
+		printf("sstatus 0x%016lx\n", csr_read(sstatus));
+	}
+
 
 	sc = (struct arm_tmr_softc *)et->et_priv;
 
 	if (first != 0) {
 		counts = ((uint32_t)et->et_frequency * first) >> 32;
 
+		//printf("csr_read(stime) 0x%016lx\n", csr_read(stime));
+		//printf("csr_read(stime) 0x%016lx\n", csr_read(stime));
 		counts += csr_read(stime);
+
+		sc->flag+=1;
+		if (sc->flag < 3)
+			counts *= 2;
+		//else
+		//	counts /= 2;
+
 		set_mtimecmp(counts);
-		//csr_write(mtimecmp, counts);
+
+		//csr_set(sie, (1 << 5));
+		//csr_write(stimecmp, counts);
+		//printf("sstatus 0x%016lx\n", csr_read(sstatus));
+		//if (sc->flag == 1) {
+		//	counts *= 2;
+		//	csr_set(sstatus, 1);
+		//}
+
+		return (0);
+
+		if (sc->flag == 1) {
+			printf("set_mtimecmp %d\n", counts);
+			set_mtimecmp(counts);
+		}
+
+		if (sc->flag == 2) {
+			counts *= 10;
+			printf("set_mtimecmp2 %d\n", counts);
+			set_mtimecmp2(counts);
+		}
+
+		//printf("ignore set_mtimecmp\n");
+
+		return (0);
 
 		ctrl = get_ctrl(sc->physical);
 		ctrl &= ~GT_CTRL_INT_MASK;
@@ -257,6 +311,8 @@ arm_tmr_stop(struct eventtimer *et)
 	struct arm_tmr_softc *sc;
 	int ctrl;
 
+	printf("arm_tmr_stop\n");
+
 	sc = (struct arm_tmr_softc *)et->et_priv;
 
 	ctrl = get_ctrl(sc->physical);
@@ -270,14 +326,20 @@ static int
 arm_tmr_intr(void *arg)
 {
 	struct arm_tmr_softc *sc;
-	int ctrl;
+	//int ctrl;
+
+	//printf("%s\n", __func__);
 
 	sc = (struct arm_tmr_softc *)arg;
-	ctrl = get_ctrl(sc->physical);
-	if (ctrl & GT_CTRL_INT_STAT) {
-		ctrl |= GT_CTRL_INT_MASK;
-		set_ctrl(ctrl, sc->physical);
-	}
+
+	/* Clear pending */
+	csr_clear(sip, (1 << 5));
+
+	//ctrl = get_ctrl(sc->physical);
+	//if (ctrl & GT_CTRL_INT_STAT) {
+	//	ctrl |= GT_CTRL_INT_MASK;
+	//	set_ctrl(ctrl, sc->physical);
+	//}
 
 	if (sc->et.et_active)
 		sc->et.et_event_cb(&sc->et, sc->et.et_arg);
@@ -375,6 +437,8 @@ arm_tmr_attach(device_t dev)
 	}
 #endif
 
+	sc->clkfreq = 100000;
+
 	if (sc->clkfreq == 0) {
 		/* Try to get clock frequency from timer */
 		sc->clkfreq = get_freq();
@@ -422,6 +486,9 @@ arm_tmr_attach(device_t dev)
 	sc->et.et_stop = arm_tmr_stop;
 	sc->et.et_priv = sc;
 	et_register(&sc->et);
+
+	csr_set(sstatus, 1);
+	//printf("sstatus set 0x%016lx\n", csr_read(sstatus));
 
 	return (0);
 }

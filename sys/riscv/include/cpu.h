@@ -47,13 +47,14 @@
 //#define	TRAPF_PC(tfp)		((tfp)->tf_lr)
 //#define	TRAPF_USERMODE(tfp)	(((tfp)->tf_elr & (1ul << 63)) == 0)
 
-#define	TRAPF_PC(tfp)		((tfp)->tf_sepc)
+//#define	TRAPF_PC(tfp)		((tfp)->tf_sepc)
+#define	TRAPF_PC(tfp)		((tfp)->tf_x[1])
 #define	TRAPF_USERMODE(tfp)	(0)
 
 //#define	cpu_getstack(td)	((td)->td_frame->tf_sp)
 //#define	cpu_setstack(td, sp)	((td)->td_frame->tf_sp = (sp))
-#define	cpu_getstack(td)	((td)->td_frame->tf_x[14])
-#define	cpu_setstack(td, sp)	((td)->td_frame->tf_x[14] = (sp))
+#define	cpu_getstack(td)	((td)->td_frame->tf_x[2])
+#define	cpu_setstack(td, sp)	((td)->td_frame->tf_x[2] = (sp))
 #define	cpu_spinwait()		/* nothing */
 
 /* Extract CPU affinity levels 0-3 */

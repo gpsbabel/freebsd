@@ -49,12 +49,7 @@ static inline struct pcpu *
 get_pcpu(void)
 {
 	struct pcpu *pcpu;
-	//__asm __volatile("mov	%0, x18" : "=&r"(pcpu));
-	//__asm __volatile("mv	%0, gp" : "=&r"(pcpu));
-	//const register unsigned long gp __asm__ ("gp");
 
-	//RISCVTODO
-	//register struct pcpu *pcpu __asm__("gp");
 	__asm __volatile("mv	%0, gp" : "=&r"(pcpu));
 
 	return (pcpu);
@@ -63,16 +58,8 @@ get_pcpu(void)
 static inline struct thread *
 get_curthread(void)
 {
-	//struct thread *td;
-	//__asm __volatile("ldr	%0, [x18]" : "=&r"(td));
-	//__asm __volatile("ldr	%0, [x19]" : "=&r"(td));
-	//__asm __volatile("ld	%0, tp" : "=&r"(td));
-
-	//RISCVTODO
-	//register struct thread *td __asm__("tp");
-	//register struct thread *td __asm__("gp");
-
 	struct thread *td;
+
 	__asm __volatile("ld %0, 0(gp)" : "=&r"(td));
 
 	return (td);

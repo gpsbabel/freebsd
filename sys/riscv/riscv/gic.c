@@ -196,7 +196,8 @@ arm_gic_attach(device_t dev)
 	sc->nirqs = 2;
 	arm_register_root_pic(dev, sc->nirqs);
 
-	csr_set(sstatus, SR_IE);
+	//csr_set(sstatus, SR_IE);
+	//csr_clear(sie, (1 << 5));
 
 #if 0
 	/* Distributor Interface */
@@ -261,6 +262,16 @@ static void gic_dispatch(device_t dev, struct trapframe *frame)
 	uint32_t active_irq;
 	int first = 1;
 
+	active_irq = (frame->tf_scause & 0xf);
+	if (frame->tf_scause & (1 << 31)) {
+
+		//printf("gic_dispatch %d\n", active_irq);
+		arm_dispatch_intr(active_irq, frame);
+		return;
+	}
+
+	return;
+
 	while (1) {
 		active_irq = gic_c_read_4(sc, GICC_IAR);
 
@@ -288,18 +299,21 @@ static void gic_dispatch(device_t dev, struct trapframe *frame)
 static void
 gic_eoi(device_t dev, u_int irq)
 {
-	struct arm_gic_softc *sc = device_get_softc(dev);
+	//struct arm_gic_softc *sc = device_get_softc(dev);
 
-	gic_c_write_4(sc, GICC_EOIR, irq);
+	//printf("%s\n", __func__);
+	//gic_c_write_4(sc, GICC_EOIR, irq);
 }
 
 void
 gic_mask_irq(device_t dev, u_int irq)
 {
-	struct arm_gic_softc *sc = device_get_softc(dev);
+	//struct arm_gic_softc *sc = device_get_softc(dev);
 
-	gic_d_write_4(sc, GICD_ICENABLER(irq >> 5), (1UL << (irq & 0x1F)));
-	gic_c_write_4(sc, GICC_EOIR, irq);
+	printf("gic_mask_irq\n");
+
+	//gic_d_write_4(sc, GICD_ICENABLER(irq >> 5), (1UL << (irq & 0x1F)));
+	//gic_c_write_4(sc, GICC_EOIR, irq);
 }
 
 void

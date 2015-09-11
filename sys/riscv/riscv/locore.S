@@ -36,10 +36,10 @@
 //#include <machine/vmparam.h>
 
 #define	MSTATUS_MPRV		(1 << 16)
-#define	MSTATUS_PRV0_SHIFT	1
+#define	MSTATUS_PRV_SHIFT	1
 #define	MSTATUS_PRV1_SHIFT	4
 #define	MSTATUS_PRV2_SHIFT	7
-#define	MSTATUS_PRV_MASK	0x3
+#define	MSTATUS_PRV_MASK	(0x3 << MSTATUS_PRV_SHIFT)
 #define	MSTATUS_PRV_U		0
 #define	MSTATUS_PRV_S		1
 #define	MSTATUS_PRV_H		2
@@ -53,6 +53,27 @@
 #define	MSTATUS_VM_SV32		8
 #define	MSTATUS_VM_SV39		9
 #define	MSTATUS_VM_SV48		10
+
+#define	MIE_SSIE	(1 << 1)
+#define	MIE_HSIE	(1 << 2)
+#define	MIE_MSIE	(1 << 3)
+
+#define	MIE_STIE	(1 << 5)
+#define	MIE_HTIE	(1 << 6)
+#define	MIE_MTIE	(1 << 7)
+
+#define	MIP_SSIP	(1 << 1)
+#define	MIP_HSIP	(1 << 2)
+#define	MIP_MSIP	(1 << 3)
+
+#define	MIP_STIP	(1 << 5)
+#define	MIP_HTIP	(1 << 6)
+#define	MIP_MTIP	(1 << 7)
+
+#define	SR_IE		(1 << 0)
+#define	SR_IE1		(1 << 3)
+#define	SR_IE2		(1 << 6)
+#define	SR_IE3		(1 << 9)
 
 #define	INIT_STACK_SIZE	(PAGE_SIZE * 4)
 
@@ -71,10 +92,18 @@ mentry:
 	.align 6
 	j sv_trap
 
+	/* Hypervisor mode entry point (mtvec + 0x080) */
+	.align 6
+	j bad_trap
+
+	/* Machine mode entry point (mtvec + 0x0C0) */
+	.align 6
+	j mm_trap
+
 	.align 3
-hardstack:
-	.space	32
-hardstack_end:
+hardstack1:
+	.space	56
+hardstack_end1:
 
 	/* Reset vector */
 	.text
@@ -84,9 +113,13 @@ _start:
 	//li	s11, VM_MIN_KERNEL_ADDRESS
 	li	s11, 0xffffffffc0000000
 
+	la	t0, hardstack_end
+	sub	t0, t0, s11
+	csrw	mscratch, t0
+
 	/*
 	li	s0, ((MSTATUS_VM_SV48 << MSTATUS_VM_SHIFT) | \
-		     (MSTATUS_PRV_M << MSTATUS_PRV0_SHIFT) | \
+		     (MSTATUS_PRV_M << MSTATUS_PRV_SHIFT) | \
 		     (MSTATUS_PRV_S << MSTATUS_PRV1_SHIFT) | \
 		     (MSTATUS_PRV_U << MSTATUS_PRV2_SHIFT));
 	*/
@@ -103,11 +136,6 @@ _start:
 
 	li	s10, PAGE_SIZE
 	li	s9, (PAGE_SIZE * KSTACK_PAGES)
-
-	/* Load the gp address so we can use it */
-	//la	t0, _gp
-	//add	t0, t0, s11
-	//mv	gp, t0
 
 	/* Page tables */
 
@@ -170,12 +198,12 @@ _start:
 
 	/* Enter supervisor mode */
 	li	s0, ((MSTATUS_VM_SV48 << MSTATUS_VM_SHIFT) | \
-		     (MSTATUS_PRV_M << MSTATUS_PRV0_SHIFT) | \
+		     (MSTATUS_PRV_M << MSTATUS_PRV_SHIFT) | \
 		     (MSTATUS_PRV_S << MSTATUS_PRV1_SHIFT) | \
 		     (MSTATUS_PRV_U << MSTATUS_PRV2_SHIFT));
 	csrw	mstatus, s0
 
-	/* Jump to virtual address */
+	/* Exit machine mode */
 	la	t0, .Lmmu_on
 	add	t0, t0, s11
 	csrw	mepc, t0
@@ -221,93 +249,114 @@ initstack:
 	.space  (PAGE_SIZE * KSTACK_PAGES)
 initstack_end:
 
+hardstack:
+	.space  (PAGE_SIZE * KSTACK_PAGES)
+hardstack_end:
+
 .macro save_registers
-	addi	sp, sp, -280
-	/*	x0 is hard-wired zero */
-	sd	x1, 8(sp)
-	sd	x2, 16(sp)
-	sd	x3, 24(sp)
-	sd	x4, 32(sp)
-	sd	x5, 40(sp)
-	sd	x6, 48(sp)
-	sd	x7, 56(sp)
-	sd	x8, 64(sp)
-	sd	x9, 72(sp)
-	sd	x10, 80(sp)
-	sd	x11, 88(sp)
-	sd	x12, 96(sp)
-	sd	x13, 104(sp)
-	sd	x14, 112(sp)
-	sd	x15, 120(sp)
-	sd	x16, 128(sp)
-	sd	x17, 136(sp)
-	sd	x18, 144(sp)
-	sd	x19, 152(sp)
-	sd	x20, 160(sp)
-	sd	x21, 168(sp)
-	sd	x22, 176(sp)
-	sd	x23, 184(sp)
-	sd	x24, 192(sp)
-	sd	x25, 200(sp)
-	sd	x26, 208(sp)
-	sd	x27, 216(sp)
-	sd	x28, 224(sp)
-	sd	x29, 232(sp)
-	sd	x30, 240(sp)
-	sd	x31, 248(sp)
+	addi	sp, sp, -288
+	sd	x0, (TF_X + 0 * 8)(sp) /* hard-wired zero */
+	sd	x1, (TF_X + 1 * 8)(sp)
+	sd	x2, (TF_X + 2 * 8)(sp)
+	sd	x3, (TF_X + 3 * 8)(sp)
+	sd	x4, (TF_X + 4 * 8)(sp)
+	sd	x5, (TF_X + 5 * 8)(sp)
+	sd	x6, (TF_X + 6 * 8)(sp)
+	sd	x7, (TF_X + 7 * 8)(sp)
+	sd	x8, (TF_X + 8 * 8)(sp)
+	sd	x9, (TF_X + 9 * 8)(sp)
+	sd	x10, (TF_X + 10 * 8)(sp)
+	sd	x11, (TF_X + 11 * 8)(sp)
+	sd	x12, (TF_X + 12 * 8)(sp)
+	sd	x13, (TF_X + 13 * 8)(sp)
+	sd	x14, (TF_X + 14 * 8)(sp)
+	sd	x15, (TF_X + 15 * 8)(sp)
+	sd	x16, (TF_X + 16 * 8)(sp)
+	sd	x17, (TF_X + 17 * 8)(sp)
+	sd	x18, (TF_X + 18 * 8)(sp)
+	sd	x19, (TF_X + 19 * 8)(sp)
+	sd	x20, (TF_X + 20 * 8)(sp)
+	sd	x21, (TF_X + 21 * 8)(sp)
+	sd	x22, (TF_X + 22 * 8)(sp)
+	sd	x23, (TF_X + 23 * 8)(sp)
+	sd	x24, (TF_X + 24 * 8)(sp)
+	sd	x25, (TF_X + 25 * 8)(sp)
+	sd	x26, (TF_X + 26 * 8)(sp)
+	sd	x27, (TF_X + 27 * 8)(sp)
+	sd	x28, (TF_X + 28 * 8)(sp)
+	sd	x29, (TF_X + 29 * 8)(sp)
+	sd	x30, (TF_X + 30 * 8)(sp)
+	sd	x31, (TF_X + 31 * 8)(sp)
 
 	csrr	t1, sepc
-	sd	t1, 0(sp)
-
-	csrr	t1, sstatus
 	sd	t1, 256(sp)
 
-	csrr	t1, sbadaddr
+	csrr	t1, sstatus
 	sd	t1, 264(sp)
 
-	csrr	t1, scause
+	csrr	t1, sbadaddr
 	sd	t1, 272(sp)
+
+	csrr	t1, scause
+	sd	t1, 280(sp)
 .endm
 
 .macro load_registers
-	ld	x1, 8(sp)
-	ld	x2, 16(sp)
-	ld	x3, 24(sp)
-	ld	x4, 32(sp)
-	ld	x5, 40(sp)
-	ld	x6, 48(sp)
-	ld	x7, 56(sp)
-	ld	x8, 64(sp)
-	ld	x9, 72(sp)
-	ld	x10, 80(sp)
-	ld	x11, 88(sp)
-	ld	x12, 96(sp)
-	ld	x13, 104(sp)
-	ld	x14, 112(sp)
-	ld	x15, 120(sp)
-	ld	x16, 128(sp)
-	ld	x17, 136(sp)
-	ld	x18, 144(sp)
-	ld	x19, 152(sp)
-	ld	x20, 160(sp)
-	ld	x21, 168(sp)
-	ld	x22, 176(sp)
-	ld	x23, 184(sp)
-	ld	x24, 192(sp)
-	ld	x25, 200(sp)
-	ld	x26, 208(sp)
-	ld	x27, 216(sp)
-	ld	x28, 224(sp)
-	ld	x29, 232(sp)
-	ld	x30, 240(sp)
-	ld	x31, 248(sp)
-	addi	sp, sp, 280
+	csrr	t0, sstatus
+
+	ld	t0, 264(sp)
+	csrw	sstatus, t0
+
+	ld	t0, 256(sp)
+	csrw	sepc, t0
+
+	/* Enable interrupts */
+	//li	t0, MIE_MTIE
+	//csrs	mie, t0
+	//li	t0, (SR_IE)
+	//csrs	sstatus, t0
+
+	/* x0 is hard-wired zero */
+	ld	x1, (TF_X + 1 * 8)(sp)
+	/* x2 is sp */
+	ld	x3, (TF_X + 3 * 8)(sp)
+	ld	x4, (TF_X + 4 * 8)(sp)
+	ld	x5, (TF_X + 5 * 8)(sp)
+	ld	x6, (TF_X + 6 * 8)(sp)
+	ld	x7, (TF_X + 7 * 8)(sp)
+	ld	x8, (TF_X + 8 * 8)(sp)
+	ld	x9, (TF_X + 9 * 8)(sp)
+	ld	x10, (TF_X + 10 * 8)(sp)
+	ld	x11, (TF_X + 11 * 8)(sp)
+	ld	x12, (TF_X + 12 * 8)(sp)
+	ld	x13, (TF_X + 13 * 8)(sp)
+	ld	x14, (TF_X + 14 * 8)(sp)
+	ld	x15, (TF_X + 15 * 8)(sp)
+	ld	x16, (TF_X + 16 * 8)(sp)
+	ld	x17, (TF_X + 17 * 8)(sp)
+	ld	x18, (TF_X + 18 * 8)(sp)
+	ld	x19, (TF_X + 19 * 8)(sp)
+	ld	x20, (TF_X + 20 * 8)(sp)
+	ld	x21, (TF_X + 21 * 8)(sp)
+	ld	x22, (TF_X + 22 * 8)(sp)
+	ld	x23, (TF_X + 23 * 8)(sp)
+	ld	x24, (TF_X + 24 * 8)(sp)
+	ld	x25, (TF_X + 25 * 8)(sp)
+	ld	x26, (TF_X + 26 * 8)(sp)
+	ld	x27, (TF_X + 27 * 8)(sp)
+	ld	x28, (TF_X + 28 * 8)(sp)
+	ld	x29, (TF_X + 29 * 8)(sp)
+	ld	x30, (TF_X + 30 * 8)(sp)
+	ld	x31, (TF_X + 31 * 8)(sp)
+
+	ld	x2, (TF_X + 2 * 8)(sp)
+	addi	sp, sp, 288
 .endm
 
 ENTRY(cpu_exception_handler)
 	save_registers
 	mv	a0, sp
-	call	_C_LABEL(do_trap)	/* Off we go */
+	call	_C_LABEL(do_trap)
 	load_registers
 	eret
 END(cpu_exception_handler)
@@ -368,17 +417,100 @@ END(bad_trap)
   | (1 << (31 - 9)) /* super environment call */  \
 
 sv_trap:
-	la	x16, hardstack_end
-	addi	x16, x16, -16
-	sd	t0, 0(x16)
-	sd	t1, 8(x16)
+	/* Save state */
+	csrrw	sp, mscratch, sp
+	addi	sp, sp, -40
+	sd	t0, 0(sp)
+	sd	t1, 8(sp)
+	sd	t4, 16(sp)
+	sd	t5, 24(sp)
+	sd	t6, 32(sp)
+
+	/* Debugging */
+	csrr	t0, mstatus
 
 	csrr	t0, mcause
+	bltz	t0, .Linterrupt
 	li	t1, HANDLE_SUPERVISOR_TRAP_IN_MACHINE_MODE
 	sllw	t1, t1, t0
 	bltz	t1, .Lhandle_trap_in_machine_mode
 
-	# Handle trap in supervisor mode
+	/* Restore state */
+	ld	t0, 0(sp)
+	ld	t1, 8(sp)
+	ld	t4, 16(sp)
+	ld	t5, 24(sp)
+	ld	t6, 32(sp)
+	addi	sp, sp, 40
+	csrrw	sp, mscratch, sp
+
+	/* Redirect to supervisor */
+	mrts
+
+.Linterrupt:
+	/* Supervisor interrupt ? */
+	//csrr	t0, mstatus
+	//and	t0, t0, (MSTATUS_PRV_MASK)
+	//li	t1, (MSTATUS_PRV_S << MSTATUS_PRV_SHIFT)
+	//csrr	t0, mip
+	//and	t0, t0, (MIP_STIP)
+	//li	t1, (MIP_STIP)
+	//beq	t0, t1, .Lmrts
+
+	/* Debugging */
+	csrr	t0, mstatus
+
+	/* Clear pending */
+	li	t0, MIP_MTIP
+	csrc	mip, t0
+
+	/* Disable interrupts */
+	li	t0, MIE_MTIE
+	csrc	mie, t0
+
+	/* Post supervisor interrupt */
+	li	t0, MIP_STIP
+	csrs	mip, t0
+
+	/*
+	 * Assuming we get here from supervisor mode,
+	 * was supervisor interrupts enabled before trap ?
+	 */
+	csrr	t0, mstatus
+	and	t0, t0, (SR_IE1)
+	li	t1, (SR_IE1)
+	beq	t0, t1, .Lmrts
+
+	/* Restore state */
+	ld	t0, 0(sp)
+	ld	t1, 8(sp)
+	ld	t4, 16(sp)
+	ld	t5, 24(sp)
+	ld	t6, 32(sp)
+	addi	sp, sp, 40
+	csrrw	sp, mscratch, sp
+	eret
+
+.Lmrts:
+	//csrr	t0, mip
+	//and	t0, t0, MIP_MTIP
+	//li	t1, MIP_MTIP
+	//beq	t0, t1, .Lpost
+
+	/* Enable interrupts for PRV1, so when we leave this trap it will be PRV */
+	//li	t0, (SR_IE1)
+	//csrs	mstatus, t0
+
+	/* Restore state */
+	ld	t0, 0(sp)
+	ld	t1, 8(sp)
+	ld	t4, 16(sp)
+	ld	t5, 24(sp)
+	ld	t6, 32(sp)
+	addi	sp, sp, 40
+	csrrw	sp, mscratch, sp
+
+	/* Redirect to supervisor */
 	mrts
 
 .Lhandle_trap_in_machine_mode:
@@ -386,15 +518,20 @@ sv_trap:
 	/* Save mepc, point to the next instr */
 	csrr	t1, mepc
 	addi	t1, t1, 4
-
 	li	t4, ECALL_LOW_PRINTC
 	beq	t5, t4, low_printc
-
 	li	t4, ECALL_MTIMECMP
 	beq	t5, t4, set_mtimecmp
 
 	/* Exit trap */
-	csrw	mepc, t1
+	csrw    mepc, t1
+	ld	t0, 0(sp)
+	ld	t1, 8(sp)
+	ld	t4, 16(sp)
+	ld	t5, 24(sp)
+	ld	t6, 32(sp)
+	addi	sp, sp, 40
+	csrrw	sp, mscratch, sp
 	eret
 
 low_printc:
@@ -412,14 +549,47 @@ low_printc:
 	csrw	mfromhost, t0
 
 	/* Exit trap */
-	csrw	mepc, t1
-
-	ld	t0, 0(x16)
-	ld	t1, 8(x16)
+	csrw    mepc, t1
+	ld	t0, 0(sp)
+	ld	t1, 8(sp)
+	ld	t4, 16(sp)
+	ld	t5, 24(sp)
+	ld	t6, 32(sp)
+	addi	sp, sp, 40
+	csrrw	sp, mscratch, sp
 	eret
 
 set_mtimecmp:
-	csrw	mtimecmp, a0
+	//li	t0, (SR_IE | SR_IE1 | SR_IE2 | SR_IE3)
+	//li	t0, (SR_IE | SR_IE1)
+	//li	t0, (SR_IE1)
+	//csrs	mstatus, t0
+	//csrr	t0, mstatus
+
+	li	t0, MIP_STIP
+	csrc	mip, t0
+
+	csrw	mtimecmp, t6
+
+	/* Enable interrupts */
+	li	t0, (MIE_MTIE | MIE_STIE)
+	csrs	mie, t0
+
 	/* Exit trap */
 	csrw    mepc, t1
+	ld	t0, 0(sp)
+	ld	t1, 8(sp)
+	ld	t4, 16(sp)
+	ld	t5, 24(sp)
+	ld	t6, 32(sp)
+	addi	sp, sp, 40
+	csrrw	sp, mscratch, sp
 	eret
+
+set_intr_enable:
+	li	t0, (SR_IE1)
+	csrs	mstatus, t0
+
+mm_trap:
+	# Handle trap in supervisor mode
+	j mm_trap

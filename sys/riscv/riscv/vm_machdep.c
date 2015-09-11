@@ -89,10 +89,12 @@ cpu_fork(struct thread *td1, struct proc *p2, struct thread *td2, int flags)
 	td2->td_pcb->pcb_l1addr =
 	    vtophys(vmspace_pmap(td2->td_proc->p_vmspace)->pm_l1);
 
+	printf("pcb_l1addr 0x%016lx\n", td2->td_pcb->pcb_l1addr);
+
 	tf = (struct trapframe *)STACKALIGN((struct trapframe *)pcb2 - 1);
 	bcopy(td1->td_frame, tf, sizeof(*tf));
-	//tf->tf_x[0] = 0;
-	//tf->tf_x[1] = 0;
+	//tf->tf_x[10] = 0;
+	//tf->tf_x[11] = 0;
 	//tf->tf_spsr = 0;
 
 	td2->td_frame = tf;
@@ -133,6 +135,8 @@ void
 cpu_set_syscall_retval(struct thread *td, int error)
 {
 	struct trapframe *frame;
+
+	panic("implement me\n");
 
 	frame = td->td_frame;
 

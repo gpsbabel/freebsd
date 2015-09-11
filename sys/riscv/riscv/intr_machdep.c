@@ -269,6 +269,8 @@ arm_enable_intr(void)
 {
 	struct arm64_intr_entry *intr;
 
+	printf("Enable interrupts\n");
+
 	if (root_pic == NULL)
 		panic("Cannot enable interrupts. No PIC configured");
 

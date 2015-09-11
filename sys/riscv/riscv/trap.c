@@ -34,6 +34,7 @@ __FBSDID("$FreeBSD: head/sys/arm64/arm64/trap.c 285315 2015-07-09 13:07:12Z andr
 #include <sys/lock.h>
 #include <sys/mutex.h>
 #include <sys/pioctl.h>
+#include <sys/bus.h>
 #include <sys/proc.h>
 #include <sys/ptrace.h>
 #include <sys/syscall.h>
@@ -53,6 +54,9 @@ __FBSDID("$FreeBSD: head/sys/arm64/arm64/trap.c 285315 2015-07-09 13:07:12Z andr
 #include <machine/pcb.h>
 #include <machine/pcpu.h>
 #include <machine/vmparam.h>
+
+#include <machine/resource.h>
+#include <machine/intr.h>
 
 #ifdef KDTRACE_HOOKS
 #include <sys/dtrace_bsd.h>
@@ -244,13 +248,25 @@ do_trap(struct trapframe *frame)
 {
 	uint64_t exception;
 	uint64_t esr;
+	int i;
 
 	/* Read the esr register to get the exception details */
 	esr = 0;//READ_SPECIALREG(esr_el1);
-	exception = frame->tf_scause;
+	exception = (frame->tf_scause & 0xf);
+	if (frame->tf_scause & (1 << 31)) {
+		printf("intr %d, curthread 0x%016lx sepc 0x%016lx sstatus 0x%016lx\n",
+				exception, curthread,
+				frame->tf_sepc, frame->tf_sstatus);
+		arm_cpu_intr(frame);
+		printf("ret\n");
+		return;
+	}
 
-	printf("scause 0x%016lx sbadaddr 0x%016lx sepc 0x%016lx\n",
-			exception, frame->tf_sbadaddr, frame->tf_sepc);
+	printf("scause 0x%016lx sbadaddr 0x%016lx sepc 0x%016lx sstatus 0x%016lx\n",
+			exception, frame->tf_sbadaddr, frame->tf_sepc, frame->tf_sstatus);
+	for (i = 0; i < 32; i++) {
+		printf("tf_x[%d] == 0x%016lx\n", i, frame->tf_x[i]);
+	}
 
 #ifdef KDTRACE_HOOKS
 	if (dtrace_trap_func != NULL && (*dtrace_trap_func)(frame, exception))
@@ -303,6 +319,9 @@ do_trap(struct trapframe *frame)
 #endif
 		break;
 	default:
+		for (i = 0; i < 32; i++) {
+			printf("x[%d] == 0x%016lx\n", i, frame->tf_x[i]);
+		}
 		panic("Unknown kernel exception %x esr_el1 %lx\n", exception,
 		    esr);
 	}

@@ -105,45 +105,58 @@ ENTRY(cpu_switch)
 	//call	panic
 
 	/* Store the new curthread */
-	sd	a0, PC_CURTHREAD(gp)
+	sd	a1, PC_CURTHREAD(gp)
 	/* And the new pcb */
-	ld	t0, TD_PCB(a1)
-	sd	t0, PC_CURPCB(gp)
+	ld	x13, TD_PCB(a1)
+	sd	x13, PC_CURPCB(gp)
 
 	/*
 	 * Save the old context.
 	 */
-	ld	t0, TD_PCB(a0)
+	ld	x13, TD_PCB(a0)
 
 	/* Store the callee-saved registers */
-	sd	x1, (PCB_REGS + 1 * 8)(t0)
+	sd	x1, (PCB_REGS + 1 * 8)(x13)
 
-	sd	x3, (PCB_REGS + 3 * 8)(t0)
-	//do we need some caller-saved?
-	//sd	x5, (PCB_REGS + 5 * 8)(t0)
-	//sd	x6, (PCB_REGS + 6 * 8)(t0)
-	//sd	x7, (PCB_REGS + 7 * 8)(t0)
+	//sd	x3, (PCB_REGS + 3 * 8)(x13)
+	sd	x4, (PCB_REGS + 4 * 8)(x13)
+	sd	x5, (PCB_REGS + 5 * 8)(x13)
+	sd	x6, (PCB_REGS + 6 * 8)(x13)
+	sd	x7, (PCB_REGS + 7 * 8)(x13)
+	sd	x8, (PCB_REGS + 8 * 8)(x13)
+	sd	x9, (PCB_REGS + 9 * 8)(x13)
+	sd	x10, (PCB_REGS + 10 * 8)(x13)
+	sd	x11, (PCB_REGS + 11 * 8)(x13)
+	sd	x12, (PCB_REGS + 12 * 8)(x13)
+	//sd	x13, (PCB_REGS + 13 * 8)(x13)
+	sd	x14, (PCB_REGS + 14 * 8)(x13)
+	sd	x15, (PCB_REGS + 15 * 8)(x13)
+	sd	x16, (PCB_REGS + 16 * 8)(x13)
+	sd	x17, (PCB_REGS + 17 * 8)(x13)
+	sd	x18, (PCB_REGS + 18 * 8)(x13)
+	sd	x19, (PCB_REGS + 19 * 8)(x13)
+	sd	x20, (PCB_REGS + 20 * 8)(x13)
+	sd	x21, (PCB_REGS + 21 * 8)(x13)
+	sd	x22, (PCB_REGS + 22 * 8)(x13)
+	sd	x23, (PCB_REGS + 23 * 8)(x13)
+	sd	x24, (PCB_REGS + 24 * 8)(x13)
+	sd	x25, (PCB_REGS + 25 * 8)(x13)
+	sd	x26, (PCB_REGS + 26 * 8)(x13)
+	sd	x27, (PCB_REGS + 27 * 8)(x13)
 
-	sd	x8, (PCB_REGS + 8 * 8)(t0)
-	sd	x9, (PCB_REGS + 9 * 8)(t0)
-	sd	x18, (PCB_REGS + 18 * 8)(t0)
-	sd	x19, (PCB_REGS + 19 * 8)(t0)
-	sd	x20, (PCB_REGS + 20 * 8)(t0)
-	sd	x21, (PCB_REGS + 21 * 8)(t0)
-	sd	x22, (PCB_REGS + 22 * 8)(t0)
-	sd	x23, (PCB_REGS + 23 * 8)(t0)
-	sd	x24, (PCB_REGS + 24 * 8)(t0)
-	sd	x25, (PCB_REGS + 25 * 8)(t0)
-	sd	x26, (PCB_REGS + 26 * 8)(t0)
-	sd	x27, (PCB_REGS + 27 * 8)(t0)
+	sd	x28, (PCB_REGS + 28 * 8)(x13)
+	sd	x29, (PCB_REGS + 29 * 8)(x13)
+	sd	x30, (PCB_REGS + 30 * 8)(x13)
+	sd	x31, (PCB_REGS + 31 * 8)(x13)
+
 	/* And the old stack pointer */
-	sd	x2, (PCB_REGS + 2 * 8)(t0)
-	//sd	sp, (PCB_SP)(t0)
+	sd	x2, (PCB_REGS + 2 * 8)(x13)
+	//sd	sp, PCB_SP(t0)
 
 	/*
 	 * Restore the saved context.
 	 */
-	ld	t0, TD_PCB(a1)
+	ld	x13, TD_PCB(a1)
 
 	/*
 	 * TODO: We may need to flush the cache here if switching
@@ -151,42 +164,58 @@ ENTRY(cpu_switch)
 	 */
 
 	/* Switch to the new pmap */
-	ld	t1, PCB_L1ADDR(t0)
+	//ld	t1, PCB_L1ADDR(t0)
 	//msr	ttbr0_el1, t1
 
 	/* Invalidate the TLB */
+	sfence.vm
 
 	/* Release the old thread */
 	sd	a2, TD_LOCK(a0)
 
-	ld	x3, (PCB_REGS + 3 * 8)(t0)
 	/* Restore the registers */
-	//ld	sp, (PCB_SP)(t0)
-	ld	x2, (PCB_REGS + 2 * 8)(t0)
+	//ld	x2, (PCB_SP)(t0)
+	ld	x2, (PCB_REGS + 2 * 8)(x13)
 	//mv	sp, t1
 	//msr	tpidr_el0, t2
 
-	ld	x1, (PCB_REGS + 1 * 8)(t0)
+	ld	x1, (PCB_REGS + 1 * 8)(x13)
 
-	ld	x8, (PCB_REGS + 8 * 8)(t0)
-	ld	x9, (PCB_REGS + 9 * 8)(t0)
-	ld	x18, (PCB_REGS + 18 * 8)(t0)
-	ld	x19, (PCB_REGS + 19 * 8)(t0)
-	ld	x20, (PCB_REGS + 20 * 8)(t0)
-	ld	x21, (PCB_REGS + 21 * 8)(t0)
-	ld	x22, (PCB_REGS + 22 * 8)(t0)
-	ld	x23, (PCB_REGS + 23 * 8)(t0)
-	ld	x24, (PCB_REGS + 24 * 8)(t0)
-	ld	x25, (PCB_REGS + 25 * 8)(t0)
-	ld	x26, (PCB_REGS + 26 * 8)(t0)
-	ld	x27, (PCB_REGS + 27 * 8)(t0)
+	//ld	x3, (PCB_REGS + 3 * 8)(x13)
+	ld	x4, (PCB_REGS + 4 * 8)(x13)
+	ld	x5, (PCB_REGS + 5 * 8)(x13)
+	ld	x6, (PCB_REGS + 6 * 8)(x13)
+	ld	x7, (PCB_REGS + 7 * 8)(x13)
 
-	//caller-saved, used in fork_trampoline
-	ld	x6, (PCB_REGS + 6 * 8)(t0)
-	ld	x5, (PCB_REGS + 5 * 8)(t0)
+	ld	x8, (PCB_REGS + 8 * 8)(x13)
+	ld	x9, (PCB_REGS + 9 * 8)(x13)
+
+	ld	x10, (PCB_REGS + 10 * 8)(x13)
+	ld	x11, (PCB_REGS + 11 * 8)(x13)
+	ld	x12, (PCB_REGS + 12 * 8)(x13)
+	//ld	x13, (PCB_REGS + 13 * 8)(x13)
+	ld	x14, (PCB_REGS + 14 * 8)(x13)
+	ld	x15, (PCB_REGS + 15 * 8)(x13)
+	ld	x16, (PCB_REGS + 16 * 8)(x13)
+	ld	x17, (PCB_REGS + 17 * 8)(x13)
+
+	ld	x18, (PCB_REGS + 18 * 8)(x13)
+	ld	x19, (PCB_REGS + 19 * 8)(x13)
+	ld	x20, (PCB_REGS + 20 * 8)(x13)
+	ld	x21, (PCB_REGS + 21 * 8)(x13)
+	ld	x22, (PCB_REGS + 22 * 8)(x13)
+	ld	x23, (PCB_REGS + 23 * 8)(x13)
+	ld	x24, (PCB_REGS + 24 * 8)(x13)
+	ld	x25, (PCB_REGS + 25 * 8)(x13)
+	ld	x26, (PCB_REGS + 26 * 8)(x13)
+	ld	x27, (PCB_REGS + 27 * 8)(x13)
+	ld	x28, (PCB_REGS + 28 * 8)(x13)
+	ld	x29, (PCB_REGS + 29 * 8)(x13)
+	ld	x30, (PCB_REGS + 30 * 8)(x13)
+	ld	x31, (PCB_REGS + 31 * 8)(x13)
 
 	//gp
-	sd	zero, (PCB_REGS + 3 * 8)(t0)
+	//sd	zero, (PCB_REGS + 3 * 8)(x13)
 
 	ret
 #if 0
@@ -300,13 +329,17 @@ ENTRY(fork_trampoline)
 	//call	panic
 
 	mv	a0, x5
-	mv	a1, x6
+	MV	a1, x6
 	mv	a2, sp
 	call	_C_LABEL(fork_exit)
 
+	la	a0, .Lcpu_switch_panic_str
+	li	a1, 0x63
+	call	panic
+
 	/* Restore sp and ra */
-	ld	sp, (TF_X + 2 * 8)(sp)
-	ld	ra, (TF_X + 1 * 8)(sp)
+	//ld	ra, (8)(sp)
+	//ld	sp, (0)(sp)
 
 	/* Restore the registers other than sp and ra */
 	//ld	x3, (TF_X + 3 * 8)(sp)
@@ -339,7 +372,10 @@ ENTRY(fork_trampoline)
 	ld	x30, (TF_X + 30 * 8)(sp)
 	ld	x31, (TF_X + 31 * 8)(sp)
 
-	ret
+	ld	ra, (TF_X + 1 * 8)(sp)
+	ld	sp, (TF_X + 2 * 8)(sp)
+
+	eret
 #if 0
 	mov	x0, x8
 	mov	x1, x9

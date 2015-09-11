@@ -184,6 +184,8 @@ fill_regs(struct thread *td, struct reg *regs)
 {
 	//struct trapframe *frame;
 
+	panic("%s", __func__);
+
 	//frame = td->td_frame;
 	//regs->sp = frame->tf_sp;
 	//regs->lr = frame->tf_lr;
@@ -199,6 +201,8 @@ int
 set_regs(struct thread *td, struct reg *regs)
 {
 	//struct trapframe *frame;
+
+	panic("%s", __func__);
 
 	//frame = td->td_frame;
 	//frame->tf_sp = regs->sp;
@@ -291,6 +295,8 @@ exec_setregs(struct thread *td, struct image_params *imgp, u_long stack)
 {
 	struct trapframe *tf = td->td_frame;
 
+	panic("%s", __func__);
+
 	memset(tf, 0, sizeof(struct trapframe));
 
 	//tf->tf_sp = stack;
@@ -308,6 +314,8 @@ int
 get_mcontext(struct thread *td, mcontext_t *mcp, int clear_ret)
 {
 	struct trapframe *tf = td->td_frame;
+
+	panic("%s", __func__);
 
 	if (clear_ret & GET_MC_CLEAR_RET) {
 		mcp->mc_gpregs.gp_x[0] = 0;
@@ -331,6 +339,8 @@ int
 set_mcontext(struct thread *td, mcontext_t *mcp)
 {
 	struct trapframe *tf = td->td_frame;
+
+	panic("%s", __func__);
 
 	memcpy(tf->tf_x, mcp->mc_gpregs.gp_x, sizeof(tf->tf_x));
 
@@ -523,12 +533,15 @@ makectx(struct trapframe *tf, struct pcb *pcb)
 {
 	int i;
 
+	panic("implement me\n");
+
 	for (i = 0; i < PCB_LR; i++)
 		pcb->pcb_x[i] = tf->tf_x[i];
 
 	//pcb->pcb_x[PCB_LR] = tf->tf_lr;
 	//pcb->pcb_pc = tf->tf_elr;
 	//pcb->pcb_sp = tf->tf_sp;
+	pcb->pcb_x[2] = tf->tf_x[2];
 }
 
 void
@@ -540,6 +553,8 @@ sendsig(sig_t catcher, ksiginfo_t *ksi, sigset_t *mask)
 	struct sigframe *fp, frame;
 	struct sigacts *psp;
 	int code, onstack, sig;
+
+	panic("implement me\n");
 
 	td = curthread;
 	p = td->td_proc;

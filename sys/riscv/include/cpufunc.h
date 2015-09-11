@@ -65,36 +65,42 @@ dbg_enable(void)
 static __inline register_t
 intr_disable(void)
 {
-	/* DAIF is a 32-bit register */
-	uint32_t ret;
+	uint64_t ret;
+	int tmp;
 
 	ret = 0;
+	tmp = 1;
 
-	//RISCVTODO
-#if 0
-	__asm __volatile(
-	    "mrs %x0, daif   \n"
-	    "msr daifset, #2 \n"
-	    : "=&r" (ret));
-#endif
+	//__asm __volatile(
+	//	"csrrc %0, sstatus, %1\n"
+	//	: "=r" (ret) : "r" (tmp)
+	//);
 
 	return (ret);
+	//return (ret & 1);
 }
 
 static __inline void
 intr_restore(register_t s)
 {
 
-	//RISCVTODO
-	//WRITE_SPECIALREG(daif, s);
+	//__asm __volatile(
+	//	"csrs sstatus, %0\n"
+	//	: : "r" (s)
+	//);
 }
 
 static __inline void
 intr_enable(void)
 {
+	int tmp;
 
-	//RISCVTODO
-	//__asm __volatile("msr daifclr, #2");
+	tmp = (1 << 0);
+
+	__asm __volatile(
+		"csrs sstatus, %0\n"
+		: : "r" (tmp)
+	);
 }
 
 static __inline register_t

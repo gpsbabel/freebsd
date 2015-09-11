@@ -40,6 +40,7 @@ __FBSDID("$FreeBSD: head/sys/arm64/arm64/support.S 281494 2015-04-13 14:43:10Z a
  * One of the fu* or su* functions failed, return -1.
  */
 ENTRY(fsu_fault)
+	call	panic
 #if 0
 	SET_FAULT_HANDLER(xzr, x1)	/* Reset the handler function */
 	mov	x0, #-1
@@ -51,6 +52,7 @@ END(fsu_fault)
  * int casueword32(volatile uint32_t *, uint32_t, uint32_t *, uint32_t)
  */
 ENTRY(casueword32)
+	call	panic
 #if 0
 	adr	x6, fsu_fault		/* Load the fault handler */
 	SET_FAULT_HANDLER(x6, x4)	/* And set it */
@@ -70,6 +72,7 @@ END(casueword32)
  * int casueword(volatile u_long *, u_long, u_long *, u_long)
  */
 ENTRY(casueword)
+	call	panic
 #if 0
 	adr	x6, fsu_fault		/* Load the fault handler */
 	SET_FAULT_HANDLER(x6, x4)	/* And set it */
@@ -89,6 +92,7 @@ END(casueword)
  * int fubyte(volatile const void *)
  */
 ENTRY(fubyte)
+	call	panic
 #if 0
 	adr	x6, fsu_fault		/* Load the fault handler */
 	SET_FAULT_HANDLER(x6, x1)	/* And set it */
@@ -102,6 +106,7 @@ END(fubyte)
  * int fuword(volatile const void *)
  */
 ENTRY(fuword16)
+	call	panic
 #if 0
 	adr	x6, fsu_fault		/* Load the fault handler */
 	SET_FAULT_HANDLER(x6, x1)	/* And set it */
@@ -115,6 +120,7 @@ END(fuword16)
  * int32_t fueword32(volatile const void *, int32_t *)
  */
 ENTRY(fueword32)
+	call	panic
 #if 0
 	adr	x6, fsu_fault		/* Load the fault handler */
 	SET_FAULT_HANDLER(x6, x2)	/* And set it */
@@ -132,6 +138,7 @@ END(fueword32)
  */
 ENTRY(fueword)
 EENTRY(fueword64)
+	call	panic
 #if 0
 	adr	x6, fsu_fault		/* Load the fault handler */
 	SET_FAULT_HANDLER(x6, x2)	/* And set it */
@@ -148,6 +155,7 @@ END(fueword)
  * int subyte(volatile void *, int)
  */
 ENTRY(subyte)
+	call	panic
 #if 0
 	adr	x6, fsu_fault		/* Load the fault handler */
 	SET_FAULT_HANDLER(x6, x2)	/* And set it */
@@ -162,6 +170,7 @@ END(subyte)
  * int suword16(volatile void *, int)
  */
 ENTRY(suword16)
+	call	panic
 #if 0
 	adr	x6, fsu_fault		/* Load the fault handler */
 	SET_FAULT_HANDLER(x6, x2)	/* And set it */
@@ -176,6 +185,7 @@ END(suword16)
  * int suword32(volatile void *, int)
  */
 ENTRY(suword32)
+	call	panic
 #if 0
 	adr	x6, fsu_fault		/* Load the fault handler */
 	SET_FAULT_HANDLER(x6, x2)	/* And set it */
@@ -191,6 +201,7 @@ END(suword32)
  */
 ENTRY(suword)
 EENTRY(suword64)
+	call	panic
 #if 0
 	adr	x6, fsu_fault		/* Load the fault handler */
 	SET_FAULT_HANDLER(x6, x2)	/* And set it */
@@ -212,6 +223,7 @@ END(suword)
  * Special handler so the trap code knows not to sleep.
  */
 ENTRY(fsu_intr_fault)
+	call	panic
 #if 0
 	SET_FAULT_HANDLER(xzr, x1)	/* Reset the handler function */
 	mov	x0, #-1
@@ -223,6 +235,7 @@ END(fsu_fault)
  * int fuswintr(void *)
  */
 ENTRY(fuswintr)
+	call	panic
 #if 0
 	adr	x6, fsu_intr_fault	/* Load the fault handler */
 	SET_FAULT_HANDLER(x6, x1)	/* And set it */
@@ -236,6 +249,7 @@ END(fuswintr)
  * int suswintr(void *base, int word)
  */
 ENTRY(suswintr)
+	call	panic
 #if 0
 	adr	x6, fsu_intr_fault	/* Load the fault handler */
 	SET_FAULT_HANDLER(x6, x2)	/* And set it */
@@ -247,6 +261,7 @@ ENTRY(suswintr)
 END(suswintr)
 
 ENTRY(setjmp)
+	call	panic
 #if 0
 	/* Store the stack pointer */
 	mov	x8, sp
@@ -267,6 +282,7 @@ ENTRY(setjmp)
 END(setjmp)
 
 ENTRY(longjmp)
+	call	panic
 #if 0
 	/* Restore the stack pointer */
 	ldr	x8, [x0], #8
