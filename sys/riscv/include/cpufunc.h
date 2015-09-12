@@ -68,26 +68,24 @@ intr_disable(void)
 	uint64_t ret;
 	int tmp;
 
-	ret = 0;
 	tmp = 1;
 
-	//__asm __volatile(
-	//	"csrrc %0, sstatus, %1\n"
-	//	: "=r" (ret) : "r" (tmp)
-	//);
+	__asm __volatile(
+		"csrrc %0, sstatus, %1\n"
+		: "=&r" (ret) : "r" (tmp)
+	);
 
-	return (ret);
-	//return (ret & 1);
+	return (ret & 1);
 }
 
 static __inline void
 intr_restore(register_t s)
 {
 
-	//__asm __volatile(
-	//	"csrs sstatus, %0\n"
-	//	: : "r" (s)
-	//);
+	__asm __volatile(
+		"csrs sstatus, %0\n"
+		: : "r" (s)
+	);
 }
 
 static __inline void
