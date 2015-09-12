@@ -101,7 +101,7 @@ static struct resource_spec timer_spec[] = {
 static timecounter_get_t arm_tmr_get_timecount;
 
 static struct timecounter arm_tmr_timecount = {
-	.tc_name           = "ARM MPCore Timecounter",
+	.tc_name           = "RISC-V Timecounter",
 	.tc_get_timecount  = arm_tmr_get_timecount,
 	.tc_poll_pps       = NULL,
 	.tc_counter_mask   = ~0u,
@@ -248,7 +248,7 @@ arm_tmr_start(struct eventtimer *et, sbintime_t first, sbintime_t period)
 	//		first, period, csr_read(sstatus));
 	if (csr_read(sstatus) == 0) {
 		csr_set(sstatus, 1);
-		printf("sstatus 0x%016lx\n", csr_read(sstatus));
+		//printf("sstatus 0x%016lx\n", csr_read(sstatus));
 	}
 
 
@@ -264,8 +264,6 @@ arm_tmr_start(struct eventtimer *et, sbintime_t first, sbintime_t period)
 		sc->flag+=1;
 		if (sc->flag < 3)
 			counts *= 2;
-		//else
-		//	counts /= 2;
 
 		set_mtimecmp(counts);
 
@@ -477,7 +475,7 @@ arm_tmr_attach(device_t dev)
 	arm_tmr_timecount.tc_frequency = sc->clkfreq;
 	tc_init(&arm_tmr_timecount);
 
-	sc->et.et_name = "ARM MPCore Eventtimer";
+	sc->et.et_name = "RISC-V Eventtimer";
 	sc->et.et_flags = ET_FLAGS_ONESHOT | ET_FLAGS_PERCPU;
 	sc->et.et_quality = 1000;
 
