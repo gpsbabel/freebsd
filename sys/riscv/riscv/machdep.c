@@ -417,6 +417,9 @@ cpu_idle(int busy)
 	if (!busy)
 		cpu_idleclock();
 	if (!sched_runnable())
+		__asm __volatile(
+		    "fence \n"
+		    "wfi   \n");
 #if 0
 		__asm __volatile(
 		    "dsb sy \n"
@@ -501,6 +504,8 @@ sys_sigreturn(struct thread *td, struct sigreturn_args *uap)
 {
 	ucontext_t uc;
 	uint32_t spsr;
+
+	panic("implement me: sys_sigreturn\n");
 
 	if (uap == NULL)
 		return (EFAULT);
