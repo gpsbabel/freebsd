@@ -88,6 +88,8 @@ call_trapsignal(struct thread *td, int sig, int code, void *addr)
 {
 	ksiginfo_t ksi;
 
+	panic("implement me\n");
+
 	ksiginfo_init_trap(&ksi);
 	ksi.ksi_signo = sig;
 	ksi.ksi_code = code;
@@ -254,11 +256,11 @@ do_trap(struct trapframe *frame)
 	esr = 0;//READ_SPECIALREG(esr_el1);
 	exception = (frame->tf_scause & 0xf);
 	if (frame->tf_scause & (1 << 31)) {
-		printf("intr %d, curthread 0x%016lx sepc 0x%016lx sstatus 0x%016lx\n",
-				exception, curthread,
-				frame->tf_sepc, frame->tf_sstatus);
+		//printf("intr %d, curthread 0x%016lx sepc 0x%016lx sstatus 0x%016lx\n",
+		//		exception, curthread,
+		//		frame->tf_sepc, frame->tf_sstatus);
 		arm_cpu_intr(frame);
-		printf("ret\n");
+		//printf("ret\n");
 		return;
 	}
 
