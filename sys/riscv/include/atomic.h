@@ -108,6 +108,7 @@ atomic_cmpset_32(volatile uint32_t *p, uint32_t cmpval, uint32_t newval)
 
 	__asm __volatile(
 		"0:"
+			"li   %1, 1\n" /* Preset to fail */
 			"lr.w %0, %2\n"
 			"bne  %0, %z3, 1f\n"
 			"sc.w %1, %z4, %2\n"
@@ -423,6 +424,7 @@ atomic_cmpset_rel_32(volatile uint32_t *p, uint32_t cmpval, uint32_t newval)
 
 	__asm __volatile(
 		"0:"
+			"li   %1, 1\n" /* Preset to fail */
 			"lr.w %0, %2\n"
 			"bne  %0, %z3, 1f\n"
 			"sc.w %1, %z4, %2\n"
@@ -555,6 +557,7 @@ atomic_cmpset_64(volatile uint64_t *p, uint64_t cmpval, uint64_t newval)
 
 	__asm __volatile(
 		"0:"
+			"li   %1, 1\n" /* Preset to fail */
 			"lr.d %0, %2\n"
 			"bne  %0, %z3, 1f\n"
 			"sc.d %1, %z4, %2\n"
@@ -767,6 +770,7 @@ atomic_cmpset_acq_64(volatile uint64_t *p, uint64_t cmpval, uint64_t newval)
 
 	__asm __volatile(
 		"0:"
+			"li   %1, 1\n" /* Preset to fail */
 			"lr.d %0, %2\n"
 			"bne  %0, %z3, 1f\n"
 			"sc.d %1, %z4, %2\n"
@@ -899,6 +903,7 @@ atomic_cmpset_rel_64(volatile uint64_t *p, uint64_t cmpval, uint64_t newval)
 
 	__asm __volatile(
 		"0:"
+			"li   %1, 1\n" /* Preset to fail */
 			"lr.d %0, %2\n"
 			"bne  %0, %z3, 1f\n"
 			"sc.d %1, %z4, %2\n"
