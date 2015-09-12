@@ -139,7 +139,7 @@ atomic_fetchadd_32(volatile uint32_t *p, uint32_t val)
 	uint32_t ret;
 
 	__asm __volatile("amoadd.w %0, %2, %1"
-			: "=r" (ret), "+A" (*p)
+			: "=&r" (ret), "+A" (*p)
 			: "r" (val));
 
 #if 0
@@ -282,6 +282,7 @@ atomic_cmpset_acq_32(volatile uint32_t *p, uint32_t cmpval, uint32_t newval)
 
 	__asm __volatile(
 		"0:"
+			"li   %1, 1\n" /* Preset to fail */
 			"lr.w %0, %2\n"
 			"bne  %0, %z3, 1f\n"
 			"sc.w %1, %z4, %2\n"
@@ -601,7 +602,7 @@ atomic_fetchadd_64(volatile uint64_t *p, uint64_t val)
 	uint64_t ret;
 
 	__asm __volatile("amoadd.d %0, %2, %1"
-			: "=r" (ret), "+A" (*p)
+			: "=&r" (ret), "+A" (*p)
 			: "r" (val));
 
 #if 0
