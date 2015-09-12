@@ -166,7 +166,8 @@ get_cntxct(bool physical)
 {
 	uint64_t val;
 
-	__asm __volatile("csrr %0, stime" : "=&r"(val));
+	//__asm __volatile("csrr %0, stime" : "=&r"(val));
+	__asm __volatile("csrr %0, stime" : "=r"(val));
 	//printf("val is %d\n", val);
 
 	//isb();
@@ -243,8 +244,8 @@ arm_tmr_start(struct eventtimer *et, sbintime_t first, sbintime_t period)
 	struct arm_tmr_softc *sc;
 	int counts, ctrl;
 
-	printf("arm_tmr_start first %d period %d sstatus 0x%016lx\n",
-			first, period, csr_read(sstatus));
+	//printf("arm_tmr_start first %d period %d sstatus 0x%016lx\n",
+	//		first, period, csr_read(sstatus));
 	if (csr_read(sstatus) == 0) {
 		csr_set(sstatus, 1);
 		printf("sstatus 0x%016lx\n", csr_read(sstatus));
@@ -329,6 +330,7 @@ arm_tmr_intr(void *arg)
 	//int ctrl;
 
 	//printf("%s\n", __func__);
+	//printf(".");
 
 	sc = (struct arm_tmr_softc *)arg;
 
@@ -437,7 +439,7 @@ arm_tmr_attach(device_t dev)
 	}
 #endif
 
-	sc->clkfreq = 100000;
+	sc->clkfreq = 10000000;
 
 	if (sc->clkfreq == 0) {
 		/* Try to get clock frequency from timer */
