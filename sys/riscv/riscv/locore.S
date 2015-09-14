@@ -86,7 +86,7 @@
 mentry:
 	/* User mode entry point (mtvec + 0x000) */
 	.align 6
-	j bad_trap
+	j user_trap
 
 	/* Supervisor mode entry point (mtvec + 0x040) */
 	.align 6
@@ -255,7 +255,7 @@ hardstack_end:
 
 .macro save_registers
 	addi	sp, sp, -288
-	sd	x0, (TF_X + 0 * 8)(sp) /* hard-wired zero */
+	/* x0 is hard-wired zero */
 	sd	x1, (TF_X + 1 * 8)(sp)
 	sd	x2, (TF_X + 2 * 8)(sp)
 	sd	x3, (TF_X + 3 * 8)(sp)
@@ -288,17 +288,17 @@ hardstack_end:
 	sd	x30, (TF_X + 30 * 8)(sp)
 	sd	x31, (TF_X + 31 * 8)(sp)
 
-	csrr	t1, sepc
-	sd	t1, 256(sp)
+	csrr	t0, sepc
+	sd	t0, 256(sp)
 
-	csrr	t1, sstatus
-	sd	t1, 264(sp)
+	csrr	t0, sstatus
+	sd	t0, 264(sp)
 
-	csrr	t1, sbadaddr
-	sd	t1, 272(sp)
+	csrr	t0, sbadaddr
+	sd	t0, 272(sp)
 
-	csrr	t1, scause
-	sd	t1, 280(sp)
+	csrr	t0, scause
+	sd	t0, 280(sp)
 .endm
 
 .macro load_registers
@@ -404,6 +404,10 @@ ENTRY(bad_trap)
 	j bad_trap
 END(bad_trap)
 
+ENTRY(user_trap)
+	j user_trap
+END(user_trap)
+
 #define	HANDLE_SUPERVISOR_TRAP_IN_MACHINE_MODE 0 \
   | (0 << (31 - 0)) /* IF misaligned */           \
   | (0 << (31 - 1)) /* IF fault */                \
@@ -460,25 +464,25 @@ sv_trap:
 	/* Debugging */
 	csrr	t0, mstatus
 
-	/* Clear pending */
-	li	t0, MIP_MTIP
-	csrc	mip, t0
-
 	/* Disable interrupts */
 	li	t0, MIE_MTIE
 	csrc	mie, t0
+
+	/* Clear pending */
+	li	t0, MIP_MTIP
+	csrc	mip, t0
 
 	/* Post supervisor interrupt */
 	li	t0, MIP_STIP
 	csrs	mip, t0
 
 	/*
-	 * Assuming we get here from supervisor mode,
+	 * Check if we get here from supervisor mode,
 	 * was supervisor interrupts enabled before trap ?
 	 */
 	csrr	t0, mstatus
-	and	t0, t0, (SR_IE1)
-	li	t1, (SR_IE1)
+	li	t1, (SR_IE1 | (MSTATUS_PRV_S << MSTATUS_PRV1_SHIFT))
+	and	t0, t0, t1
 	beq	t0, t1, .Lmrts
 
 	/* Restore state */
@@ -522,6 +526,8 @@ sv_trap:
 	beq	t5, t4, low_printc
 	li	t4, ECALL_MTIMECMP
 	beq	t5, t4, set_mtimecmp
+	li	t4, ECALL_CLEAR_PENDING
+	beq	t5, t4, clear_pending
 
 	/* Exit trap */
 	csrw    mepc, t1
@@ -560,15 +566,6 @@ low_printc:
 	eret
 
 set_mtimecmp:
-	//li	t0, (SR_IE | SR_IE1 | SR_IE2 | SR_IE3)
-	//li	t0, (SR_IE | SR_IE1)
-	//li	t0, (SR_IE1)
-	//csrs	mstatus, t0
-	//csrr	t0, mstatus
-
-	li	t0, MIP_STIP
-	csrc	mip, t0
-
 	csrw	mtimecmp, t6
 
 	/* Enable interrupts */
@@ -586,9 +583,20 @@ set_mtimecmp:
 	csrrw	sp, mscratch, sp
 	eret
 
-set_intr_enable:
-	li	t0, (SR_IE1)
-	csrs	mstatus, t0
+clear_pending:
+	li      t0, MIP_STIP
+	csrc    mip, t0
+
+	/* Exit trap */
+	csrw    mepc, t1
+	ld	t0, 0(sp)
+	ld	t1, 8(sp)
+	ld	t4, 16(sp)
+	ld	t5, 24(sp)
+	ld	t6, 32(sp)
+	addi	sp, sp, 40
+	csrrw	sp, mscratch, sp
+	eret
 
 mm_trap:
 	# Handle trap in supervisor mode

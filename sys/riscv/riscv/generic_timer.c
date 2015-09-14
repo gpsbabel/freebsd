@@ -152,6 +152,15 @@ set_mtimecmp2(int c)
 	);
 }
 
+static void
+clear_pending(void)
+{
+
+	__asm __volatile(
+		"mv	t5, %0\n"
+		"ecall" :: "r"(ECALL_CLEAR_PENDING)
+	);
+}
 
 static int
 get_freq(void)
@@ -246,11 +255,6 @@ arm_tmr_start(struct eventtimer *et, sbintime_t first, sbintime_t period)
 
 	//printf("arm_tmr_start first %d period %d sstatus 0x%016lx\n",
 	//		first, period, csr_read(sstatus));
-	if (csr_read(sstatus) == 0) {
-		csr_set(sstatus, 1);
-		//printf("sstatus 0x%016lx\n", csr_read(sstatus));
-	}
-
 
 	sc = (struct arm_tmr_softc *)et->et_priv;
 
@@ -262,18 +266,15 @@ arm_tmr_start(struct eventtimer *et, sbintime_t first, sbintime_t period)
 		counts += csr_read(stime);
 
 		sc->flag+=1;
-		if (sc->flag < 3)
+		if (sc->flag == 2) {
+			//printf("arm_tmr_start first %d period %d counts %d sstatus 0x%016lx\n",
+			//	first, period, counts, csr_read(sstatus));
 			counts *= 2;
+			//sc->flag += 3;
+			//return (0);
+		}
 
 		set_mtimecmp(counts);
-
-		//csr_set(sie, (1 << 5));
-		//csr_write(stimecmp, counts);
-		//printf("sstatus 0x%016lx\n", csr_read(sstatus));
-		//if (sc->flag == 1) {
-		//	counts *= 2;
-		//	csr_set(sstatus, 1);
-		//}
 
 		return (0);
 
@@ -333,7 +334,10 @@ arm_tmr_intr(void *arg)
 	sc = (struct arm_tmr_softc *)arg;
 
 	/* Clear pending */
-	csr_clear(sip, (1 << 5));
+	/* not implemented in spike */
+	//csr_clear(sip, (1 << 5));
+
+	clear_pending();
 
 	//ctrl = get_ctrl(sc->physical);
 	//if (ctrl & GT_CTRL_INT_STAT) {
@@ -344,6 +348,7 @@ arm_tmr_intr(void *arg)
 	if (sc->et.et_active)
 		sc->et.et_event_cb(&sc->et, sc->et.et_arg);
 
+	//printf(".");
 	return (FILTER_HANDLED);
 }
 
@@ -486,9 +491,6 @@ arm_tmr_attach(device_t dev)
 	sc->et.et_stop = arm_tmr_stop;
 	sc->et.et_priv = sc;
 	et_register(&sc->et);
-
-	csr_set(sstatus, 1);
-	//printf("sstatus set 0x%016lx\n", csr_read(sstatus));
 
 	return (0);
 }

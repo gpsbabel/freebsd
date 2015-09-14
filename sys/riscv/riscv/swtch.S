@@ -329,7 +329,7 @@ ENTRY(fork_trampoline)
 	//call	panic
 
 	mv	a0, x5
-	MV	a1, x6
+	mv	a1, x6
 	mv	a2, sp
 	call	_C_LABEL(fork_exit)
 

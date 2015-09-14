@@ -89,7 +89,7 @@ cpu_fork(struct thread *td1, struct proc *p2, struct thread *td2, int flags)
 	td2->td_pcb->pcb_l1addr =
 	    vtophys(vmspace_pmap(td2->td_proc->p_vmspace)->pm_l1);
 
-	printf("pcb_l1addr 0x%016lx\n", td2->td_pcb->pcb_l1addr);
+	//printf("pcb_l1addr 0x%016lx\n", td2->td_pcb->pcb_l1addr);
 
 	tf = (struct trapframe *)STACKALIGN((struct trapframe *)pcb2 - 1);
 	bcopy(td1->td_frame, tf, sizeof(*tf));
@@ -109,7 +109,7 @@ cpu_fork(struct thread *td1, struct proc *p2, struct thread *td2, int flags)
 
 	/* Setup to release spin count in fork_exit(). */
 	td2->td_md.md_spinlock_count = 1;
-	td2->td_md.md_saved_daif = 0;
+	td2->td_md.md_saved_daif = 1;
 }
 
 void
@@ -185,7 +185,7 @@ cpu_set_upcall(struct thread *td, struct thread *td0)
 
 	/* Setup to release spin count in fork_exit(). */
 	td->td_md.md_spinlock_count = 1;
-	td->td_md.md_saved_daif = 0;
+	td->td_md.md_saved_daif = 1;
 }
 
 /*
