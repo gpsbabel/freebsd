@@ -37,9 +37,6 @@ struct trapframe;
 
 struct pcb {
 	uint64_t	pcb_x[32];
-	//uint64_t	aaa;
-	//uint64_t	bbb;
-	//uint64_t	ccc;
 	//uint64_t	pcb_pc;
 	/* These two need to be in order as we access them together */
 	//uint64_t	pcb_sp;

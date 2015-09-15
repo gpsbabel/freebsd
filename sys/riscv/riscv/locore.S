@@ -213,7 +213,7 @@ _start:
 	/* Initialize stack pointer */
 	la	s3, initstack_end
 	mv	sp, s3
-	//sub	sp, sp, #PCB_SIZE
+	addi	sp, sp, -PCB_SIZE
 
 	/* Clear BSS  */
 	la	a0, _C_LABEL(__bss_start)
@@ -248,9 +248,8 @@ _start:
 initstack:
 	.space  (PAGE_SIZE * KSTACK_PAGES)
 initstack_end:
-
 hardstack:
-	.space  (PAGE_SIZE * KSTACK_PAGES)
+	.space  (PAGE_SIZE)
 hardstack_end:
 
 .macro save_registers
@@ -504,6 +503,10 @@ sv_trap:
 	/* Enable interrupts for PRV1, so when we leave this trap it will be PRV */
 	//li	t0, (SR_IE1)
 	//csrs	mstatus, t0
+
+	/* Clear pending */
+	li      t0, MIP_STIP
+	csrc    mip, t0
 
 	/* Restore state */
 	ld	t0, 0(sp)

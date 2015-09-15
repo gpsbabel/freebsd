@@ -983,7 +983,7 @@ initriscv(struct riscv_bootparams *rvbp)
 	    "msr tpidr_el1, %0" :: "r"(pcpup));
 #endif
 	__asm __volatile(
-	    "mv gp, %0 \n" :: "r"(pcpup));
+	    "mv gp, %0" :: "r"(pcpup));
 
 	PCPU_SET(curthread, &thread0);
 

@@ -50,6 +50,9 @@ __FBSDID("$FreeBSD: head/sys/arm/arm/generic_timer.c 284273 2015-06-11 15:45:33Z
 #include <sys/timeet.h>
 #include <sys/timetc.h>
 #include <sys/watchdog.h>
+
+#include <sys/proc.h>
+
 #include <machine/bus.h>
 #include <machine/cpu.h>
 #include <machine/intr.h>
@@ -88,7 +91,6 @@ struct arm_tmr_softc {
 	uint32_t		clkfreq;
 	struct eventtimer	et;
 	bool			physical;
-	int			flag;
 };
 
 static struct arm_tmr_softc *arm_tmr_sc = NULL;
@@ -138,17 +140,6 @@ set_mtimecmp(int c)
 		"mv	t5, %1\n"
 		"mv	t6, %0\n"
 		"ecall" :: "r"(c), "r"(ECALL_LOW_PRINTC)
-	);
-}
-
-static void
-set_mtimecmp2(int c)
-{
-
-	__asm __volatile(
-		"mv	t5, %0\n"
-		"mv	t6, %1\n"
-		"ecall" :: "r"(ECALL_MTIMECMP2), "r"(c)
 	);
 }
 
@@ -252,9 +243,12 @@ arm_tmr_start(struct eventtimer *et, sbintime_t first, sbintime_t period)
 {
 	struct arm_tmr_softc *sc;
 	int counts, ctrl;
+	struct thread *td;
 
-	//printf("arm_tmr_start first %d period %d sstatus 0x%016lx\n",
-	//		first, period, csr_read(sstatus));
+	td = curthread;
+
+	//printf("arm_tmr_start first %d period %d sstatus 0x%016lx sc %d d %d\n",
+	//		first, period, csr_read(sstatus), td->td_md.md_spinlock_count, td->td_md.md_saved_daif);
 
 	sc = (struct arm_tmr_softc *)et->et_priv;
 
@@ -263,33 +257,9 @@ arm_tmr_start(struct eventtimer *et, sbintime_t first, sbintime_t period)
 
 		//printf("csr_read(stime) 0x%016lx\n", csr_read(stime));
 		//printf("csr_read(stime) 0x%016lx\n", csr_read(stime));
+
 		counts += csr_read(stime);
-
-		sc->flag+=1;
-		if (sc->flag == 2) {
-			//printf("arm_tmr_start first %d period %d counts %d sstatus 0x%016lx\n",
-			//	first, period, counts, csr_read(sstatus));
-			counts *= 2;
-			//sc->flag += 3;
-			//return (0);
-		}
-
 		set_mtimecmp(counts);
-
-		return (0);
-
-		if (sc->flag == 1) {
-			printf("set_mtimecmp %d\n", counts);
-			set_mtimecmp(counts);
-		}
-
-		if (sc->flag == 2) {
-			counts *= 10;
-			printf("set_mtimecmp2 %d\n", counts);
-			set_mtimecmp2(counts);
-		}
-
-		//printf("ignore set_mtimecmp\n");
 
 		return (0);
 
@@ -442,7 +412,7 @@ arm_tmr_attach(device_t dev)
 	}
 #endif
 
-	sc->clkfreq = 10000000;
+	sc->clkfreq = 1000000;
 
 	if (sc->clkfreq == 0) {
 		/* Try to get clock frequency from timer */
