@@ -66,13 +66,10 @@ static __inline register_t
 intr_disable(void)
 {
 	uint64_t ret;
-	int tmp;
-
-	tmp = 1;
 
 	__asm __volatile(
-		"csrrc %0, sstatus, %1\n"
-		: "=&r" (ret) : "r" (tmp)
+		"csrrci %0, sstatus, 1"
+		: "=&r" (ret)
 	);
 
 	return (ret & 1);
@@ -83,21 +80,17 @@ intr_restore(register_t s)
 {
 
 	__asm __volatile(
-		"csrs sstatus, %0\n"
-		: : "r" (s)
+		"csrs sstatus, %0"
+		:: "r" (s)
 	);
 }
 
 static __inline void
 intr_enable(void)
 {
-	int tmp;
-
-	tmp = (1 << 0);
 
 	__asm __volatile(
-		"csrs sstatus, %0\n"
-		: : "r" (tmp)
+		"csrsi sstatus, 1"
 	);
 }
 
