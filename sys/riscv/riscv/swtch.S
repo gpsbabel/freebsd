@@ -116,23 +116,18 @@ ENTRY(cpu_switch)
 	ld	x13, TD_PCB(a0)
 
 	/* Store the callee-saved registers */
-	sd	x1, (PCB_REGS + 1 * 8)(x13)
 
-	//sd	x3, (PCB_REGS + 3 * 8)(x13)
-	//sd	x4, (PCB_REGS + 4 * 8)(x13)
+	/* ra and sp */
+	sd	x1, (PCB_REGS + 1 * 8)(x13)
+	sd	x2, (PCB_REGS + 2 * 8)(x13)
+
+	/* we use these in fork_trampoline */
 	sd	x5, (PCB_REGS + 5 * 8)(x13)
 	sd	x6, (PCB_REGS + 6 * 8)(x13)
-	//sd	x7, (PCB_REGS + 7 * 8)(x13)
+
+	/* s0 - s11 */
 	sd	x8, (PCB_REGS + 8 * 8)(x13)
 	sd	x9, (PCB_REGS + 9 * 8)(x13)
-	//sd	x10, (PCB_REGS + 10 * 8)(x13)
-	//sd	x11, (PCB_REGS + 11 * 8)(x13)
-	//sd	x12, (PCB_REGS + 12 * 8)(x13)
-	//sd	x13, (PCB_REGS + 13 * 8)(x13)
-	//sd	x14, (PCB_REGS + 14 * 8)(x13)
-	//sd	x15, (PCB_REGS + 15 * 8)(x13)
-	//sd	x16, (PCB_REGS + 16 * 8)(x13)
-	//sd	x17, (PCB_REGS + 17 * 8)(x13)
 	sd	x18, (PCB_REGS + 18 * 8)(x13)
 	sd	x19, (PCB_REGS + 19 * 8)(x13)
 	sd	x20, (PCB_REGS + 20 * 8)(x13)
@@ -144,13 +139,7 @@ ENTRY(cpu_switch)
 	sd	x26, (PCB_REGS + 26 * 8)(x13)
 	sd	x27, (PCB_REGS + 27 * 8)(x13)
 
-	//sd	x28, (PCB_REGS + 28 * 8)(x13)
-	//sd	x29, (PCB_REGS + 29 * 8)(x13)
-	//sd	x30, (PCB_REGS + 30 * 8)(x13)
-	//sd	x31, (PCB_REGS + 31 * 8)(x13)
-
 	/* And the old stack pointer */
-	sd	x2, (PCB_REGS + 2 * 8)(x13)
 	//sd	sp, PCB_SP(t0)
 
 	/*
@@ -175,30 +164,20 @@ ENTRY(cpu_switch)
 
 	/* Restore the registers */
 	//ld	x2, (PCB_SP)(t0)
-	ld	x2, (PCB_REGS + 2 * 8)(x13)
 	//mv	sp, t1
 	//msr	tpidr_el0, t2
 
+	/* ra and sp */
 	ld	x1, (PCB_REGS + 1 * 8)(x13)
+	ld	x2, (PCB_REGS + 2 * 8)(x13)
 
-	//ld	x3, (PCB_REGS + 3 * 8)(x13)
-	//ld	x4, (PCB_REGS + 4 * 8)(x13)
+	/* we use these in fork_trampoline */
 	ld	x5, (PCB_REGS + 5 * 8)(x13)
 	ld	x6, (PCB_REGS + 6 * 8)(x13)
-	//ld	x7, (PCB_REGS + 7 * 8)(x13)
 
+	/* s0 - s11 */
 	ld	x8, (PCB_REGS + 8 * 8)(x13)
 	ld	x9, (PCB_REGS + 9 * 8)(x13)
-
-	//ld	x10, (PCB_REGS + 10 * 8)(x13)
-	//ld	x11, (PCB_REGS + 11 * 8)(x13)
-	//ld	x12, (PCB_REGS + 12 * 8)(x13)
-	//ld	x13, (PCB_REGS + 13 * 8)(x13)
-	//ld	x14, (PCB_REGS + 14 * 8)(x13)
-	//ld	x15, (PCB_REGS + 15 * 8)(x13)
-	//ld	x16, (PCB_REGS + 16 * 8)(x13)
-	//ld	x17, (PCB_REGS + 17 * 8)(x13)
-
 	ld	x18, (PCB_REGS + 18 * 8)(x13)
 	ld	x19, (PCB_REGS + 19 * 8)(x13)
 	ld	x20, (PCB_REGS + 20 * 8)(x13)
@@ -209,10 +188,6 @@ ENTRY(cpu_switch)
 	ld	x25, (PCB_REGS + 25 * 8)(x13)
 	ld	x26, (PCB_REGS + 26 * 8)(x13)
 	ld	x27, (PCB_REGS + 27 * 8)(x13)
-	//ld	x28, (PCB_REGS + 28 * 8)(x13)
-	//ld	x29, (PCB_REGS + 29 * 8)(x13)
-	//ld	x30, (PCB_REGS + 30 * 8)(x13)
-	//ld	x31, (PCB_REGS + 31 * 8)(x13)
 
 	//gp
 	//sd	zero, (PCB_REGS + 3 * 8)(x13)
