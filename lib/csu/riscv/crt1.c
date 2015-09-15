@@ -61,16 +61,16 @@ __asm("	.text			\n"
 "	.globl	_start		\n"
 "	_start:			\n"
 /* TODO: Remove this when the kernel correctly aligns the stack */
-"	cbnz	x0, 1f		\n" /* Are we using a new kernel? */
-"	mov	x0, sp		\n" /* No, load the args from sp */
-"	and	sp, x0, #~0xf	\n" /* And align the stack */
-"1:	mov	x3, x2		\n" /* cleanup */
-"	add	x1, x0, #8	\n" /* load argv */
-"	ldr	x0, [x0]	\n" /* load argc */
-"	add	x2, x1, x0, lsl #3 \n" /* env is after argv */
-"	add	x2, x2, #8	\n" /* argv is null terminated */
-"	b	 __start  ");
-
+"	bnez	a0, 1f		\n" /* Are we using a new kernel? */
+"	mv	a0, sp		\n" /* No, load the args from sp */
+"	and	sp, a0, ~0xf	\n" /* And align the stack */
+"1:	mv	a3, a2		\n" /* cleanup */
+"	addi	a1, a0, 8	\n" /* load argv */
+"	ld	a0, 0(a0)	\n" /* load argc */
+"	slli	t0, a0, 3	\n" /* mult by 8 */
+"	add	a2, a1, t0	\n" /* env is after argv */
+"	addi	a2, a2, 8	\n" /* argv is null terminated */
+"	call	 __start  ");
 
 /* The entry function. */
 void
@@ -88,7 +88,7 @@ __start(int argc, char *argv[], char *env[], void (*cleanup)(void))
 		 * that firsts requests it. We should fix the toolchain,
 		 * however this is is needed until this can take place.
 		 */
-		*(volatile long *)&_end;
+		//*(volatile long *)&_end;
 
 		_init_tls();
 	}

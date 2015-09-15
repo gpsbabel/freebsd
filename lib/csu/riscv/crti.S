@@ -35,14 +35,14 @@ __FBSDID("$FreeBSD: head/lib/csu/aarch64/crti.S 280259 2015-03-19 13:53:47Z andr
 	.globl	_init
 	.type	_init,@function
 _init:
-	sub	sp, sp, #16
-	str	lr, [sp]
+	addi	sp, sp, -16
+	sd	ra, 0(sp)
 
 	.section .fini,"ax",@progbits
 	.align 4
 	.globl	_fini
 	.type	_fini,@function
 _fini:
-	sub	sp, sp, #16
-	str	lr, [sp]
+	addi	sp, sp, -16
+	sd	ra, (sp)
 

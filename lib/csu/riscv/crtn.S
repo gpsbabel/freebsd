@@ -28,17 +28,17 @@
  */
 
 #include <machine/asm.h>
-__FBSDID("$FreeBSD: head/lib/csu/aarch64/crtn.S 280259 2015-03-19 13:53:47Z andrew $");
+__FBSDID("$FreeBSD$");
 
 	.section .init,"ax",@progbits
-	ldr	lr, [sp]
-	add	sp, sp, #16
+	ld	ra, 0(sp)
+	addi	sp, sp, 16
 	ret
 
 
 	.section .fini,"ax",@progbits
-	ldr	lr, [sp]
-	add	sp, sp, #16
+	ld	ra, (sp)
+	addi	sp, sp, 16
 	ret
 
 	.section .note.GNU-stack,"",%progbits
