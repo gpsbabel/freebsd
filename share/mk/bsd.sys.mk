@@ -109,6 +109,11 @@ CWARNFLAGS+=	-Werror
 CWARNFLAGS+=	-Wno-format
 .endif # NO_WFORMAT || NO_WFORMAT.${COMPILER_TYPE}
 
+# TODO: check compiler version
+.if ${MACHINE_CPUARCH} == "riscv"
+CWARNFLAGS+=	-Wno-error=unused-function -Wno-error=enum-compare -Wno-error=logical-not-parentheses -Wno-error=bool-compare -Wno-error=uninitialized -Wno-error=array-bounds -Wno-error=clobbered -Wno-error=cast-align -Wno-error=extra -Wno-error=attributes -Wno-error=inline -Wno-error=unused-but-set-variable -Wno-error=unused-value -Wno-error=strict-aliasing -Wno-error=address
+.endif
+
 # How to handle FreeBSD custom printf format specifiers.
 .if ${COMPILER_TYPE} == "clang" && ${COMPILER_VERSION} >= 30600
 FORMAT_EXTENSIONS=	-D__printf__=__freebsd_kprintf__
