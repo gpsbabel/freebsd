@@ -65,7 +65,7 @@ __FBSDID("$FreeBSD$");
     defined(__mips__) || defined(__ns32k__) || defined(__alpha__) || \
     defined(__arm__) || defined(__ppc__) || \
     defined(__arm26__) || defined(__sparc64__) || defined(__amd64__) || \
-    defined(__aarch64__)
+    defined(__aarch64__) || defined(__riscv__)
 #include <machine/endian.h>
 #define IEEEFP
 #endif
