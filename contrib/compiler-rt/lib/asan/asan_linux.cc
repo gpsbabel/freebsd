@@ -163,6 +163,11 @@ void GetPcSpBp(void *context, uptr *pc, uptr *sp, uptr *bp) {
   *pc = ucontext->uc_mcontext.pc;
   *bp = ucontext->uc_mcontext.regs[29];
   *sp = ucontext->uc_mcontext.sp;
+#elif defined(__riscv__)
+  ucontext_t *ucontext = (ucontext_t*)context;
+  *pc = ucontext->uc_mcontext.regs[1];
+  *bp = ucontext->uc_mcontext.regs[29];
+  *sp = ucontext->uc_mcontext.regs[2];
 #elif defined(__hppa__)
   ucontext_t *ucontext = (ucontext_t*)context;
   *pc = ucontext->uc_mcontext.sc_iaoq[0];

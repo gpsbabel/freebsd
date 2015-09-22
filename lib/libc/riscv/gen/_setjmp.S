@@ -1,10 +1,6 @@
 /*-
- * Copyright (c) 2014 Andrew Turner
- * Copyright (c) 2014 The FreeBSD Foundation
+ * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
- *
- * Portions of this software were developed by Andrew Turner
- * under sponsorship from the FreeBSD Foundation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,7 +22,6 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
  */
 
 #include <machine/asm.h>
@@ -36,28 +31,45 @@ __FBSDID("$FreeBSD$");
 
 ENTRY(_setjmp)
 	/* Store the magic value and stack pointer */
-	ldr	x8, .Lmagic
-	mov	x9, sp
-	stp	x8, x9, [x0], #16
+	ld	t0, .Lmagic
+	sd	t0, (0 * 8)(a0)
+	sd	sp, (1 * 8)(a0)
+	addi	a0, a0, 16
 
 	/* Store the general purpose registers and lr */
-	stp	x19, x20, [x0], #16
-	stp	x21, x22, [x0], #16
-	stp	x23, x24, [x0], #16
-	stp	x25, x26, [x0], #16
-	stp	x27, x28, [x0], #16
-	stp	x29, lr, [x0], #16
+	sd	s0, (0 * 8)(a0)
+	sd	s1, (1 * 8)(a0)
+	sd	s2, (2 * 8)(a0)
+	sd	s3, (3 * 8)(a0)
+	sd	s4, (4 * 8)(a0)
+	sd	s5, (5 * 8)(a0)
+	sd	s6, (6 * 8)(a0)
+	sd	s7, (7 * 8)(a0)
+	sd	s8, (8 * 8)(a0)
+	sd	s9, (9 * 8)(a0)
+	sd	s10, (10 * 8)(a0)
+	sd	s11, (11 * 8)(a0)
+	sd	x1, (12 * 8)(a0)	/* ra */
+	addi	a0, a0, 104
 
 #ifndef _STANDALONE
 	/* Store the vfp registers */
-	stp	d8, d9, [x0], #16
-	stp	d10, d11, [x0], #16
-	stp	d12, d13, [x0], #16
-	stp	d14, d15, [x0]
+	fsd	fs0, (0 * 8)(a0)
+	fsd	fs1, (1 * 8)(a0)
+	fsd	fs2, (2 * 8)(a0)
+	fsd	fs3, (3 * 8)(a0)
+	fsd	fs4, (4 * 8)(a0)
+	fsd	fs5, (5 * 8)(a0)
+	fsd	fs6, (6 * 8)(a0)
+	fsd	fs7, (7 * 8)(a0)
+	fsd	fs8, (8 * 8)(a0)
+	fsd	fs9, (9 * 8)(a0)
+	fsd	fs10, (10 * 8)(a0)
+	fsd	fs11, (11 * 8)(a0)
 #endif
 
 	/* Return value */
-	mov	x0, #0
+	li	a0, 0
 	ret
 	.align	3
 .Lmagic:
@@ -66,40 +78,56 @@ END(_setjmp)
 
 ENTRY(_longjmp)
 	/* Check the magic value */
-	ldr	x8, [x0], #8
-	ldr	x9, .Lmagic
-	cmp	x8, x9
-	b.ne	botch
+	ld	t0, 0(a0)
+	ld	t1, .Lmagic
+	bne	t0, t1, botch
 
 	/* Restore the stack pointer */
-	ldr	x8, [x0], #8
-	mov	sp, x8
+	ld	t0, 8(a0)
+	mv	sp, t0
+	addi	a0, a0, 16
 
 	/* Restore the general purpose registers and lr */
-	ldp	x19, x20, [x0], #16
-	ldp	x21, x22, [x0], #16
-	ldp	x23, x24, [x0], #16
-	ldp	x25, x26, [x0], #16
-	ldp	x27, x28, [x0], #16
-	ldp	x29, lr, [x0], #16
+	ld	s0, (0 * 8)(a0)
+	ld	s1, (1 * 8)(a0)
+	ld	s2, (2 * 8)(a0)
+	ld	s3, (3 * 8)(a0)
+	ld	s4, (4 * 8)(a0)
+	ld	s5, (5 * 8)(a0)
+	ld	s6, (6 * 8)(a0)
+	ld	s7, (7 * 8)(a0)
+	ld	s8, (8 * 8)(a0)
+	ld	s9, (9 * 8)(a0)
+	ld	s10, (10 * 8)(a0)
+	ld	s11, (11 * 8)(a0)
+	ld	x1, (12 * 8)(a0)	/* ra */
+	addi	a0, a0, 104
 
 #ifndef _STANDALONE
 	/* Restore the vfp registers */
-	ldp	d8, d9, [x0], #16
-	ldp	d10, d11, [x0], #16
-	ldp	d12, d13, [x0], #16
-	ldp	d14, d15, [x0]
+	fld	fs0, (0 * 8)(a0)
+	fld	fs1, (1 * 8)(a0)
+	fld	fs2, (2 * 8)(a0)
+	fld	fs3, (3 * 8)(a0)
+	fld	fs4, (4 * 8)(a0)
+	fld	fs5, (5 * 8)(a0)
+	fld	fs6, (6 * 8)(a0)
+	fld	fs7, (7 * 8)(a0)
+	fld	fs8, (8 * 8)(a0)
+	fld	fs9, (9 * 8)(a0)
+	fld	fs10, (10 * 8)(a0)
+	fld	fs11, (11 * 8)(a0)
 #endif
 
 	/* Load the return value */
-	mov	x0, x1
+	mv	a0, a1
 	ret
 
 botch:
 #ifdef _STANDALONE
-	b	botch
+	j	botch
 #else
-	bl	_C_LABEL(longjmperror)
-	bl	_C_LABEL(abort)
+	call	_C_LABEL(longjmperror)
+	call	_C_LABEL(abort)
 #endif
 END(_longjmp)

@@ -73,6 +73,9 @@ namespace __sanitizer {
 #elif defined(__powerpc__) && !defined(__powerpc64__)
   const unsigned struct_kernel_stat_sz = 72;
   const unsigned struct_kernel_stat64_sz = 104;
+#elif defined(__riscv__)
+  const unsigned struct_kernel_stat_sz = 128;
+  const unsigned struct_kernel_stat64_sz = 104;
 #elif defined(__powerpc64__)
   const unsigned struct_kernel_stat_sz = 144;
   const unsigned struct_kernel_stat64_sz = 104;
@@ -178,7 +181,7 @@ namespace __sanitizer {
     unsigned __seq;
     u64 __unused1;
     u64 __unused2;
-#elif defined(__mips__) || defined(__aarch64__)
+#elif defined(__mips__) || defined(__aarch64__) || defined(__riscv__)
     unsigned int mode;
     unsigned short __seq;
     unsigned short __pad1;

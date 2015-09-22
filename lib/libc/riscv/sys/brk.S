@@ -37,7 +37,7 @@ __FBSDID("$FreeBSD$");
 	.data
 	.align	3
 	.globl	_C_LABEL(minbrk)
-	.type	_C_LABEL(minbrk),#object
+	.type	_C_LABEL(minbrk), %object
 _C_LABEL(minbrk):
 	.quad	_C_LABEL(_end)
 
@@ -49,28 +49,36 @@ ENTRY(_brk)
 	WEAK_REFERENCE(_brk, brk)
 
 	/* Load the address of minbrk */
-	adrp	x3, minbrk
-	ldr	x2, [x3, :lo12:minbrk]
+	la	a3, minbrk
+	ld	a2, 0(a3)
+	//adrp	x3, minbrk
+	//ldr	x2, [x3, :lo12:minbrk]
 
 	/* Validate the address */
-	cmp	x0, x2
-	b.ge	1f
+	bge	a0, a2, 1f
+	//cmp	x0, x2
+	//b.ge	1f
 	/* Invalid, set it to the minimum */
-	mov	x0, x2
+	mv	a0, a2
+	//mov	x0, x2
 
 	/* Backup the new address */
-1:	mov	x4, x0
+//1:	mov	x4, x0
+1:	mv	a4, a0
 
 	/* Update for this value, will overwrite x0 and x1 */
 	_SYSCALL(break)
-	b.cs	cerror
+	bnez	t0, cerror
+	//b.cs	cerror
 
 	/* Store the new curbrk value */
-	adrp	x2, curbrk
-	str	x4, [x2, :lo12:curbrk]
+	la	a2, curbrk
+	//adrp	x2, curbrk
+	//str	x4, [x2, :lo12:curbrk]
 
 	/* Return success */
-	mov	x0, #0
+	li	a0, 0
+	//mov	x0, #0
 	ret
 
 END(_brk)

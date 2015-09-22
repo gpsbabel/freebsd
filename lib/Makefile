@@ -274,7 +274,7 @@ _libsmb=	libsmb
 _libsmb=	libsmb
 .endif
 
-.if ${MACHINE_CPUARCH} == "aarch64" || ${MACHINE_CPUARCH} == "arm"
+.if ${MACHINE_CPUARCH} == "aarch64" || ${MACHINE_CPUARCH} == "arm" || ${MACHINE_CPUARCH} == "riscv"
 _libsmb=	libsmb
 _libproc=	libproc
 _librtld_db=	librtld_db

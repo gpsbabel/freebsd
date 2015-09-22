@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2014 Andrew Turner
+ * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,5 +38,6 @@ void
 _set_tp(void *tp)
 {
 
-	asm volatile("msr	tpidr_el0, %0" : : "r"(tp));
+	//asm volatile("msr	tpidr_el0, %0" : : "r"(tp));
+	__asm __volatile("mv tp, %0" :: "r"(tp));
 }

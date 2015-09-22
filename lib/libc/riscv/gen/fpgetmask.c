@@ -1,9 +1,6 @@
 /*-
- * Copyright (c) 2015 The FreeBSD Foundation
+ * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
- *
- * This software was developed by Andrew Turner under
- * sponsorship from the FreeBSD Foundation.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -41,7 +38,7 @@ fpgetmask(void)
 	uint64_t mask;
 
 	/* Read the current mask */
-	__asm __volatile("mrs %0, fpcr" : "=&r"(mask));
+	__asm __volatile("csrr %0, fcsr" : "=&r"(mask));
 
 	return (mask & FP_X_MASK);
 }

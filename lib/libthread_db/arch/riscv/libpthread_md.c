@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2015 The FreeBSD Foundation
+ * Copyright (c) 2014-2015 The FreeBSD Foundation
  * All rights reserved.
  *
  * This software was developed by Andrew Turner under
@@ -30,59 +30,76 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD$");
 
-#include <sys/param.h>
+#include <sys/types.h>
+#include <string.h>
+#include <thread_db.h>
 
-#include <machine/armreg.h>
+#include "libpthread_db.h"
 
-#include <inttypes.h>
-#include <stdarg.h>
-#include <stdlib.h>
-#include <ucontext.h>
-
-void _ctx_start(void);
+void abort(void);
 
 void
-ctx_done(ucontext_t *ucp)
-{       
-	        
-	if (ucp->uc_link == NULL) {
-		exit(0);
-	} else {  
-		setcontext((const ucontext_t *)ucp->uc_link);
-		abort();
-	}                                                      
-}
-   
-__weak_reference(__makecontext, makecontext);
-
-void
-__makecontext(ucontext_t *ucp, void (*func)(void), int argc, ...)
+pt_reg_to_ucontext(const struct reg *r, ucontext_t *uc)
 {
-	struct gpregs *gp;
-	va_list ap;
-	int i;
+	mcontext_t *mc = &uc->uc_mcontext;
 
-	/* A valid context is required. */
-	if (ucp == NULL)
-		return;
+	memcpy(mc->mc_gpregs.gp_x, r->x, sizeof(mc->mc_gpregs.gp_x));
+	mc->mc_gpregs.gp_x[2] = r->x[2];
+	mc->mc_gpregs.gp_x[1] = r->x[1];
+	mc->mc_gpregs.gp_epc = r->epc;
 
-	if ((argc < 0) || (argc > 8))
-		return;
+	//mc->mc_gpregs.gp_sp = r->sp;
+	//mc->mc_gpregs.gp_lr = r->lr;
+	//mc->mc_gpregs.gp_elr = r->elr;
+	//mc->mc_gpregs.gp_spsr = r->spsr;
+}
 
-	gp = &ucp->uc_mcontext.mc_gpregs;
+void
+pt_ucontext_to_reg(const ucontext_t *uc, struct reg *r)
+{
+	const mcontext_t *mc = &uc->uc_mcontext;
 
-	va_start(ap, argc);
-	/* Pass up to eight arguments in x0-7. */
-	for (i = 0; i < argc && i < 8; i++)
-		gp->gp_x[i] = va_arg(ap, uint64_t);
-	va_end(ap);
+	memcpy(r->x, mc->mc_gpregs.gp_x, sizeof(mc->mc_gpregs.gp_x));
 
-	/* Set the stack */
-	gp->gp_x[2] = STACKALIGN(ucp->uc_stack.ss_sp + ucp->uc_stack.ss_size);
-	/* Arrange for return via the trampoline code. */
-	gp->gp_epc = (__register_t)_ctx_start;
-	gp->gp_x[8] = (__register_t)func;
-	gp->gp_x[9] = (__register_t)ucp;
-	//gp->gp_x[19] = (__register_t)func;
-	//gp->gp_x[20] = (__register_t)ucp;
+	r->x[1] = mc->mc_gpregs.gp_x[1];
+	r->x[2] = mc->mc_gpregs.gp_x[2];
+	r->epc = mc->mc_gpregs.gp_epc;
+
+	//r->sp = mc->mc_gpregs.gp_sp;
+	//r->lr = mc->mc_gpregs.gp_lr;
+	//r->elr = mc->mc_gpregs.gp_elr;
+	//r->spsr = mc->mc_gpregs.gp_spsr;
+}
+
+void
+pt_fpreg_to_ucontext(const struct fpreg *r, ucontext_t *uc)
+{
+	mcontext_t *mc = &uc->uc_mcontext;
+
+	memcpy(&mc->mc_fpregs, r, sizeof(*r));
+	mc->mc_flags |= _MC_FP_VALID;
+}
+
+void
+pt_ucontext_to_fpreg(const ucontext_t *uc, struct fpreg *r)
+{
+	const mcontext_t *mc = &uc->uc_mcontext;
+
+	if (mc->mc_flags & _MC_FP_VALID)
+		memcpy(r, &mc->mc_fpregs, sizeof(*r));
+	else
+		memset(r, 0, sizeof(*r));
+
+}
+
+void
+pt_md_init(void)
+{
+}
+
+int
+pt_reg_sstep(struct reg *reg __unused, int step __unused)
+{
+
+	return (0);
 }

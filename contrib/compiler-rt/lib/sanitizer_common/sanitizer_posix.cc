@@ -85,7 +85,7 @@ static uptr GetKernelAreaSize() {
 
 uptr GetMaxVirtualAddress() {
 #if SANITIZER_WORDSIZE == 64
-# if defined(__powerpc64__) || defined(__aarch64__)
+# if defined(__powerpc64__) || defined(__aarch64__) || defined(__riscv__)
   // On PowerPC64 we have two different address space layouts: 44- and 46-bit.
   // We somehow need to figure out which one we are using now and choose
   // one of 0x00000fffffffffffUL and 0x00003fffffffffffUL.

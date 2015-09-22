@@ -1,9 +1,6 @@
 /*-
- * Copyright (c) 2014 The FreeBSD Foundation
+ * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
- *
- * This software was developed by Andrew Turner under
- * sponsorship from the FreeBSD Foundation.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,20 +30,28 @@ __FBSDID("$FreeBSD$");
 #include <machine/setjmp.h>
 
 ENTRY(sigsetjmp)
-	cmp	x1, #0
-	b.eq	_C_LABEL(_setjmp)
-	b	_C_LABEL(setjmp)
+	beqz	a1, _C_LABEL(_setjmp)
+	j	_C_LABEL(setjmp)
+	//cmp	x1, #0
+	//b.eq	_C_LABEL(_setjmp)
+	//b	_C_LABEL(setjmp)
 END(sigsetjmp)
 
 ENTRY(siglongjmp)
 	/* Load the _setjmp magic */
-	ldr	x2, .Lmagic
-	ldr	x3, [x0]
+	ld	a2, .Lmagic
+	ld	a3, 0(a0)
+
+	//ldr	x2, .Lmagic
+	//ldr	x3, [x0]
 
 	/* Check the magic */
-	cmp	x2, x3
-	b.eq	_C_LABEL(_longjmp)
-	b	_C_LABEL(longjmp)
+	beq	a2, a3, _C_LABEL(_longjmp)
+	j	_C_LABEL(longjmp)
+
+	//cmp	x2, x3
+	//b.eq	_C_LABEL(_longjmp)
+	//b	_C_LABEL(longjmp)
 	.align	3
 .Lmagic:
 	.quad	_JB_MAGIC__SETJMP

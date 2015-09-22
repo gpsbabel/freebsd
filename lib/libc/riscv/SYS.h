@@ -34,8 +34,8 @@
 #include <machine/asm.h>
 
 #define	_SYSCALL(name)						\
-	mov	x8, SYS_ ## name;				\
-	svc	0
+	li	x5, SYS_ ## name;				\
+	ecall
 
 #define	SYSCALL(name)						\
 ENTRY(__sys_##name);						\
@@ -49,7 +49,7 @@ END(__sys_##name)
 ENTRY(__sys_##name);						\
 	WEAK_REFERENCE(__sys_##name, _##name);			\
 	_SYSCALL(name);						\
-	b.cs	cerror;						\
+	bnez	t0, cerror; 					\
 	ret;							\
 END(__sys_##name)
 
@@ -58,6 +58,6 @@ ENTRY(__sys_##name);						\
 	WEAK_REFERENCE(__sys_##name, name);			\
 	WEAK_REFERENCE(__sys_##name, _##name);			\
 	_SYSCALL(name);						\
-	b.cs	cerror;						\
+	bnez	t0, cerror; 					\
 	ret;							\
 END(__sys_##name)

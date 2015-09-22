@@ -67,6 +67,10 @@ SRCS+=	ashldi3.c ashrdi3.c
 SRCS+=	syncicache.c
 .endif
 
+.if ${MACHINE_CPUARCH} == "riscv"
+.PATH: ${LIBC_SRC}/riscv/gen
+.endif
+
 # uuid functions from libc
 .PATH: ${LIBC_SRC}/uuid
 SRCS+= uuid_equal.c uuid_is_nil.c

@@ -254,7 +254,8 @@ SUBDIR+=	iscsictl
 
 .if ${MK_KDUMP} != "no"
 SUBDIR+=        kdump
-.if ${MACHINE_ARCH} != "aarch64" # ARM64TODO truss does not build
+.if ${MACHINE_ARCH} != "aarch64" && \ # ARM64TODO truss does not build
+    ${MACHINE_ARCH} != "riscv" # RISCVTODO truss does not build
 SUBDIR+=        truss
 .endif
 .endif
@@ -359,7 +360,8 @@ SUBDIR+=	ctags
 SUBDIR+=	cxxfilt
 SUBDIR+=	elfcopy
 SUBDIR+=	file2c
-.if ${MACHINE_ARCH} != "aarch64" # ARM64TODO gprof does not build
+.if ${MACHINE_ARCH} != "aarch64" && \ # ARM64TODO gprof does not build
+    ${MACHINE_ARCH} != "riscv" # RISCVTODO gprof does not build
 SUBDIR+=	gprof
 .endif
 SUBDIR+=	indent
@@ -393,7 +395,9 @@ SUBDIR+=	usbhidctl
 
 .if ${MK_UTMPX} != "no"
 SUBDIR+=	last
+.if ${MACHINE_ARCH} != "riscv"
 SUBDIR+=	users
+.endif
 SUBDIR+=	who
 .endif
 

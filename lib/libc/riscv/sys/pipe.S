@@ -36,17 +36,22 @@ ENTRY(__sys_pipe)
 	WEAK_REFERENCE(__sys_pipe, pipe)
 
 	/* Backup the pointer passed to us */
-	mov	x2, x0
+	mv	a2, a0
+	//mov	x2, x0
 
 	/* Make the syscall */
 	_SYSCALL(pipe)
-	b.cs	cerror
+	bnez	t0, cerror
+	//b.cs	cerror
 
 	/* Store the result */
-	str	w0, [x2, #0]
-	str	w1, [x2, #4]
+	sw	a0, 0(a2)
+	sw	a1, 4(a2)
+	//str	w0, [x2, #0]
+	//str	w1, [x2, #4]
 
 	/* Return */
-	mov	x0, #0
+	li	a0, 0
+	//mov	x0, #0
 	ret
 END(__sys_pipe)

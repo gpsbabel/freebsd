@@ -32,18 +32,37 @@ __FBSDID("$FreeBSD$");
 #include <fenv.h>
 #include <float.h>
 
+#if 0
 static int map[] = {
 	1,	/* round to nearest */
 	2,	/* round to positive infinity */
 	3,	/* round to negative infinity */
 	0	/* round to zero */
 };
+#endif
 
 int
 __flt_rounds(void)
 {
-	uint64_t fpcr;
+	//uint64_t fpcr;
+	int mode;
 
-	asm volatile("mrs	%0, fpcr" : "=r" (fpcr));
-	return map[(fpcr >> 22) & 3];
+	//asm volatile("mrs	%0, fpcr" : "=r" (fpcr));
+	//return map[(fpcr >> 22) & 3];
+
+	/* RISC-V TODO */
+	//mode = __softfloat_float_rounding_mode;
+	mode = FE_TOWARDZERO;
+
+	switch (mode) {
+	case FE_TOWARDZERO:
+		return (0);
+	case FE_TONEAREST:
+		return (1);
+	case FE_UPWARD:
+		return (2);
+	case FE_DOWNWARD:
+		return (3);
+	}
+	return (-1);
 }

@@ -32,11 +32,19 @@ __FBSDID("$FreeBSD$");
 ENTRY(__sys_vfork)
 	WEAK_REFERENCE(__sys_vfork, vfork)
 	WEAK_REFERENCE(__sys_vfork, _vfork)
-	mov	x2, lr
+	mv	a2, ra
+	//mov	x2, lr
+
 	_SYSCALL(vfork)
-	b.cs	cerror
-	sub	x1, x1, #1
-	and	x0, x0, x1
-	mov	lr, x2
+	bnez	t0, cerror
+	addi	a1, a1, -1
+	and	a0, a0, a1
+	mv	ra, a2
+
+	//b.cs	cerror
+	//sub	x1, x1, #1
+	//and	x0, x0, x1
+	//mov	lr, x2
+
 	ret
 END(__sys_vfork)

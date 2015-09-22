@@ -35,10 +35,11 @@
 
 struct reg {
 	uint64_t x[32];
-	uint64_t lr;
-	uint64_t sp;
-	uint64_t elr;
-	uint32_t spsr;
+	//uint64_t lr;
+	//uint64_t sp;
+	//uint64_t elr;
+	uint64_t epc;
+	//uint32_t spsr;
 };
 
 struct fpreg {

@@ -15,6 +15,10 @@ ar5523.bin: ${.CURDIR}/../../sys/contrib/dev/uath/ar5523.bin.uu
 	uudecode -p ${.CURDIR}/../../sys/contrib/dev/uath/ar5523.bin.uu > ${.TARGET}
 
 ar5523.o: ar5523.bin
+.if ${MACHINE_ARCH} == "riscv"
+	${LD} -b binary -d -warn-common -d -o ${.TARGET} ar5523.bin
+.else
 	${LD} -b binary -d -warn-common -r -d -o ${.TARGET} ar5523.bin
+.endif
 
 .include <bsd.prog.mk>

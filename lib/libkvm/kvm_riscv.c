@@ -1,6 +1,6 @@
 /*-
- * Copyright (c) 2014 Andrew Turner
- * Copyright (c) 2014-2015 The FreeBSD Foundation
+ * Copyright (C) 2006 Bruce M. Simpson.
+ * Copyright (c) 2015 The FreeBSD Foundation
  * All rights reserved.
  *
  * This software was developed by Andrew Turner under
@@ -26,40 +26,82 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
- * $FreeBSD: head/sys/arm64/include/ucontext.h 281017 2015-04-03 10:56:42Z andrew $
  */
 
-#ifndef _MACHINE_UCONTEXT_H_
-#define	_MACHINE_UCONTEXT_H_
+/*
+ * arm64 (AArch64) machine dependent routines for kvm.
+ */
 
-struct gpregs {
-	unsigned long long gp_x[32];
-	//unsigned long long gp_lr;
-	//unsigned long long gp_sp;
-	//unsigned long long gp_elr;
-	unsigned long long gp_epc;
-	uint32_t	gp_spsr;
-	u_int		gp_pad;
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
+
+#include <sys/param.h>
+#include <sys/mman.h>
+
+#include <vm/vm.h>
+#include <vm/vm_param.h>
+#include <vm/pmap.h>
+
+#include <machine/pmap.h>
+
+#include <limits.h>
+#include <kvm.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
+#include "kvm_private.h"
+
+/* minidump must be the first item! */
+struct vmstate {
+	int minidump;		/* 1 = minidump mode */
+	void *mmapbase;
+	size_t mmapsize;
 };
 
-struct fpregs {
-	__uint128_t	fp_q[32];
-	uint32_t	fp_sr;
-	uint32_t	fp_cr;
-	u_int		fp_flags;
-	u_int		fp_pad;
-};
+void
+_kvm_freevtop(kvm_t *kd)
+{
 
-struct __mcontext {
-	struct gpregs	mc_gpregs;
-	struct fpregs	mc_fpregs;
-	u_int		mc_flags;
-#define	_MC_FP_VALID	0x1		/* Set when mc_fpregs has valid data */
-	u_int		mc_pad;		/* Padding */
-	uint64_t	mc_spare[8];	/* Space for expansion, set to zero */
-};
+	if (kd->vmst != 0) {
+		if (kd->vmst->minidump) {
+			_kvm_minidump_freevtop(kd);
+			return;
+		}
+		if (kd->vmst->mmapbase != NULL)
+			munmap(kd->vmst->mmapbase, kd->vmst->mmapsize);
+		free(kd->vmst);
+		kd->vmst = NULL;
+	}
+}
 
-typedef struct __mcontext mcontext_t;
+int
+_kvm_initvtop(kvm_t *kd)
+{
+	char minihdr[8];
 
-#endif	/* !_MACHINE_UCONTEXT_H_ */
+	if (!kd->rawdump) {
+		if (pread(kd->pmfd, &minihdr, 8, 0) == 8) {
+			if (memcmp(&minihdr, "minidump", 8) == 0)
+				return (_kvm_minidump_initvtop(kd));
+		} else {
+			_kvm_err(kd, kd->program, "cannot read header");
+			return (-1);
+		}
+	}
+
+	_kvm_err(kd, 0, "_kvm_initvtop: Unsupported image type");
+	return (-1);
+}
+
+int
+_kvm_kvatop(kvm_t *kd, u_long va, off_t *pa)
+{
+
+	if (kd->vmst->minidump)
+		return _kvm_minidump_kvatop(kd, va, pa);
+
+
+	_kvm_err(kd, 0, "_kvm_kvatop: Unsupported image type");
+	return (0);
+}

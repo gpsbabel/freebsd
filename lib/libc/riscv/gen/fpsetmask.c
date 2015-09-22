@@ -1,9 +1,6 @@
 /*-
- * Copyright (c) 2015 The FreeBSD Foundation
+ * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
- *
- * This software was developed by Andrew Turner under
- * sponsorship from the FreeBSD Foundation.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -38,15 +35,11 @@ __FBSDID("$FreeBSD$");
 fp_except_t
 fpsetmask(fp_except_t mask)
 {
-	uint64_t old, new;
+	uint64_t old;
 
 	mask &= FP_X_MASK;
 
-	/* Read the current mask */
-	__asm __volatile("mrs %0, fpcr" : "=&r"(old));
-	new = old & ~FP_X_MASK;
-	new |= mask;
-	__asm __volatile("msr fpcr, %0" :: "r"(new));
+	__asm __volatile("csrrs %0, fcsr, %1" : "=&r"(old) : "r"(mask));
 
 	return ((fp_except_t)old);
 }

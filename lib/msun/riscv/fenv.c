@@ -1,10 +1,7 @@
 /*-
- * Copyright (c) 2014 Andrew Turner
- * Copyright (c) 2014-2015 The FreeBSD Foundation
+ * Copyright (c) 2004 David Schultz <das@FreeBSD.ORG>
+ * Copyright (c) 2013 Andrew Turner <andrew@FreeBSD.ORG>
  * All rights reserved.
- *
- * This software was developed by Andrew Turner under
- * sponsorship from the FreeBSD Foundation.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,39 +24,33 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $FreeBSD: head/sys/arm64/include/ucontext.h 281017 2015-04-03 10:56:42Z andrew $
+ * $FreeBSD$
  */
 
-#ifndef _MACHINE_UCONTEXT_H_
-#define	_MACHINE_UCONTEXT_H_
+#define	__fenv_static
+#include "fenv.h"
 
-struct gpregs {
-	unsigned long long gp_x[32];
-	//unsigned long long gp_lr;
-	//unsigned long long gp_sp;
-	//unsigned long long gp_elr;
-	unsigned long long gp_epc;
-	uint32_t	gp_spsr;
-	u_int		gp_pad;
-};
+/*
+ * Hopefully the system ID byte is immutable, so it's valid to use
+ * this as a default environment.
+ */
+const fenv_t __fe_dfl_env = 0;
 
-struct fpregs {
-	__uint128_t	fp_q[32];
-	uint32_t	fp_sr;
-	uint32_t	fp_cr;
-	u_int		fp_flags;
-	u_int		fp_pad;
-};
+#ifdef __GNUC_GNU_INLINE__
+#error "This file must be compiled with C99 'inline' semantics"
+#endif
 
-struct __mcontext {
-	struct gpregs	mc_gpregs;
-	struct fpregs	mc_fpregs;
-	u_int		mc_flags;
-#define	_MC_FP_VALID	0x1		/* Set when mc_fpregs has valid data */
-	u_int		mc_pad;		/* Padding */
-	uint64_t	mc_spare[8];	/* Space for expansion, set to zero */
-};
-
-typedef struct __mcontext mcontext_t;
-
-#endif	/* !_MACHINE_UCONTEXT_H_ */
+extern inline int feclearexcept(int __excepts);
+extern inline int fegetexceptflag(fexcept_t *__flagp, int __excepts);
+extern inline int fesetexceptflag(const fexcept_t *__flagp, int __excepts);
+extern inline int feraiseexcept(int __excepts);
+extern inline int fetestexcept(int __excepts);
+extern inline int fegetround(void);
+extern inline int fesetround(int __round);
+extern inline int fegetenv(fenv_t *__envp);
+extern inline int feholdexcept(fenv_t *__envp);
+extern inline int fesetenv(const fenv_t *__envp);
+extern inline int feupdateenv(const fenv_t *__envp);
+extern inline int feenableexcept(int __mask);
+extern inline int fedisableexcept(int __mask);
+extern inline int fegetexcept(void);

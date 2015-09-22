@@ -29,13 +29,25 @@
 __FBSDID("$FreeBSD$");
 
 ENTRY(cerror)
-	sub	sp, sp, #16
-	stp	x0, lr, [sp]
-	bl	_C_LABEL(__error)
-	ldp	x1, lr, [sp]
-	str	x1, [x0]
-	movn	x0, #0
-	movn	x1, #0
-	add	sp, sp, #16
+	addi	sp, sp, -16
+	sd	a0, 0(sp)
+	sd	ra, 8(sp)
+	call	_C_LABEL(__error)
+	ld	a1, 0(sp)
+	ld	ra, 8(sp)
+	sd	a1, 0(a0)
+	li	a0, 0
+	li	a1, 0
+	addi	sp, sp, 16
+
+	//sub	sp, sp, #16
+	//stp	x0, lr, [sp]
+	//bl	_C_LABEL(__error)
+	//ldp	x1, lr, [sp]
+	//str	x1, [x0]
+	//movn	x0, #0
+	//movn	x1, #0
+	//add	sp, sp, #16
+
 	ret
 END(cerror)
