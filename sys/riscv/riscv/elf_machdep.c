@@ -97,7 +97,7 @@ static struct sysentvec elf64_freebsd_sysvec = {
 
 static Elf64_Brandinfo freebsd_brand_info = {
 	.brand		= ELFOSABI_FREEBSD,
-	.machine	= EM_AARCH64,
+	.machine	= EM_RISCV,
 	.compat_3_brand	= "FreeBSD",
 	.emul_path	= NULL,
 	.interp_path	= "/libexec/ld-elf.so.1",
@@ -112,7 +112,7 @@ SYSINIT(elf64, SI_SUB_EXEC, SI_ORDER_FIRST,
 
 static Elf64_Brandinfo freebsd_brand_oinfo = {
 	.brand		= ELFOSABI_FREEBSD,
-	.machine	= EM_AARCH64,
+	.machine	= EM_RISCV,
 	.compat_3_brand	= "FreeBSD",
 	.emul_path	= NULL,
 	.interp_path	= "/usr/libexec/ld-elf.so.1",

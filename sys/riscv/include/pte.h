@@ -123,6 +123,7 @@ typedef	uint64_t	pt_entry_t;		/* page table entry */
 #define	PTE_TYPE_M	(0xf << PTE_TYPE_S)
 #define	PTE_TYPE_PTR	0
 #define	PTE_TYPE_PTR_G	1
+#define	PTE_TYPE_SURWX	0x7		/* Supervisor and User Read Write Execute */
 #define	PTE_TYPE_SRWX	0xb		/* Supervisor Read Write Execute */
 #define	PTE_TYPE_SRWX_G	0xf		/* Supervisor Read Write Execute Global */
 #define	PTE_PPN0_S	10

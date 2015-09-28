@@ -86,6 +86,10 @@ END(arm64_nullop)
  */
 
 ENTRY(arm64_setttb)
+	fence
+	csrw	sptbr0, a0
+	fence
+	ret
 #if 0
 	dsb	ish
 	msr	ttbr0_el1, x0

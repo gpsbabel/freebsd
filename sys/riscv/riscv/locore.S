@@ -117,18 +117,6 @@ _start:
 	sub	t0, t0, s11
 	csrw	mscratch, t0
 
-	/*
-	li	s0, ((MSTATUS_VM_SV48 << MSTATUS_VM_SHIFT) | \
-		     (MSTATUS_PRV_M << MSTATUS_PRV_SHIFT) | \
-		     (MSTATUS_PRV_S << MSTATUS_PRV1_SHIFT) | \
-		     (MSTATUS_PRV_U << MSTATUS_PRV2_SHIFT));
-	*/
-	//csrw	mstatus, s0
-
-	//la	s1, _C_LABEL(_end)	/* page aligned end of the kernel */
-	//csrw	sptbr, s1	// set the page table base
-	//csrw	sscratch, 0
-
 	/* Setup supervisor exception handler */
 	la	s0, _C_LABEL(cpu_exception_handler)
 	add	s0, s0, s11
@@ -138,24 +126,6 @@ _start:
 	li	s9, (PAGE_SIZE * KSTACK_PAGES)
 
 	/* Page tables */
-
-	/* Level 0 */
-	la	s1, pagetable_l0
-	la	s2, pagetable_l1	/* Link to next level PN */
-	srli	s2, s2, PAGE_SHIFT
-
-	li	a5, 0xffffffffc0000000
-	srli	a5, a5, 39
-	andi	a5, a5, 0x1ff
-	li	t4, (PTE_VALID | (PTE_TYPE_PTR_G << PTE_TYPE_S))
-	slli	t5, s2, PTE_PPN0_S	/* (s2 << PTE_PPN0_S) */
-	or	t6, t4, t5
-
-	/* Store single level0 PTE entry to position */
-	li	a6, PTE_SIZE
-	mulw	a5, a5, a6
-	add	t0, s1, a5
-	sd	t6, (t0)
 
 	/* Level 1 */
 	la	s1, pagetable_l1
@@ -190,14 +160,14 @@ _start:
 	addi	t4, t4, 1
 	bltu	t4, t3, 2b
 
-	/* Page tables base */
-	la	s1, pagetable_l0
-	csrw	sptbr, s1
+	/* Page tables base for kernel */
+	la	s1, pagetable_l1
+	csrw	sptbr1, s1
 
 	/* Page tables END */
 
 	/* Enter supervisor mode */
-	li	s0, ((MSTATUS_VM_SV48 << MSTATUS_VM_SHIFT) | \
+	li	s0, ((MSTATUS_VM_SV39 << MSTATUS_VM_SHIFT) | \
 		     (MSTATUS_PRV_M << MSTATUS_PRV_SHIFT) | \
 		     (MSTATUS_PRV_S << MSTATUS_PRV1_SHIFT) | \
 		     (MSTATUS_PRV_U << MSTATUS_PRV2_SHIFT));
@@ -302,6 +272,7 @@ hardstack_end:
 
 .macro load_registers
 	csrr	t0, sstatus
+	//csrr	t0, sptbr
 
 	ld	t0, 264(sp)
 	csrw	sstatus, t0
@@ -350,6 +321,8 @@ hardstack_end:
 
 	ld	x2, (TF_X + 2 * 8)(sp)
 	addi	sp, sp, 288
+
+	//csrw	sptbr, x4
 .endm
 
 ENTRY(cpu_exception_handler)
@@ -387,8 +360,6 @@ szsigcode:
 	.quad	esigcode - sigcode
 
 	.align	12
-pagetable_l0:
-	.space  PAGE_SIZE
 pagetable_l1:
 	.space	PAGE_SIZE
 pagetable_l2:
@@ -404,7 +375,8 @@ ENTRY(bad_trap)
 END(bad_trap)
 
 ENTRY(user_trap)
-	j user_trap
+	/* Redirect to supervisor */
+	mrts
 END(user_trap)
 
 #define	HANDLE_SUPERVISOR_TRAP_IN_MACHINE_MODE 0 \
@@ -422,16 +394,25 @@ END(user_trap)
 sv_trap:
 	/* Save state */
 	csrrw	sp, mscratch, sp
-	addi	sp, sp, -40
+	addi	sp, sp, -64
 	sd	t0, 0(sp)
 	sd	t1, 8(sp)
 	sd	t4, 16(sp)
 	sd	t5, 24(sp)
 	sd	t6, 32(sp)
 
+	/* Save current sptbr */
+	//csrr	t0, sptbr
+	//sd	t0, 40(sp)
+	//mv	x4, t0
+	/* Load kernel sptbr */
+	//la	t0, pagetable_l1
+	//csrw	sptbr, t0
+
 	/* Debugging */
 	csrr	t0, mstatus
 
+	//csrr	t0, sptbr /* debug */
 	csrr	t0, mcause
 	bltz	t0, .Linterrupt
 	li	t1, HANDLE_SUPERVISOR_TRAP_IN_MACHINE_MODE
@@ -444,7 +425,7 @@ sv_trap:
 	ld	t4, 16(sp)
 	ld	t5, 24(sp)
 	ld	t6, 32(sp)
-	addi	sp, sp, 40
+	addi	sp, sp, 64
 	csrrw	sp, mscratch, sp
 
 	/* Redirect to supervisor */
@@ -484,13 +465,16 @@ sv_trap:
 	and	t0, t0, t1
 	beq	t0, t1, .Lmrts
 
+	/* Restore sptbr */
+	//ld	t0, 40(sp)
+	//csrw	sptbr, t0
 	/* Restore state */
 	ld	t0, 0(sp)
 	ld	t1, 8(sp)
 	ld	t4, 16(sp)
 	ld	t5, 24(sp)
 	ld	t6, 32(sp)
-	addi	sp, sp, 40
+	addi	sp, sp, 64
 	csrrw	sp, mscratch, sp
 	eret
 
@@ -514,7 +498,7 @@ sv_trap:
 	ld	t4, 16(sp)
 	ld	t5, 24(sp)
 	ld	t6, 32(sp)
-	addi	sp, sp, 40
+	addi	sp, sp, 64
 	csrrw	sp, mscratch, sp
 
 	/* Redirect to supervisor */
@@ -534,12 +518,16 @@ sv_trap:
 
 	/* Exit trap */
 	csrw    mepc, t1
+	/* Restore sptbr */
+	//ld	t0, 40(sp)
+	//csrw	sptbr, t0
+	/* Restore state */
 	ld	t0, 0(sp)
 	ld	t1, 8(sp)
 	ld	t4, 16(sp)
 	ld	t5, 24(sp)
 	ld	t6, 32(sp)
-	addi	sp, sp, 40
+	addi	sp, sp, 64
 	csrrw	sp, mscratch, sp
 	eret
 
@@ -559,12 +547,16 @@ low_printc:
 
 	/* Exit trap */
 	csrw    mepc, t1
+	/* Restore sptbr */
+	//ld	t0, 40(sp)
+	//csrw	sptbr, t0
+	/* Restore state */
 	ld	t0, 0(sp)
 	ld	t1, 8(sp)
 	ld	t4, 16(sp)
 	ld	t5, 24(sp)
 	ld	t6, 32(sp)
-	addi	sp, sp, 40
+	addi	sp, sp, 64
 	csrrw	sp, mscratch, sp
 	eret
 
@@ -577,12 +569,16 @@ set_mtimecmp:
 
 	/* Exit trap */
 	csrw    mepc, t1
+	/* Restore sptbr */
+	//ld	t0, 40(sp)
+	//csrw	sptbr, t0
+	/* Restore state */
 	ld	t0, 0(sp)
 	ld	t1, 8(sp)
 	ld	t4, 16(sp)
 	ld	t5, 24(sp)
 	ld	t6, 32(sp)
-	addi	sp, sp, 40
+	addi	sp, sp, 64
 	csrrw	sp, mscratch, sp
 	eret
 
@@ -592,12 +588,16 @@ clear_pending:
 
 	/* Exit trap */
 	csrw    mepc, t1
+	/* Restore sptbr */
+	//ld	t0, 40(sp)
+	//csrw	sptbr, t0
+	/* Restore state */
 	ld	t0, 0(sp)
 	ld	t1, 8(sp)
 	ld	t4, 16(sp)
 	ld	t5, 24(sp)
 	ld	t6, 32(sp)
-	addi	sp, sp, 40
+	addi	sp, sp, 64
 	csrrw	sp, mscratch, sp
 	eret
 

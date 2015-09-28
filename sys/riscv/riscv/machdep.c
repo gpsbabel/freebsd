@@ -295,9 +295,12 @@ exec_setregs(struct thread *td, struct image_params *imgp, u_long stack)
 {
 	struct trapframe *tf = td->td_frame;
 
-	panic("%s", __func__);
+	//panic("%s", __func__);
 
 	memset(tf, 0, sizeof(struct trapframe));
+	tf->tf_x[2] = stack;
+	tf->tf_x[1] = imgp->entry_addr;
+	tf->tf_sepc = imgp->entry_addr;
 
 	//tf->tf_sp = stack;
 	//tf->tf_lr = imgp->entry_addr;
@@ -938,6 +941,7 @@ initriscv(struct riscv_bootparams *rvbp)
 	printf("boothowto\n");
 
 	boothowto = 0; //MD_FETCH(kmdp, MODINFOMD_HOWTO, int);
+	boothowto = RB_SINGLE;
 
 	printf("kern_envp\n");
 	kern_envp = NULL; //MD_FETCH(kmdp, MODINFOMD_ENVP, char *);
@@ -1027,6 +1031,11 @@ initriscv(struct riscv_bootparams *rvbp)
 
 	printf("init proc0 kernstack 0x%016lx\n", rvbp->kern_stack);
 	init_proc0(rvbp->kern_stack);
+
+	/* set page table base register for thread0 */
+	thread0.td_pcb->pcb_l1addr = (rvbp->kern_l1pt - KERNBASE);
+	printf("thread0 0x%016lx pcb_l1addr 0x%016lx\n",
+		&thread0, thread0.td_pcb->pcb_l1addr);
 
 	printf("msgbuf init\n");
 	msgbufinit(msgbufp, msgbufsize);

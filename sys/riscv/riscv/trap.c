@@ -164,7 +164,7 @@ data_abort(struct trapframe *frame, uint64_t esr, int lower)
 	td = curthread;
 	pcb = td->td_pcb;
 
-	printf("sbadaddr 0x%016lx\n", frame->tf_sbadaddr);
+	printf("data_abort: sbadaddr 0x%016lx\n", frame->tf_sbadaddr);
 	//while (1);
 
 	/*
@@ -176,7 +176,9 @@ data_abort(struct trapframe *frame, uint64_t esr, int lower)
 		return;
 	}
 
-	far = 0;//READ_SPECIALREG(far_el1);
+	//far = READ_SPECIALREG(far_el1);
+	far = frame->tf_sbadaddr;
+
 	p = td->td_proc;
 
 	if (lower)
@@ -188,14 +190,11 @@ data_abort(struct trapframe *frame, uint64_t esr, int lower)
 		else
 			map = &td->td_proc->p_vmspace->vm_map;
 	}
-	/* RISCVTODO */
-	map = kernel_map;
 
-	//va = trunc_page(far);
-	va = frame->tf_sbadaddr;
+	va = trunc_page(far);
 
 	//ftype = ((esr >> 6) & 1) ? VM_PROT_READ | VM_PROT_WRITE : VM_PROT_READ;
-	ftype = frame->tf_scause == EXCP_LOAD_ACCESS_FAULT ? VM_PROT_READ : VM_PROT_WRITE;
+	ftype = frame->tf_scause == EXCP_LOAD_ACCESS_FAULT ? VM_PROT_READ : (VM_PROT_READ | VM_PROT_WRITE);
 
 	if (map != kernel_map) {
 		/*
@@ -217,7 +216,7 @@ data_abort(struct trapframe *frame, uint64_t esr, int lower)
 		 * Don't have to worry about process locking or stacks in the
 		 * kernel.
 		 */
-		//printf("map is 0x%016lx\n", map);
+		printf("map is kernel one: 0x%016lx\n", map);
 		error = vm_fault(map, va, ftype, VM_FAULT_NORMAL);
 	}
 
@@ -232,11 +231,13 @@ data_abort(struct trapframe *frame, uint64_t esr, int lower)
 		} else {
 			if (td->td_intr_nesting_level == 0 &&
 			    pcb->pcb_onfault != 0) {
-				frame->tf_x[0] = error;
+				frame->tf_x[10] = error;
+				frame->tf_sepc = pcb->pcb_onfault;
+				//frame->tf_x[0] = error;
 				//frame->tf_elr = pcb->pcb_onfault;
 				return;
 			}
-			panic("vm_fault failed");
+			panic("vm_fault failed: %lx", frame->tf_sepc);
 			//panic("vm_fault failed: %lx", frame->tf_elr);
 		}
 	}
@@ -296,6 +297,7 @@ do_trap(struct trapframe *frame)
 	switch(exception) {
 	case EXCP_LOAD_ACCESS_FAULT:
 	case EXCP_STORE_ACCESS_FAULT:
+	case 1:
 		data_abort(frame, esr, 0);
 		break;
 	//case EXCP_FP_SIMD:

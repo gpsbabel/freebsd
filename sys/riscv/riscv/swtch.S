@@ -153,9 +153,17 @@ ENTRY(cpu_switch)
 	 */
 
 	/* Switch to the new pmap */
-	//ld	t1, PCB_L1ADDR(t0)
-	//msr	ttbr0_el1, t1
-
+	ld	t0, PCB_L1ADDR(x13)
+#if 0
+	beqz	t0, 1f
+	bgtz	t0, 2f
+1:
+	la	a0, .Lcpu_switch_panic_str
+	//li	a1, 0x65
+	call	panic
+2:
+#endif
+	csrw	sptbr0, t0
 	/* Invalidate the TLB */
 	sfence.vm
 
@@ -308,13 +316,17 @@ ENTRY(fork_trampoline)
 	mv	a2, sp
 	call	_C_LABEL(fork_exit)
 
-	la	a0, .Lcpu_switch_panic_str
-	li	a1, 0x63
-	call	panic
+	//la	a0, .Lcpu_switch_panic_str
+	//li	a1, 0x63
+	//call	panic
 
 	/* Restore sp and ra */
 	//ld	ra, (8)(sp)
 	//ld	sp, (0)(sp)
+
+	/* Restore epc */
+	ld	t0, 256(sp)
+	csrw	sepc, t0
 
 	/* Restore the registers other than sp and ra */
 	//ld	x3, (TF_X + 3 * 8)(sp)

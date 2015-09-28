@@ -269,7 +269,7 @@ arm_enable_intr(void)
 {
 	struct arm64_intr_entry *intr;
 
-	printf("Enable interrupts\n");
+	//printf("Enable interrupts\n");
 
 	if (root_pic == NULL)
 		panic("Cannot enable interrupts. No PIC configured");
@@ -323,7 +323,7 @@ arm_setup_intr(const char *name, driver_filter_t *filt, driver_intr_t handler,
 	struct arm64_intr_entry *intr;
 	int error;
 
-	printf("%s\n", __func__);
+	//printf("%s\n", __func__);
 
 	intr = intr_acquire(hw_irq);
 	if (intr == NULL)
@@ -337,7 +337,7 @@ arm_setup_intr(const char *name, driver_filter_t *filt, driver_intr_t handler,
 	if (intr->i_cntidx >= NIRQS)
 		return (EINVAL);
 
-	printf("%s 1\n", __func__);
+	//printf("%s 1\n", __func__);
 
 	if (intr->i_event == NULL) {
 		error = intr_event_create(&intr->i_event, (void *)intr, 0,
@@ -347,12 +347,12 @@ arm_setup_intr(const char *name, driver_filter_t *filt, driver_intr_t handler,
 			return (error);
 	}
 
-	printf("%s name %s\n", __func__, name);
+	//printf("%s name %s\n", __func__, name);
 
 	error = intr_event_add_handler(intr->i_event, name, filt, handler, arg,
 	    intr_priority(flags), flags, cookiep);
 
-	printf("%s error %d\n", __func__, error);
+	//printf("%s error %d\n", __func__, error);
 
 	if (!error) {
 		mtx_lock(&intr_list_lock);
@@ -366,7 +366,7 @@ arm_setup_intr(const char *name, driver_filter_t *filt, driver_intr_t handler,
 				    intr->i_pol);
 			}
 
-			printf("%s 4\n", __func__);
+			//printf("%s 4\n", __func__);
 			PIC_UNMASK(root_pic, intr->i_hw_irq);
 		}
 		mtx_unlock(&intr_list_lock);

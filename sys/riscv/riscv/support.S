@@ -40,7 +40,9 @@ __FBSDID("$FreeBSD: head/sys/arm64/arm64/support.S 281494 2015-04-13 14:43:10Z a
  * One of the fu* or su* functions failed, return -1.
  */
 ENTRY(fsu_fault)
-	call	panic
+	SET_FAULT_HANDLER(x0, a1)	/* Reset the handler function */
+	li	a0, -1
+	ret
 #if 0
 	SET_FAULT_HANDLER(xzr, x1)	/* Reset the handler function */
 	mov	x0, #-1
@@ -138,7 +140,14 @@ END(fueword32)
  */
 ENTRY(fueword)
 EENTRY(fueword64)
-	call	panic
+	la	a6, fsu_fault		/* Load the fault handler */
+	SET_FAULT_HANDLER(a6, a2)	/* And set it */
+	ld	a0, 0(a0)		/* Try loading the data */
+	SET_FAULT_HANDLER(x0, a2)	/* Reset the fault handler */
+	sd	a0, 0(a1)		/* Save the data in kernel space */
+	li	a0, 0			/* Success */
+	ret				/* Return */
+
 #if 0
 	adr	x6, fsu_fault		/* Load the fault handler */
 	SET_FAULT_HANDLER(x6, x2)	/* And set it */
@@ -155,7 +164,12 @@ END(fueword)
  * int subyte(volatile void *, int)
  */
 ENTRY(subyte)
-	call	panic
+	la	a6, fsu_fault		/* Load the fault handler */
+	SET_FAULT_HANDLER(a6, a2)	/* And set it */
+	sb	a1, 0(a0)		/* Try storing the data */
+	SET_FAULT_HANDLER(x0, a2)	/* Reset the fault handler */
+	li	a0, 0			/* Success */
+	ret				/* Return */
 #if 0
 	adr	x6, fsu_fault		/* Load the fault handler */
 	SET_FAULT_HANDLER(x6, x2)	/* And set it */
@@ -185,7 +199,12 @@ END(suword16)
  * int suword32(volatile void *, int)
  */
 ENTRY(suword32)
-	call	panic
+	la	a6, fsu_fault		/* Load the fault handler */
+	SET_FAULT_HANDLER(a6, a2)	/* And set it */
+	sw	a1, 0(a0)		/* Try storing the data */
+	SET_FAULT_HANDLER(x0, a2)	/* Reset the fault handler */
+	li	a0, 0			/* Success */
+	ret				/* Return */
 #if 0
 	adr	x6, fsu_fault		/* Load the fault handler */
 	SET_FAULT_HANDLER(x6, x2)	/* And set it */
@@ -201,7 +220,12 @@ END(suword32)
  */
 ENTRY(suword)
 EENTRY(suword64)
-	call	panic
+	la	a6, fsu_fault
+	SET_FAULT_HANDLER(a6, a2)
+	sd	a1, 0(a0)
+	SET_FAULT_HANDLER(x0, a2)
+	li	a0, 0
+	ret
 #if 0
 	adr	x6, fsu_fault		/* Load the fault handler */
 	SET_FAULT_HANDLER(x6, x2)	/* And set it */

@@ -323,6 +323,8 @@ gic_unmask_irq(device_t dev, u_int irq)
 
 	sc = device_get_softc(dev);
 
+	printf("gic_unmask_irq %d\n", irq);
+
 	switch (irq) {
 	case IRQ_TIMER:
 		csr_set(sie, SIE_STIE);

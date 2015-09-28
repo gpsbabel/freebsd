@@ -74,7 +74,7 @@ __makecontext(ucontext_t *ucp, void (*func)(void), int argc, ...)
 	va_start(ap, argc);
 	/* Pass up to eight arguments in x0-7. */
 	for (i = 0; i < argc && i < 8; i++)
-		gp->gp_x[i] = va_arg(ap, uint64_t);
+		gp->gp_x[(10 + i)] = va_arg(ap, uint64_t);
 	va_end(ap);
 
 	/* Set the stack */

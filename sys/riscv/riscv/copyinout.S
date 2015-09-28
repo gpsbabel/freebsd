@@ -39,6 +39,9 @@ __FBSDID("$FreeBSD: head/sys/arm64/arm64/copyinout.S 281494 2015-04-13 14:43:10Z
  * Fault handler for the copy{in,out} functions below.
  */
 ENTRY(copyio_fault)
+	SET_FAULT_HANDLER(x0, a1) /* Clear the handler */
+	li	a0, EFAULT
+	ret
 #if 0
 	SET_FAULT_HANDLER(xzr, x1) /* Clear the handler */
 	mov	x0, #EFAULT
@@ -52,6 +55,22 @@ END(copyio_fault)
  * int copyout(const void *kaddr, void *udaddr, size_t len)
  */
 ENTRY(copyout)
+	beqz	a2, 2f		/* If len == 0 then skip loop */
+
+	la	a6, copyio_fault /* Get the handler address */
+	SET_FAULT_HANDLER(a6, a7) /* Set the handler */
+
+1:	lb	a4, 0(a0)	/* Load from kaddr */
+	addi	a0, a0, 1
+	sb	a4, 0(a1)	/* Store in uaddr */
+	addi	a1, a1, 1
+	addi	a2, a2, -1	/* len-- */
+	bnez	a2, 1b
+
+	SET_FAULT_HANDLER(x0, a7) /* Clear the handler */
+
+2:	mv	a0, x0		/* return 0 */
+	ret
 #if 0
 	cbz	x2, 2f		/* If len == 0 then skip loop */
 
@@ -76,6 +95,22 @@ END(copyout)
  * int copyin(const void *uaddr, void *kdaddr, size_t len)
  */
 ENTRY(copyin)
+	beqz	a2, 2f		/* If len == 0 then skip loop */
+
+	la	a6, copyio_fault /* Get the handler address */
+	SET_FAULT_HANDLER(a6, a7) /* Set the handler */
+
+1:	lb	a4, 0(a0)	/* Load from uaddr */
+	addi	a0, a0, 1
+	sb	a4, 0(a1)	/* Store in kaddr */
+	addi	a1, a1, 1
+	addi	a2, a2, -1	/* len-- */
+	bnez	a2, 1b
+
+	SET_FAULT_HANDLER(x0, a7) /* Clear the handler */
+
+2:	mv	a0, x0		/* return 0 */
+	ret
 #if 0
 	cbz	x2, 2f		/* If len == 0 then skip loop */
 
@@ -100,6 +135,29 @@ END(copyin)
  * int copyinstr(const void *udaddr, void *kaddr, size_t len, size_t *done)
  */
 ENTRY(copyinstr)
+	mv	a5, x0		/* count = 0 */
+	beqz	a2, 3f		/* If len == 0 then skip loop */
+
+	la	a6, copyio_fault /* Get the handler address */
+	SET_FAULT_HANDLER(a6, a7) /* Set the handler */
+
+1:	lb	a4, 0(a0)
+	addi	a0, a0, 1
+	sb	a4, 0(a1)
+	addi	a1, a1, 1
+	beqz	a4, 2f
+	addi	a2, a2, -1	/* len-- */
+	addi	a5, a5, 1	/* count++ */
+	bnez	a2, 1b
+	
+2:	SET_FAULT_HANDLER(x0, a7) /* Clear the handler */
+
+3:	beqz	a3, 4f		/* Check if done != NULL */
+	addi	a5, a5, 1	/* count++ */
+	sd	a5, 0(a3)	/* done = count */
+
+4:	mv	a0, x0		/* return 0 */
+	ret
 #if 0
 	mov	x5, xzr		/* count = 0 */
 	cbz	x2, 3f		/* If len == 0 then skip loop */

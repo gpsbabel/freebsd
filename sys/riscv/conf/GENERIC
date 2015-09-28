@@ -67,7 +67,10 @@ options 	VERBOSE_SYSINIT		# Enable verbose sysinit messages
 #device 	mmcsd			# mmc/sd flash cards
 
 # Boot device is 2nd slice on MMC/SD card
-options 	ROOTDEVNAME=\"ufs:/dev/da0s2\"
+options 	MD_ROOT			# MD is a potential root device
+options 	MD_ROOT_SIZE=4096	# 4MB ram disk
+makeoptions	MFS_IMAGE=/home/rb743/dev/freebsd-riscv/riscv-new.img
+options 	ROOTDEVNAME=\"ufs:/dev/md0\"
 
 # ATA controllers
 #device 	ahci			# AHCI-compatible SATA controllers
@@ -80,14 +83,14 @@ device		uart_ns8250
 device		pty
 device		snp
 device		md
-# device		random			# Entropy device
+device		random			# Entropy device
 
 # I2C support
 #device 	iicbus
 #device 	iic
 
 # GPIO
-device		gpio
+#device		gpio
 
 #device		scbus			# SCSI bus (required for ATA/SCSI)
 #device		da			# Direct Access (disks)
@@ -108,15 +111,15 @@ device		gpio
 # Ethernet
 device		loop
 device		ether
-device		mii
-device		smscphy
+#device		mii
+#device		smscphy
 #device 	cpsw
-device		bpf
+#device		bpf
 
 #device		emac
 
 # USB ethernet support, requires miibus
-device		miibus
+#device		miibus
 
 # Flattened Device Tree
 options 	FDT

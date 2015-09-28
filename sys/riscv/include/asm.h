@@ -57,7 +57,6 @@
 #define	PIC_SYM(x,y)	x
 #endif
 
-#if 0
 /*
  * Sets the trap fault handler. The exception handler will return to the
  * address in the handler register on a data abort or the xzr register to
@@ -65,10 +64,15 @@
  * the temporary data.
  */
 #define	SET_FAULT_HANDLER(handler, tmp)					\
+	ld	tmp, PC_CURTHREAD(gp);		/* Load curthread */	\
+	ld	tmp, TD_PCB(tmp);		/* Load the pcb */	\
+	sd	handler, PCB_ONFAULT(tmp)	/* Set the handler */
+
+#if 0
+#define	SET_FAULT_HANDLER(handler, tmp)					\
 	ldr	tmp, [x18, #PC_CURTHREAD];	/* Load curthread */	\
 	ldr	tmp, [tmp, #TD_PCB];		/* Load the pcb */	\
 	str	handler, [tmp, #PCB_ONFAULT]	/* Set the handler */
-
 #endif /* if 0 */
 
 #define CSR_ZIMM(val) \
