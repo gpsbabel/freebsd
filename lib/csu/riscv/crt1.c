@@ -58,10 +58,8 @@ void __start(int, char **, char **, void (*)(void));
 /* The entry function. */
 __asm("	.text			\n"
 "	.align	0		\n"
-"_gp:				\n"
-"	.space 8		\n"
 "	.globl	_start		\n"
-"_start:			\n"
+"	_start:			\n"
 /* TODO: Remove this when the kernel correctly aligns the stack */
 "	bnez	a0, 1f		\n" /* Are we using a new kernel? */
 "	mv	a0, sp		\n" /* No, load the args from sp */
@@ -72,7 +70,7 @@ __asm("	.text			\n"
 "	slli	t0, a0, 3	\n" /* mult by 8 */
 "	add	a2, a1, t0	\n" /* env is after argv */
 "	addi	a2, a2, 8	\n" /* argv is null terminated */
-"	la	gp, _gp		\n"
+"	la	gp, _gp		\n" /* load global pointer */
 "	call	 __start  ");
 
 /* The entry function. */
