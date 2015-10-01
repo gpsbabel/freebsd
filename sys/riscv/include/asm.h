@@ -64,12 +64,15 @@
  * the temporary data.
  */
 #define	SET_FAULT_HANDLER(handler, tmp)					\
-	ld	tmp, PC_CURTHREAD(gp);		/* Load curthread */	\
+	la	tmp, pcpup;						\
+	ld	tmp, 0(tmp);						\
+	ld	tmp, PC_CURTHREAD(tmp);					\
 	ld	tmp, TD_PCB(tmp);		/* Load the pcb */	\
 	sd	handler, PCB_ONFAULT(tmp)	/* Set the handler */
 
 #if 0
 #define	SET_FAULT_HANDLER(handler, tmp)					\
+	ld	tmp, PC_CURTHREAD(gp);		/* Load curthread */	\
 	ldr	tmp, [x18, #PC_CURTHREAD];	/* Load curthread */	\
 	ldr	tmp, [tmp, #TD_PCB];		/* Load the pcb */	\
 	str	handler, [tmp, #PCB_ONFAULT]	/* Set the handler */

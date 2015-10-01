@@ -88,7 +88,7 @@ call_trapsignal(struct thread *td, int sig, int code, void *addr)
 {
 	ksiginfo_t ksi;
 
-	panic("implement me\n");
+	panic("%s: implement me\n", __func__);
 
 	ksiginfo_init_trap(&ksi);
 	ksi.ksi_signo = sig;
@@ -106,13 +106,18 @@ cpu_fetch_syscall_args(struct thread *td, struct syscall_args *sa)
 
 	nap = 8;
 	p = td->td_proc;
-	ap = td->td_frame->tf_x;
+	ap = &td->td_frame->tf_x[10];
 
-	sa->code = td->td_frame->tf_x[8];
+	//sa->code = td->td_frame->tf_x[8];
+	sa->code = td->td_frame->tf_x[5];
 
 	if (sa->code == SYS_syscall || sa->code == SYS___syscall) {
 		sa->code = *ap++;
 		nap--;
+
+		printf("syscall 0(%d)\n", sa->code);
+	} else {
+		printf("syscall %d\n", sa->code);
 	}
 
 	if (p->p_sysent->sv_mask)
@@ -123,6 +128,7 @@ cpu_fetch_syscall_args(struct thread *td, struct syscall_args *sa)
 		sa->callp = &p->p_sysent->sv_table[sa->code];
 
 	sa->narg = sa->callp->sy_narg;
+	printf("sa->narg %d\n", sa->narg);
 	memcpy(sa->args, ap, nap * sizeof(register_t));
 	if (sa->narg > nap)
 		panic("TODO: Could we have more then 8 args?");
@@ -195,6 +201,11 @@ data_abort(struct trapframe *frame, uint64_t esr, int lower)
 
 	//ftype = ((esr >> 6) & 1) ? VM_PROT_READ | VM_PROT_WRITE : VM_PROT_READ;
 	ftype = frame->tf_scause == EXCP_LOAD_ACCESS_FAULT ? VM_PROT_READ : (VM_PROT_READ | VM_PROT_WRITE);
+	if (frame->tf_scause == EXCP_STORE_ACCESS_FAULT) {
+		ftype = (VM_PROT_READ | VM_PROT_WRITE);
+	} else {
+		ftype = VM_PROT_READ;
+	}
 
 	if (map != kernel_map) {
 		/*
@@ -257,6 +268,8 @@ do_trap(struct trapframe *frame)
 	esr = 0;//READ_SPECIALREG(esr_el1);
 	exception = (frame->tf_scause & 0xf);
 	if (frame->tf_scause & (1 << 31)) {
+		printf("intr sstatus 0x%016lx\n", frame->tf_sstatus);
+
 		//printf("intr %d, curthread 0x%016lx sepc 0x%016lx sstatus 0x%016lx\n",
 		//		exception, curthread,
 		//		frame->tf_sepc, frame->tf_sstatus);
@@ -264,6 +277,7 @@ do_trap(struct trapframe *frame)
 		//printf("ret\n");
 		return;
 	}
+	printf("trap started\n");
 
 	printf("scause 0x%016lx sbadaddr 0x%016lx sepc 0x%016lx sstatus 0x%016lx\n",
 			exception, frame->tf_sbadaddr, frame->tf_sepc, frame->tf_sstatus);
@@ -306,6 +320,10 @@ do_trap(struct trapframe *frame)
 	case EXCP_DATA_ABORT:
 		data_abort(frame, esr, 0);
 		break;
+	case 8: /* Env call */
+		svc_handler(frame);
+		frame->tf_sepc += 4;
+		break;
 	case EXCP_BRK:
 #ifdef KDTRACE_HOOKS
 		if ((esr & ESR_ELx_ISS_MASK) == 0x40d && \
@@ -329,6 +347,7 @@ do_trap(struct trapframe *frame)
 		panic("Unknown kernel exception %x esr_el1 %lx\n", exception,
 		    esr);
 	}
+	printf("trap finished\n");
 }
 
 void

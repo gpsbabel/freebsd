@@ -104,11 +104,13 @@ ENTRY(cpu_switch)
 	//li	a1, 0x61
 	//call	panic
 
+	la	x14, pcpup
+	ld	x14, 0(x14)
 	/* Store the new curthread */
-	sd	a1, PC_CURTHREAD(gp)
+	sd	a1, PC_CURTHREAD(x14)
 	/* And the new pcb */
 	ld	x13, TD_PCB(a1)
-	sd	x13, PC_CURPCB(gp)
+	sd	x13, PC_CURPCB(x14)
 
 	/*
 	 * Save the old context.
@@ -178,6 +180,21 @@ ENTRY(cpu_switch)
 	/* ra and sp */
 	ld	x1, (PCB_REGS + 1 * 8)(x13)
 	ld	x2, (PCB_REGS + 2 * 8)(x13)
+
+#if 0
+	/* If userspace, store kernel sp, otherwise 0 */
+	srli	t0, sp, 63
+	li	t1, 1
+	li	t2, 0
+	beq	t0, t1, 1f
+	mv	t2, sp
+1:
+	csrw	sscratch, t2
+#endif
+	//csrr	t0, sscratch
+	//bnez	t0, 1f
+	/* Store kernel sp */
+	//csrw	sscratch, sp
 
 	/* we use these in fork_trampoline */
 	ld	x5, (PCB_REGS + 5 * 8)(x13)
@@ -328,8 +345,13 @@ ENTRY(fork_trampoline)
 	ld	t0, 256(sp)
 	csrw	sepc, t0
 
+	/* Restore sstatus */
+	// sstatus is zero at this point
+	//ld	t0, 264(sp)
+	//csrw	sstatus, t0
+
 	/* Restore the registers other than sp and ra */
-	//ld	x3, (TF_X + 3 * 8)(sp)
+	ld	x3, (TF_X + 3 * 8)(sp)
 	ld	x4, (TF_X + 4 * 8)(sp)
 	ld	x5, (TF_X + 5 * 8)(sp)
 	ld	x6, (TF_X + 6 * 8)(sp)
@@ -360,6 +382,11 @@ ENTRY(fork_trampoline)
 	ld	x31, (TF_X + 31 * 8)(sp)
 
 	ld	ra, (TF_X + 1 * 8)(sp)
+
+	/* Save kernel stack so we can use it doing a trap */
+	csrw	sscratch, sp
+
+	/* Load user sp */
 	ld	sp, (TF_X + 2 * 8)(sp)
 
 	eret

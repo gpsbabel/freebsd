@@ -137,24 +137,26 @@ cpu_set_syscall_retval(struct thread *td, int error)
 {
 	struct trapframe *frame;
 
-	panic("implement me\n");
+	printf("%s: %d\n", __func__, error);
+	//panic("%s: implement me\n", __func__);
 
 	frame = td->td_frame;
 
 	switch (error) {
 	case 0:
-		frame->tf_x[0] = td->td_retval[0];
-		frame->tf_x[1] = td->td_retval[1];
+		frame->tf_x[5] = td->td_retval[0];
+		frame->tf_x[6] = td->td_retval[1];
 		//frame->tf_spsr &= ~PSR_C;	/* carry bit */
 		break;
 	case ERESTART:
 		//frame->tf_elr -= 4;
+		frame->tf_sepc -= 4;
 		break;
 	case EJUSTRETURN:
 		break;
 	default:
 		//frame->tf_spsr |= PSR_C;	/* carry bit */
-		frame->tf_x[0] = error;
+		frame->tf_x[5] = error;
 		break;
 	}
 }
@@ -217,6 +219,8 @@ cpu_set_user_tls(struct thread *td, void *tls_base)
 
 	pcb = td->td_pcb;
 	//pcb->pcb_tpidr_el0 = (register_t)tls_base;
+	//TODO: set to tp ?
+	pcb->pcb_x[4] = (register_t)tls_base;
 
 	return (0);
 }

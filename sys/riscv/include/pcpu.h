@@ -44,15 +44,17 @@
 
 struct pcb;
 struct pcpu;
+extern struct pcpu *pcpup;
 
 static inline struct pcpu *
 get_pcpu(void)
 {
-	struct pcpu *pcpu;
+	//struct pcpu *pcpu;
 
-	__asm __volatile("mv	%0, gp" : "=&r"(pcpu));
+	//__asm __volatile("la	%0, _C_LABEL(pcpup)" : "=&r"(pcpu));
+	//__asm __volatile("la	%0, pcpup" : "=&r"(pcpu));
 
-	return (pcpu);
+	return (pcpup);
 }
 
 static inline struct thread *
@@ -60,7 +62,9 @@ get_curthread(void)
 {
 	struct thread *td;
 
-	__asm __volatile("ld %0, 0(gp)" : "=&r"(td));
+	//__asm __volatile("ld %0, 0(gp)" : "=&r"(td));
+	//td = *(uint64_t **)pcpup;
+	td = (struct thread *)*(uint64_t *)pcpup;
 
 	return (td);
 }

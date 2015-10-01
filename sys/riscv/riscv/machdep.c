@@ -113,6 +113,8 @@ int64_t idcache_line_size;	/* The minimum cache line size */
 extern int *end;
 extern int *initstack_end;
 
+struct pcpu *pcpup;
+
 /*
 void __attribute__((noreturn)) bad_trap(void);
 void __attribute__((noreturn)) bad_trap(void)
@@ -541,7 +543,7 @@ makectx(struct trapframe *tf, struct pcb *pcb)
 {
 	int i;
 
-	panic("implement me\n");
+	panic("%s: implement me\n", __func__);
 
 	for (i = 0; i < PCB_LR; i++)
 		pcb->pcb_x[i] = tf->tf_x[i];
@@ -562,7 +564,7 @@ sendsig(sig_t catcher, ksiginfo_t *ksi, sigset_t *mask)
 	struct sigacts *psp;
 	int code, onstack, sig;
 
-	panic("implement me\n");
+	panic("%s: implement me\n", __func__);
 
 	td = curthread;
 	p = td->td_proc;
@@ -632,7 +634,7 @@ sendsig(sig_t catcher, ksiginfo_t *ksi, sigset_t *mask)
 static void
 init_proc0(vm_offset_t kstack)
 {
-	struct pcpu *pcpup = &__pcpu[0];
+	pcpup = &__pcpu[0];
 
 	proc_linkup0(&proc0, &thread0);
 	thread0.td_kstack = kstack;
@@ -914,7 +916,7 @@ void
 initriscv(struct riscv_bootparams *rvbp)
 {
 	//struct efi_map_header *efihdr;
-	struct pcpu *pcpup;
+	//struct pcpu *pcpup;
 	vm_offset_t lastaddr;
 	caddr_t kmdp;
 	//vm_paddr_t mem_len;
@@ -986,8 +988,10 @@ initriscv(struct riscv_bootparams *rvbp)
 	    "mov x18, %0 \n"
 	    "msr tpidr_el1, %0" :: "r"(pcpup));
 #endif
+#if 0
 	__asm __volatile(
 	    "mv gp, %0" :: "r"(pcpup));
+#endif
 
 	PCPU_SET(curthread, &thread0);
 

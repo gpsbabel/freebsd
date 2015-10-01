@@ -117,10 +117,13 @@ _start:
 	sub	t0, t0, s11
 	csrw	mscratch, t0
 
+	li	t0, 0
+	csrw	sscratch, t0
+
 	/* Setup supervisor exception handler */
-	la	s0, _C_LABEL(cpu_exception_handler)
-	add	s0, s0, s11
-	csrw	stvec, s0
+	//la	t0, _C_LABEL(cpu_exception_handler_sv)
+	//add	t0, t0, s11
+	//csrw	stvec, t0
 
 	li	s10, PAGE_SIZE
 	li	s9, (PAGE_SIZE * KSTACK_PAGES)
@@ -223,6 +226,11 @@ hardstack:
 hardstack_end:
 
 .macro save_registers
+//	csrrw	sp, sscratch, sp
+//	bnez	sp, 1f
+//	csrrw	sp, sscratch, sp
+//1:
+	//csrw	sscratch, 0
 	addi	sp, sp, -288
 	/* x0 is hard-wired zero */
 	sd	x1, (TF_X + 1 * 8)(sp)
@@ -322,16 +330,31 @@ hardstack_end:
 	ld	x2, (TF_X + 2 * 8)(sp)
 	addi	sp, sp, 288
 
-	//csrw	sptbr, x4
+//1:
+//	csrrw	sp, sscratch, sp
+//	beqz	sp, 1b
 .endm
 
-ENTRY(cpu_exception_handler)
+ENTRY(cpu_exception_handler_sv)
 	save_registers
 	mv	a0, sp
 	call	_C_LABEL(do_trap)
 	load_registers
 	eret
-END(cpu_exception_handler)
+END(cpu_exception_handler_sv)
+
+ENTRY(cpu_exception_handler_user)
+	csrrw   sp, sscratch, sp
+
+	save_registers
+	mv	a0, sp
+	call	_C_LABEL(do_trap)
+	load_registers
+
+	csrrw   sp, sscratch, sp
+
+	eret
+END(cpu_exception_handler_user)
 
 ENTRY(sigcode)
 #if 0
@@ -375,8 +398,44 @@ ENTRY(bad_trap)
 END(bad_trap)
 
 ENTRY(user_trap)
+	csrrw   sp, mscratch, sp
+	addi    sp, sp, -64
+	sd      t0, 0(sp)
+
+	csrr    t0, mcause
+	bltz    t0, .Luser_interrupt
+	
+	/* Setup supervisor exception handler */
+	la	t0, _C_LABEL(cpu_exception_handler_user)
+	li	t1, 0xffffffffc0000000
+	add	t0, t0, t1
+	csrw	stvec, t0
+
+	/* Restore state */
+	ld      t0, 0(sp)
+	addi	sp, sp, 64
+	csrrw   sp, mscratch, sp
+
 	/* Redirect to supervisor */
 	mrts
+
+.Luser_interrupt:
+	/* Disable interrupts */
+	li	t0, MIE_MTIE
+	csrc	mie, t0
+
+	/* Clear pending */
+	li	t0, MIP_MTIP
+	csrc	mip, t0
+
+	/* Clear supervisor pending */
+	li	t0, MIP_STIP
+	csrc	mip, t0
+
+	ld      t0, 0(sp)
+	addi	sp, sp, 64
+	csrrw   sp, mscratch, sp
+	eret
 END(user_trap)
 
 #define	HANDLE_SUPERVISOR_TRAP_IN_MACHINE_MODE 0 \
@@ -418,6 +477,12 @@ sv_trap:
 	li	t1, HANDLE_SUPERVISOR_TRAP_IN_MACHINE_MODE
 	sllw	t1, t1, t0
 	bltz	t1, .Lhandle_trap_in_machine_mode
+
+	/* Setup supervisor exception handler */
+	la	t0, _C_LABEL(cpu_exception_handler_sv)
+	li	t1, 0xffffffffc0000000
+	add	t0, t0, t1
+	csrw	stvec, t0
 
 	/* Restore state */
 	ld	t0, 0(sp)
@@ -491,6 +556,12 @@ sv_trap:
 	/* Clear pending */
 	li      t0, MIP_STIP
 	csrc    mip, t0
+
+	/* Setup supervisor exception handler */
+	la	t0, _C_LABEL(cpu_exception_handler_sv)
+	li	t1, 0xffffffffc0000000
+	add	t0, t0, t1
+	csrw	stvec, t0
 
 	/* Restore state */
 	ld	t0, 0(sp)
