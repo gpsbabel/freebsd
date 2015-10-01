@@ -35,7 +35,7 @@ ENTRY(cerror)
 	call	_C_LABEL(__error)
 	ld	a1, 0(sp)
 	ld	ra, 8(sp)
-	sd	a1, 0(a0)
+	sw	a1, 0(a0)
 	li	a0, 0
 	li	a1, 0
 	addi	sp, sp, 16
