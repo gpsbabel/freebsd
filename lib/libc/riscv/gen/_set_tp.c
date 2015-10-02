@@ -37,7 +37,10 @@ __FBSDID("$FreeBSD$");
 void
 _set_tp(void *tp)
 {
+	uint64_t p;
+
+	p = *(uint64_t *)tp;
 
 	//asm volatile("msr	tpidr_el0, %0" : : "r"(tp));
-	__asm __volatile("mv tp, %0" :: "r"(tp));
+	__asm __volatile("mv	x4, %0" :: "r"(p));
 }
