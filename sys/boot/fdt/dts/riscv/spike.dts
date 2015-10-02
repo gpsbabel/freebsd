@@ -92,6 +92,13 @@
 			interrupt-parent = < &pic0 >;
 		};
 
+		console0: console@0 {
+			compatible = "htif,console";
+			reg = < 0 >;
+			interrupts = < 3 >;
+			interrupt-parent = < &pic0 >;
+		};
+
 		beripic0: beripic@7f804000 {
 			compatible = "sri-cambridge,beri-pic";
 			interrupt-controller;
@@ -119,5 +126,10 @@
 			interrupts = <0>;
 			interrupt-parent = <&beripic0>;
 		};
+	};
+
+	chosen {
+		stdin = &console0;
+		stdout = &console0;
 	};
 };
