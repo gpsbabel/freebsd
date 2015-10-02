@@ -225,12 +225,7 @@ hardstack:
 	.space  (PAGE_SIZE)
 hardstack_end:
 
-.macro save_registers
-//	csrrw	sp, sscratch, sp
-//	bnez	sp, 1f
-//	csrrw	sp, sscratch, sp
-//1:
-	//csrw	sscratch, 0
+.macro save_registers el
 	addi	sp, sp, -288
 	/* x0 is hard-wired zero */
 	sd	x1, (TF_X + 1 * 8)(sp)
@@ -265,6 +260,15 @@ hardstack_end:
 	sd	x30, (TF_X + 30 * 8)(sp)
 	sd	x31, (TF_X + 31 * 8)(sp)
 
+.if \el == 1
+	/* Store kernel sp */
+	sd	x2, (TF_X + 2 * 8)(sp)
+.else
+	/* Store user sp */
+	csrr	t0, sscratch
+	sd	t0, (TF_X + 2 * 8)(sp)
+.endif
+
 	csrr	t0, sepc
 	sd	t0, 256(sp)
 
@@ -278,7 +282,7 @@ hardstack_end:
 	sd	t0, 280(sp)
 .endm
 
-.macro load_registers
+.macro load_registers el
 	csrr	t0, sstatus
 	//csrr	t0, sptbr
 
@@ -293,6 +297,11 @@ hardstack_end:
 	//csrs	mie, t0
 	//li	t0, (SR_IE)
 	//csrs	sstatus, t0
+
+.if \el == 0
+	ld	t0, (TF_X + 2 * 8)(sp)
+	csrw	sscratch, t0
+.endif
 
 	/* x0 is hard-wired zero */
 	ld	x1, (TF_X + 1 * 8)(sp)
@@ -327,32 +336,29 @@ hardstack_end:
 	ld	x30, (TF_X + 30 * 8)(sp)
 	ld	x31, (TF_X + 31 * 8)(sp)
 
-	ld	x2, (TF_X + 2 * 8)(sp)
+//.if \el == 1
+//	ld	x2, (TF_X + 2 * 8)(sp)
+//.endif
+
 	addi	sp, sp, 288
 
-//1:
-//	csrrw	sp, sscratch, sp
-//	beqz	sp, 1b
 .endm
 
 ENTRY(cpu_exception_handler_sv)
-	save_registers
+	save_registers 1
 	mv	a0, sp
 	call	_C_LABEL(do_trap)
-	load_registers
+	load_registers 1
 	eret
 END(cpu_exception_handler_sv)
 
 ENTRY(cpu_exception_handler_user)
 	csrrw   sp, sscratch, sp
-
-	save_registers
+	save_registers 0
 	mv	a0, sp
 	call	_C_LABEL(do_trap)
-	load_registers
-
+	load_registers 0
 	csrrw   sp, sscratch, sp
-
 	eret
 END(cpu_exception_handler_user)
 
