@@ -94,11 +94,17 @@ cpu_fork(struct thread *td1, struct proc *p2, struct thread *td2, int flags)
 
 	tf = (struct trapframe *)STACKALIGN((struct trapframe *)pcb2 - 1);
 	bcopy(td1->td_frame, tf, sizeof(*tf));
+
+	/* Carry bit clear */
+	tf->tf_x[5] = 0;
+
+	/* Arguments child has */
 	tf->tf_x[10] = 0;
 	tf->tf_x[11] = 0;
 	//tf->tf_spsr = 0;
 
 	td2->td_frame = tf;
+	printf("%s: td2 sp 0x%016lx\n", __func__, (uintptr_t)td2->td_frame);
 
 	/* Set the return value registers for fork() */
 	td2->td_pcb->pcb_x[5] = (uintptr_t)fork_return;
@@ -137,15 +143,18 @@ cpu_set_syscall_retval(struct thread *td, int error)
 {
 	struct trapframe *frame;
 
-	printf("%s: %d\n", __func__, error);
+	printf("%s: error %d, retval[0-1] 0x%016lx 0x%016lx\n",
+			__func__, error, td->td_retval[0], td->td_retval[1]);
 	//panic("%s: implement me\n", __func__);
 
 	frame = td->td_frame;
 
 	switch (error) {
 	case 0:
-		frame->tf_x[5] = td->td_retval[0];
-		frame->tf_x[6] = td->td_retval[1];
+		frame->tf_x[10] = td->td_retval[0];
+		frame->tf_x[11] = td->td_retval[1];
+
+		frame->tf_x[5] = 0;
 		//frame->tf_spsr &= ~PSR_C;	/* carry bit */
 		break;
 	case ERESTART:
@@ -155,8 +164,10 @@ cpu_set_syscall_retval(struct thread *td, int error)
 	case EJUSTRETURN:
 		break;
 	default:
+		frame->tf_x[5] = 1; /* syscall error */
 		//frame->tf_spsr |= PSR_C;	/* carry bit */
-		frame->tf_x[5] = error;
+
+		frame->tf_x[10] = error;
 		break;
 	}
 }
@@ -183,6 +194,8 @@ cpu_set_upcall(struct thread *td, struct thread *td0)
 
 	//td->td_pcb->pcb_sp = (uintptr_t)td->td_frame;
 	td->td_pcb->pcb_x[2] = (uintptr_t)td->td_frame;
+
+	printf("upcall td 0x%016lx sp 0x%016lx\n", td, (uintptr_t)td->td_frame);
 
 	td->td_pcb->pcb_vfpcpu = UINT_MAX;
 
