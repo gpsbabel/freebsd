@@ -22,6 +22,7 @@
 
 struct rum_rx_radiotap_header {
 	struct ieee80211_radiotap_header wr_ihdr;
+	uint64_t	wr_tsf;
 	uint8_t		wr_flags;
 	uint8_t		wr_rate;
 	uint16_t	wr_chan_freq;
@@ -32,7 +33,8 @@ struct rum_rx_radiotap_header {
 } __packed __aligned(8);
 
 #define RT2573_RX_RADIOTAP_PRESENT					\
-	((1 << IEEE80211_RADIOTAP_FLAGS) |				\
+	((1 << IEEE80211_RADIOTAP_TSFT) |				\
+	 (1 << IEEE80211_RADIOTAP_FLAGS) |				\
 	 (1 << IEEE80211_RADIOTAP_RATE) |				\
 	 (1 << IEEE80211_RADIOTAP_CHANNEL) |				\
 	 (1 << IEEE80211_RADIOTAP_DBM_ANTSIGNAL) |			\
@@ -42,6 +44,7 @@ struct rum_rx_radiotap_header {
 
 struct rum_tx_radiotap_header {
 	struct ieee80211_radiotap_header wt_ihdr;
+	uint64_t	wt_tsf;
 	uint8_t		wt_flags;
 	uint8_t		wt_rate;
 	uint16_t	wt_chan_freq;
@@ -50,7 +53,8 @@ struct rum_tx_radiotap_header {
 } __packed __aligned(8);
 
 #define RT2573_TX_RADIOTAP_PRESENT					\
-	((1 << IEEE80211_RADIOTAP_FLAGS) |				\
+	((1 << IEEE80211_RADIOTAP_TSFT) |				\
+	 (1 << IEEE80211_RADIOTAP_FLAGS) |				\
 	 (1 << IEEE80211_RADIOTAP_RATE) |				\
 	 (1 << IEEE80211_RADIOTAP_CHANNEL) |				\
 	 (1 << IEEE80211_RADIOTAP_ANTENNA))
@@ -69,17 +73,15 @@ typedef STAILQ_HEAD(, rum_tx_data) rum_txdhead;
 
 union sec_param {
 	struct ieee80211_key		key;
+	struct wmeParams		wme_params[WME_NUM_AC];
 	uint8_t				macaddr[IEEE80211_ADDR_LEN];
 	struct ieee80211vap		*vap;
 };
 #define CMD_FUNC_PROTO			void (*func)(struct rum_softc *, \
-					    union sec_param *, uint8_t, \
-					    uint8_t)
+					    union sec_param *, uint8_t)
 
 struct rum_cmdq {
 	union sec_param			data;
-
-	uint8_t				rn_id;
 	uint8_t				rvp_id;
 
 	CMD_FUNC_PROTO;
@@ -88,8 +90,10 @@ struct rum_cmdq {
 
 struct rum_vap {
 	struct ieee80211vap		vap;
+	struct mbuf			*bcn_mbuf;
 	struct usb_callout		ratectl_ch;
 	struct task			ratectl_task;
+	uint8_t				maxretry;
 
 	int				(*newstate)(struct ieee80211vap *,
 					    enum ieee80211_state, int);
@@ -131,7 +135,14 @@ struct rum_softc {
 	uint32_t			rf_regs[4];
 	uint8_t				txpow[44];
 	u_int				sc_detached:1,
-					sc_running:1;
+					sc_running:1,
+					sc_clr_shkeys:1;
+
+	uint8_t				sc_bssid[IEEE80211_ADDR_LEN];
+	struct wmeParams		wme_params[WME_NUM_AC];
+
+	uint8_t				vap_key_count[1];
+	uint64_t			keys_bmap;
 
 	struct {
 		uint8_t	val;
