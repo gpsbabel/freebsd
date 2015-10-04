@@ -269,6 +269,7 @@ SUBDIR+=        kdump
 .if ${MACHINE_ARCH} != "riscv" # RISCVTODO truss does not build
 SUBDIR+=        truss
 .endif
+.endif
 
 .if ${MK_KERBEROS_SUPPORT} != "no"
 SUBDIR+=	compile_et
