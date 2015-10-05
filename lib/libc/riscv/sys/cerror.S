@@ -36,8 +36,8 @@ ENTRY(cerror)
 	ld	a1, 0(sp)
 	ld	ra, 8(sp)
 	sw	a1, 0(a0)
-	li	a0, 0
-	li	a1, 0
+	li	a0, -1
+	li	a1, -1
 	addi	sp, sp, 16
 
 	//sub	sp, sp, #16

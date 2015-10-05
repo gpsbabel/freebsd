@@ -78,6 +78,7 @@ ENTRY(setjmp)
 	addi	a0, a0, 104
 
 	/* Store the vfp registers */
+#if 0
 	fsd	fs0, (0 * 8)(a0)
 	fsd	fs1, (1 * 8)(a0)
 	fsd	fs2, (2 * 8)(a0)
@@ -90,6 +91,7 @@ ENTRY(setjmp)
 	fsd	fs9, (9 * 8)(a0)
 	fsd	fs10, (10 * 8)(a0)
 	fsd	fs11, (11 * 8)(a0)
+#endif
 
 	/* Store the magic value and stack pointer */
 	//ldr	x8, .Lmagic
@@ -175,6 +177,7 @@ ENTRY(longjmp)
 	addi	a0, a0, 104
 
 	/* Restore the vfp registers */
+#if 0
 	fld	fs0, (0 * 8)(a0)
 	fld	fs1, (1 * 8)(a0)
 	fld	fs2, (2 * 8)(a0)
@@ -187,6 +190,7 @@ ENTRY(longjmp)
 	fld	fs9, (9 * 8)(a0)
 	fld	fs10, (10 * 8)(a0)
 	fld	fs11, (11 * 8)(a0)
+#endif
 
 	/* Check the magic value */
 	//ldr	x8, [x0], #8
