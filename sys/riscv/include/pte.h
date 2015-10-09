@@ -123,9 +123,21 @@ typedef	uint64_t	pt_entry_t;		/* page table entry */
 #define	PTE_TYPE_M	(0xf << PTE_TYPE_S)
 #define	PTE_TYPE_PTR	0
 #define	PTE_TYPE_PTR_G	1
-#define	PTE_TYPE_SURWX	0x7		/* Supervisor and User Read Write Execute */
-#define	PTE_TYPE_SRWX	0xb		/* Supervisor Read Write Execute */
-#define	PTE_TYPE_SRWX_G	0xf		/* Supervisor Read Write Execute Global */
+#define	PTE_TYPE_SROURX	2	/* Supervisor read-only, user read-execute page. */
+#define	PTE_TYPE_SRWURWX 3	/* Supervisor read-write, user read-write-execute page. */
+#define	PTE_TYPE_SURO	4	/* Supervisor and user read-only page. */
+#define	PTE_TYPE_SURW	5	/* Supervisor and user read-write page. */
+#define	PTE_TYPE_SURX	6	/* Supervisor and user read-execute page. */
+#define	PTE_TYPE_SURWX	7	/* Supervisor and User Read Write Execute */
+#define	PTE_TYPE_SRO	8	/* Supervisor read-only page. */
+#define	PTE_TYPE_SRW	9	/* Supervisor read-write page. */
+#define	PTE_TYPE_SRX	10	/* Supervisor read-execute page. */
+#define	PTE_TYPE_SRWX	11	/* Supervisor read-write-execute page. */
+#define	PTE_TYPE_SRO_G	12	/* Supervisor read-only page--global mapping. */
+#define	PTE_TYPE_SRW_G	13	/* Supervisor read-write page--global mapping. */
+#define	PTE_TYPE_SRX_G	14	/* Supervisor read-execute page--global mapping. */
+#define	PTE_TYPE_SRWX_G	15	/* Supervisor Read Write Execute Global */
+
 #define	PTE_PPN0_S	10
 #define	PTE_PPN1_S	19
 #define	PTE_PPN2_S	28
