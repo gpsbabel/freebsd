@@ -38,6 +38,11 @@
 	compatible = "sri-cambridge,beripad-sockit";
 	#address-cells = <1>;
 	#size-cells = <1>;
+	#interrupt-cells = <1>;
+
+	aliases {
+		console0 = &console0;
+	};
 
 	cpus {
 		#address-cells = <1>;
@@ -94,9 +99,12 @@
 
 		console0: console@0 {
 			compatible = "htif,console";
+			status = "okay";
 			reg = < 0 >;
 			interrupts = < 3 >;
 			interrupt-parent = < &pic0 >;
+			clock-frequency = < 100000000 >;
+			current-speed = <115200>;
 		};
 
 		beripic0: beripic@7f804000 {
@@ -129,7 +137,8 @@
 	};
 
 	chosen {
-		stdin = &console0;
-		stdout = &console0;
+		bootargs = "-v";
+		stdin = "console0";
+		stdout = "console0";
 	};
 };
