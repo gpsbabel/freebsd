@@ -144,7 +144,7 @@ ENTRY(longjmp)
 	ld	a1, (2 * 8)(sp)
 	ld	ra, (1 * 8)(sp)
 	ld	a0, (0 * 8)(sp)
-	add	sp, sp, 32
+	addi	sp, sp, 32
 
 	//ldr	x1, [sp, #16]
 	//ldp	x0, lr, [sp]
