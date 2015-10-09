@@ -61,6 +61,7 @@ cpu_fork(struct thread *td1, struct proc *p2, struct thread *td2, int flags)
 {
 	struct pcb *pcb2;
 	struct trapframe *tf;
+	uint64_t val;
 
 	//panic("cpu_fork");
 
@@ -73,6 +74,10 @@ cpu_fork(struct thread *td1, struct proc *p2, struct thread *td2, int flags)
 		 * in cpu_switch, but if userland changes these then forks
 		 * this may not have happened.
 		 */
+
+		__asm __volatile("mv	%0, tp" : "=&r"(val));
+		td1->td_pcb->pcb_x[4] = val;
+
 		//td1->td_pcb->pcb_tpidr_el0 = 0; //READ_SPECIALREG(tpidr_el0);
 #ifdef VFP
 		if ((td1->td_pcb->pcb_fpflags & PCB_FP_STARTED) != 0)
@@ -89,8 +94,8 @@ cpu_fork(struct thread *td1, struct proc *p2, struct thread *td2, int flags)
 	td2->td_pcb->pcb_l1addr =
 	    vtophys(vmspace_pmap(td2->td_proc->p_vmspace)->pm_l1);
 
-	printf("%s: td 0x%016lx pcb_l1addr 0x%016lx\n", __func__,
-			td2, td2->td_pcb->pcb_l1addr);
+	//printf("%s: td 0x%016lx pcb_l1addr 0x%016lx\n", __func__,
+	//		td2, td2->td_pcb->pcb_l1addr);
 
 	tf = (struct trapframe *)STACKALIGN((struct trapframe *)pcb2 - 1);
 	bcopy(td1->td_frame, tf, sizeof(*tf));
@@ -104,7 +109,7 @@ cpu_fork(struct thread *td1, struct proc *p2, struct thread *td2, int flags)
 	//tf->tf_spsr = 0;
 
 	td2->td_frame = tf;
-	printf("%s: td2 sp 0x%016lx\n", __func__, (uintptr_t)td2->td_frame);
+	//printf("%s: td2 sp 0x%016lx\n", __func__, (uintptr_t)td2->td_frame);
 
 	/* Set the return value registers for fork() */
 	td2->td_pcb->pcb_x[5] = (uintptr_t)fork_return;
@@ -143,8 +148,8 @@ cpu_set_syscall_retval(struct thread *td, int error)
 {
 	struct trapframe *frame;
 
-	printf("%s: error %d, retval[0-1] 0x%016lx 0x%016lx\n",
-			__func__, error, td->td_retval[0], td->td_retval[1]);
+	//printf("%s: error %d, retval[0-1] 0x%016lx 0x%016lx\n",
+	//		__func__, error, td->td_retval[0], td->td_retval[1]);
 	//panic("%s: implement me\n", __func__);
 
 	frame = td->td_frame;
@@ -195,7 +200,7 @@ cpu_set_upcall(struct thread *td, struct thread *td0)
 	//td->td_pcb->pcb_sp = (uintptr_t)td->td_frame;
 	td->td_pcb->pcb_x[2] = (uintptr_t)td->td_frame;
 
-	printf("upcall td 0x%016lx sp 0x%016lx\n", td, (uintptr_t)td->td_frame);
+	//printf("upcall td 0x%016lx sp 0x%016lx\n", td, (uintptr_t)td->td_frame);
 
 	td->td_pcb->pcb_vfpcpu = UINT_MAX;
 
