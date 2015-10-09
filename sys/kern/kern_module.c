@@ -113,7 +113,7 @@ module_register_init(const void *arg)
 	int error;
 	module_t mod;
 
-	printf("module_register_init name %s\n", data->name);
+	//printf("module_register_init name %s\n", data->name);
 
 	mtx_lock(&Giant);
 	MOD_SLOCK;

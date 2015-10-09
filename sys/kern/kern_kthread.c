@@ -100,6 +100,7 @@ kproc_create(void (*func)(void *), void *arg,
 	/* this is a non-swapped system process */
 	PROC_LOCK(p2);
 	td = FIRST_THREAD_IN_PROC(p2);
+	//printf("%s: 0x%016lx\n", __func__, td);
 	p2->p_flag |= P_SYSTEM | P_KTHREAD;
 	td->td_pflags |= TDP_KTHREAD;
 	mtx_lock(&p2->p_sigacts->ps_mtx);
