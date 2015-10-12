@@ -193,8 +193,13 @@ simplebus_fill_ranges(phandle_t node, struct simplebus_softc *sc)
 
 	err = OF_searchencprop(OF_parent(node), "#address-cells",
 	    &host_address_cells, sizeof(host_address_cells));
-	if (err <= 0)
-		return (-1);
+	if (err <= 0) {
+		//return (-1);
+
+		//RISCVTODO
+		device_printf(sc->dev, "no address-cells\n");
+		host_address_cells = 2;
+	}
 
 	nbase_ranges = OF_getproplen(node, "ranges");
 	if (nbase_ranges < 0)
