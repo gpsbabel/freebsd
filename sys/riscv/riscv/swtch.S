@@ -40,7 +40,54 @@ __FBSDID("$FreeBSD$");
  * void cpu_throw(struct thread *old, struct thread *new)
  */
 ENTRY(cpu_throw)
-	call	panic
+	la	x14, pcpup
+	ld	x14, 0(x14)
+	/* Store the new curthread */
+	sd	a1, PC_CURTHREAD(x14)
+	/* And the new pcb */
+	ld	x13, TD_PCB(a1)
+	sd	x13, PC_CURPCB(x14)
+
+	/* Switch to the new pmap */
+	ld	t0, PCB_L1ADDR(x13)
+	csrw	sptbr0, t0
+	/* Invalidate the TLB */
+	fence
+	sfence.vm
+	fence
+
+	/* gp */
+	ld	x3, (PCB_REGS + 3 * 8)(x13)
+
+	/* tp */
+	ld	x4, (PCB_REGS + 4 * 8)(x13)
+
+	/* we use these in fork_trampoline */
+	//ld	x5, (PCB_REGS + 5 * 8)(x13)
+	//ld	x6, (PCB_REGS + 6 * 8)(x13)
+
+	/* s0 - s11 */
+	ld	x8, (PCB_REGS + 8 * 8)(x13)
+	ld	x9, (PCB_REGS + 9 * 8)(x13)
+	ld	x18, (PCB_REGS + 18 * 8)(x13)
+	ld	x19, (PCB_REGS + 19 * 8)(x13)
+	ld	x20, (PCB_REGS + 20 * 8)(x13)
+	ld	x21, (PCB_REGS + 21 * 8)(x13)
+	ld	x22, (PCB_REGS + 22 * 8)(x13)
+	ld	x23, (PCB_REGS + 23 * 8)(x13)
+	ld	x24, (PCB_REGS + 24 * 8)(x13)
+	ld	x25, (PCB_REGS + 25 * 8)(x13)
+	ld	x26, (PCB_REGS + 26 * 8)(x13)
+	ld	x27, (PCB_REGS + 27 * 8)(x13)
+
+	/* Return address and stack pointer */
+	ld	x1, (PCB_REGS + 1 * 8)(x13)
+	ld	x2, (PCB_REGS + 2 * 8)(x13)
+
+	ret
+
+	//la	a0, .Lcpu_throw_panic_str
+	//call	panic
 #if 0
 #ifdef VFP
 	/* Backup the new thread pointer around a call to C code */
@@ -89,6 +136,8 @@ ENTRY(cpu_throw)
 
 	ret
 #endif
+.Lcpu_throw_panic_str:
+	.asciz "cpu_throw: %p\0"
 END(cpu_throw)
 
 /*
@@ -122,6 +171,12 @@ ENTRY(cpu_switch)
 	/* ra and sp */
 	sd	x1, (PCB_REGS + 1 * 8)(x13)
 	sd	x2, (PCB_REGS + 2 * 8)(x13)
+
+	/* gp */
+	sd	x3, (PCB_REGS + 3 * 8)(x13)
+
+	/* tp */
+	sd	x4, (PCB_REGS + 4 * 8)(x13)
 
 	/* we use these in fork_trampoline */
 	sd	x5, (PCB_REGS + 5 * 8)(x13)
@@ -168,6 +223,7 @@ ENTRY(cpu_switch)
 	csrw	sptbr0, t0
 	/* Invalidate the TLB */
 	sfence.vm
+	fence
 
 	/* Release the old thread */
 	sd	a2, TD_LOCK(a0)
@@ -195,6 +251,12 @@ ENTRY(cpu_switch)
 	//bnez	t0, 1f
 	/* Store kernel sp */
 	//csrw	sscratch, sp
+
+	/* gp */
+	ld	x3, (PCB_REGS + 3 * 8)(x13)
+
+	/* tp */
+	ld	x4, (PCB_REGS + 4 * 8)(x13)
 
 	/* we use these in fork_trampoline */
 	ld	x5, (PCB_REGS + 5 * 8)(x13)
@@ -351,8 +413,8 @@ ENTRY(fork_trampoline)
 	//csrw	sstatus, t0
 
 	/* Restore the registers other than sp and ra */
-	ld	x3, (TF_X + 3 * 8)(sp)
-	ld	x4, (TF_X + 4 * 8)(sp)
+	//ld	x3, (TF_X + 3 * 8)(sp)
+	//ld	x4, (TF_X + 4 * 8)(sp)
 	ld	x5, (TF_X + 5 * 8)(sp)
 	ld	x6, (TF_X + 6 * 8)(sp)
 	ld	x7, (TF_X + 7 * 8)(sp)
@@ -383,7 +445,7 @@ ENTRY(fork_trampoline)
 
 	ld	ra, (TF_X + 1 * 8)(sp)
 
-	/* Save kernel stack so we can use it doing a trap */
+	/* Save kernel stack so we can use it doing a user trap */
 	csrw	sscratch, sp
 
 	/* Load user sp */
@@ -443,6 +505,7 @@ ENTRY(fork_trampoline)
 END(fork_trampoline)
 
 ENTRY(savectx)
+	la	a0, .Lsavectx_panic_str
 	call	panic
 #if 0
 	/* Store the callee-saved registers */
@@ -472,5 +535,7 @@ ENTRY(savectx)
 
 	ret
 #endif
+.Lsavectx_panic_str:
+	.asciz "savectx_panic: %p\0"
 END(savectx)
 
