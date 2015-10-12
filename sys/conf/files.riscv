@@ -32,7 +32,7 @@ riscv/riscv/pic_if.m		standard
 riscv/riscv/identcpu.c		standard
 riscv/riscv/mem.c		standard
 riscv/htif/htif.c		standard
-riscv/htif/console.c		standard
+riscv/htif/console3.c		standard
 kern/kern_clocksource.c		standard
 kern/subr_dummy_vdso_tc.c	standard
 libkern/bcmp.c			standard
@@ -43,6 +43,4 @@ libkern/flsl.c			standard
 libkern/flsll.c			standard
 libkern/memmove.c		standard
 libkern/memset.c		standard
-dev/uart/uart_cpu_fdt.c		optional	uart fdt
-dev/uart/uart_dev_pl011.c	optional	uart pl011
 dev/fdt/fdt_riscv.c		optional	fdt
