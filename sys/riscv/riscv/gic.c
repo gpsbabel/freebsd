@@ -323,14 +323,14 @@ gic_unmask_irq(device_t dev, u_int irq)
 
 	sc = device_get_softc(dev);
 
-	printf("gic_unmask_irq %d\n", irq);
+	//printf("gic_unmask_irq %d\n", irq);
 
 	switch (irq) {
 	case IRQ_TIMER:
 		csr_set(sie, SIE_STIE);
 		break;
 	case IRQ_SOFTWARE:
-		csr_set(sie, SIE_SSIE);
+		//csr_set(sie, SIE_SSIE);
 		break;
 	default:
 		panic("Unknown irq %d\n", irq);

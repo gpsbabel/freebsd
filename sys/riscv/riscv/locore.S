@@ -138,7 +138,7 @@ _start:
 	li	a5, 0xffffffffc0000000
 	srli	a5, a5, 0x1e		/* >> 30 */
 	andi	a5, a5, 0x1ff		/* & 0x1ff */
-	li	t4, (PTE_VALID | (PTE_TYPE_PTR_G << PTE_TYPE_S))
+	li	t4, (PTE_VALID | (PTE_TYPE_PTR << PTE_TYPE_S))
 	slli	t5, s2, PTE_PPN0_S	/* (s2 << PTE_PPN0_S) */
 	or	t6, t4, t5
 
@@ -224,6 +224,12 @@ initstack_end:
 hardstack:
 	.space  (PAGE_SIZE)
 hardstack_end:
+
+	.globl console_data
+console_data:
+	.space  (16)
+//console_data:
+//	.quad htif_data	/* XXX: Keep page tables VA */
 
 .macro save_registers el
 	addi	sp, sp, -288
@@ -363,6 +369,19 @@ ENTRY(cpu_exception_handler_user)
 END(cpu_exception_handler_user)
 
 ENTRY(sigcode)
+	mv	a0, sp
+	addi	a0, a0, SF_UC
+
+1:
+	li	t0, SYS_sigreturn
+	ecall
+
+	/* sigreturn failed, exit */
+	li	t0, SYS_exit
+	ecall
+
+	j	1b
+
 #if 0
 	mov	x0, sp
 	add	x0, x0, #SF_UC
@@ -404,9 +423,10 @@ ENTRY(bad_trap)
 END(bad_trap)
 
 ENTRY(user_trap)
-	csrrw   sp, mscratch, sp
-	addi    sp, sp, -64
-	sd      t0, 0(sp)
+	csrrw	sp, mscratch, sp
+	addi	sp, sp, -64
+	sd	t0, 0(sp)
+	sd	t1, 8(sp)
 
 	csrr    t0, mcause
 	bltz    t0, .Luser_interrupt
@@ -419,6 +439,7 @@ ENTRY(user_trap)
 
 	/* Restore state */
 	ld      t0, 0(sp)
+	ld      t1, 8(sp)
 	addi	sp, sp, 64
 	csrrw   sp, mscratch, sp
 
@@ -426,6 +447,11 @@ ENTRY(user_trap)
 	mrts
 
 .Luser_interrupt:
+	/* HTIF interrupt ? */
+	csrr	t0, mcause
+	andi	t0, t0, 2
+	bnez	t0, .Lhtif_user
+
 	/* Disable interrupts */
 	li	t0, MIE_MTIE
 	csrc	mie, t0
@@ -434,14 +460,66 @@ ENTRY(user_trap)
 	li	t0, MIP_MTIP
 	csrc	mip, t0
 
-	/* Clear supervisor pending */
+	/* Post supervisor interrupt */
 	li	t0, MIP_STIP
-	csrc	mip, t0
+	csrs	mip, t0
+
+	/*
+	 * Check if we get here from user mode,
+	 * was user interrupts enabled before trap ?
+	 */
+	//csrr	t0, mstatus
+	//li	t1, (SR_IE1 | (MSTATUS_PRV_U << MSTATUS_PRV1_SHIFT))
+	//and	t0, t0, t1
+	//beq	t0, t1, .Lmrts_user
+	j	.Lmrts_user
 
 	ld      t0, 0(sp)
+	ld      t1, 8(sp)
 	addi	sp, sp, 64
 	csrrw   sp, mscratch, sp
 	eret
+
+.Lmrts_user:
+	/* Clear pending */
+	li      t0, MIP_STIP
+	csrc    mip, t0
+
+	/* Setup supervisor exception handler */
+	la	t0, _C_LABEL(cpu_exception_handler_user)
+	li	t1, 0xffffffffc0000000
+	add	t0, t0, t1
+	csrw	stvec, t0
+
+	/* Restore state */
+	ld	t0, 0(sp)
+	ld	t1, 8(sp)
+	addi	sp, sp, 64
+	csrrw	sp, mscratch, sp
+
+	/* Redirect to supervisor */
+	mrts
+
+.Lhtif_user:
+	la	t0, console_data
+	li	t1, 0
+	csrrw	t1, mfromhost, t1
+	sd	t1, 0(t0)
+
+	/* Setup exception handler */
+	la	t0, _C_LABEL(cpu_exception_handler_user)
+	li	t1, 0xffffffffc0000000
+	add	t0, t0, t1
+	csrw	stvec, t0
+
+	/* Restore state */
+	ld	t0, 0(sp)
+	ld	t1, 8(sp)
+	addi	sp, sp, 64
+	csrrw	sp, mscratch, sp
+
+	/* Redirect to supervisor */
+	mrts
 END(user_trap)
 
 #define	HANDLE_SUPERVISOR_TRAP_IN_MACHINE_MODE 0 \
@@ -512,6 +590,15 @@ sv_trap:
 	//li	t1, (MIP_STIP)
 	//beq	t0, t1, .Lmrts
 
+	/* HTIF interrupt ? */
+	csrr	t0, mcause
+	andi	t0, t0, 2
+	bnez	t0, .Lhtif
+	
+	//csrr	t0, mip
+	//and	t0, t0, (MIP_MSIP | MIP_SSIP)
+	//bnez	t0, .Lhtif
+
 	/* Debugging */
 	csrr	t0, mstatus
 
@@ -581,6 +668,30 @@ sv_trap:
 	/* Redirect to supervisor */
 	mrts
 
+.Lhtif:
+	la	t0, console_data
+	li	t1, 0
+	csrrw	t1, mfromhost, t1
+	sd	t1, 0(t0)
+
+	/* Setup supervisor exception handler */
+	la	t0, _C_LABEL(cpu_exception_handler_sv)
+	li	t1, 0xffffffffc0000000
+	add	t0, t0, t1
+	csrw	stvec, t0
+
+	/* Restore state */
+	ld	t0, 0(sp)
+	ld	t1, 8(sp)
+	ld	t4, 16(sp)
+	ld	t5, 24(sp)
+	ld	t6, 32(sp)
+	addi	sp, sp, 64
+	csrrw	sp, mscratch, sp
+
+	/* Redirect to supervisor */
+	mrts
+
 .Lhandle_trap_in_machine_mode:
 
 	/* Save mepc, point to the next instr */
@@ -610,17 +721,21 @@ sv_trap:
 
 low_printc:
 	//li	t5, 0
-	li	t0, 0x101000000000000
+	//li	t0, 0x101000000000000
 	//add	t0, t0, t6
-	add	t0, t0, a0
+	//add	t0, t0, a0
+	mv	t0, t6
 
 2:
 	csrrw	t0, mtohost, t0
 	bnez	t0, 2b
 
-	csrr	t0, mfromhost
+	csrr	t6, mfromhost
 	li	t0, 0
 	csrw	mfromhost, t0
+
+	//csrrw	t0, mfromhost, 0
+	//csrrw	t0, mfromhost, t0
 
 	/* Exit trap */
 	csrw    mepc, t1
@@ -632,7 +747,7 @@ low_printc:
 	ld	t1, 8(sp)
 	ld	t4, 16(sp)
 	ld	t5, 24(sp)
-	ld	t6, 32(sp)
+	//ld	t6, 32(sp)
 	addi	sp, sp, 64
 	csrrw	sp, mscratch, sp
 	eret

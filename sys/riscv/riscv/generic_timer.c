@@ -473,7 +473,7 @@ static device_method_t arm_tmr_fdt_methods[] = {
 };
 
 static driver_t arm_tmr_fdt_driver = {
-	"generic_timer",
+	"timer",
 	arm_tmr_fdt_methods,
 	sizeof(struct arm_tmr_softc),
 };
@@ -495,7 +495,7 @@ static device_method_t arm_tmr_acpi_methods[] = {
 };
 
 static driver_t arm_tmr_acpi_driver = {
-	"generic_timer",
+	"timer",
 	arm_tmr_acpi_methods,
 	sizeof(struct arm_tmr_softc),
 };

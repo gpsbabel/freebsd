@@ -13,6 +13,7 @@
 void htif_init(void);
 void htif_test(void);
 
+#if 0
 static inline void htif_tohost(unsigned long dev,
     unsigned long cmd, unsigned long data)
 {
@@ -44,3 +45,6 @@ static inline unsigned long htif_fromhost(void)
 
 	return (data);
 }
+#endif
+
+void riscv_console_intr(void);

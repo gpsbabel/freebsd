@@ -85,10 +85,11 @@ END(arm64_nullop)
  * Generic functions to read/modify/write the internal coprocessor registers
  */
 
+#if 0
 ENTRY(arm64_setttb)
 	fence
 	csrw	sptbr0, a0
-	fence
+	sfence.vm
 	ret
 #if 0
 	dsb	ish
@@ -98,6 +99,7 @@ ENTRY(arm64_setttb)
 	ret
 #endif
 END(arm64_setttb)
+#endif
 
 ENTRY(arm64_tlb_flushID)
 #if 0
@@ -131,14 +133,14 @@ END(arm64_tlb_flushID_SE)
  * void arm64_dcache_wb_range(vm_offset_t, vm_size_t)
  */
 ENTRY(arm64_dcache_wb_range)
-	cache_handle_range	dcop = cvac
+	//cache_handle_range	dcop = cvac
 END(arm64_dcache_wb_range)
 
 /*
  * void arm64_dcache_wbinv_range(vm_offset_t, vm_size_t)
  */
 ENTRY(arm64_dcache_wbinv_range)
-	cache_handle_range	dcop = civac
+	//cache_handle_range	dcop = civac
 END(arm64_dcache_wbinv_range)
 
 /*
@@ -148,7 +150,7 @@ END(arm64_dcache_wbinv_range)
  * must use wb-inv of the entire cache.
  */
 ENTRY(arm64_dcache_inv_range)
-	cache_handle_range	dcop = ivac
+	//cache_handle_range	dcop = ivac
 END(arm64_dcache_inv_range)
 
 /*

@@ -132,6 +132,7 @@ mcall_trap(uintptr_t mcause, uintptr_t* regs)
 	return (0);
 }
 
+#ifdef	EARLY_PRINTF
 static void 
 spike_early_putc(int c)
 {
@@ -150,6 +151,7 @@ spike_early_putc(int c)
 	//);
 }
 early_putc_t *early_putc = spike_early_putc;
+#endif
 
 static void
 cpu_startup(void *dummy)

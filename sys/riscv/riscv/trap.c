@@ -58,6 +58,9 @@ __FBSDID("$FreeBSD: head/sys/arm64/arm64/trap.c 285315 2015-07-09 13:07:12Z andr
 #include <machine/resource.h>
 #include <machine/intr.h>
 
+#include <machine/htif.h>
+
+
 #ifdef KDTRACE_HOOKS
 #include <sys/dtrace_bsd.h>
 #endif
@@ -82,6 +85,8 @@ void do_el0_sync(struct trapframe *);
 void do_el0_error(struct trapframe *);
 
 int (*dtrace_invop_jump_addr)(struct trapframe *);
+
+//extern uint64_t console_data;
 
 static __inline void
 call_trapsignal(struct thread *td, int sig, int code, void *addr)
@@ -115,9 +120,9 @@ cpu_fetch_syscall_args(struct thread *td, struct syscall_args *sa)
 		sa->code = *ap++;
 		nap--;
 
-		printf("syscall 0(%d)\n", sa->code);
+		//printf("syscall 0(%d)\n", sa->code);
 	} else {
-		printf("syscall %d\n", sa->code);
+		//printf("syscall %d\n", sa->code);
 	}
 
 	if (p->p_sysent->sv_mask)
@@ -128,7 +133,7 @@ cpu_fetch_syscall_args(struct thread *td, struct syscall_args *sa)
 		sa->callp = &p->p_sysent->sv_table[sa->code];
 
 	sa->narg = sa->callp->sy_narg;
-	printf("sa->narg %d\n", sa->narg);
+	//printf("sa->narg %d\n", sa->narg);
 	memcpy(sa->args, ap, nap * sizeof(register_t));
 	if (sa->narg > nap)
 		panic("TODO: Could we have more then 8 args?");
@@ -170,7 +175,7 @@ data_abort(struct trapframe *frame, uint64_t esr, int lower)
 	td = curthread;
 	pcb = td->td_pcb;
 
-	printf("data_abort: sbadaddr 0x%016lx\n", frame->tf_sbadaddr);
+	//printf("data_abort: sbadaddr 0x%016lx\n", frame->tf_sbadaddr);
 	//while (1);
 
 	/*
@@ -200,11 +205,12 @@ data_abort(struct trapframe *frame, uint64_t esr, int lower)
 	va = trunc_page(far);
 
 	//ftype = ((esr >> 6) & 1) ? VM_PROT_READ | VM_PROT_WRITE : VM_PROT_READ;
-	ftype = frame->tf_scause == EXCP_LOAD_ACCESS_FAULT ? VM_PROT_READ : (VM_PROT_READ | VM_PROT_WRITE);
+	//ftype = frame->tf_scause == EXCP_LOAD_ACCESS_FAULT ? VM_PROT_READ : (VM_PROT_READ | VM_PROT_WRITE);
+
 	if (frame->tf_scause == EXCP_STORE_ACCESS_FAULT) {
 		ftype = (VM_PROT_READ | VM_PROT_WRITE);
 	} else {
-		ftype = VM_PROT_READ;
+		ftype = (VM_PROT_READ);
 	}
 
 	if (map != kernel_map) {
@@ -227,7 +233,7 @@ data_abort(struct trapframe *frame, uint64_t esr, int lower)
 		 * Don't have to worry about process locking or stacks in the
 		 * kernel.
 		 */
-		printf("map is kernel one: 0x%016lx\n", map);
+		//printf("map is kernel one: 0x%016lx\n", map);
 		error = vm_fault(map, va, ftype, VM_FAULT_NORMAL);
 	}
 
@@ -248,7 +254,8 @@ data_abort(struct trapframe *frame, uint64_t esr, int lower)
 				//frame->tf_elr = pcb->pcb_onfault;
 				return;
 			}
-			panic("vm_fault failed: %lx", frame->tf_sepc);
+			panic("vm_fault failed: %lx, va 0x%016lx",
+				frame->tf_sepc, va);
 			//panic("vm_fault failed: %lx", frame->tf_elr);
 		}
 	}
@@ -261,28 +268,40 @@ void
 do_trap(struct trapframe *frame)
 {
 	uint64_t exception;
+	struct thread *td;
 	uint64_t esr;
 	int i;
+
+	td = curthread;
 
 	/* Read the esr register to get the exception details */
 	esr = 0;//READ_SPECIALREG(esr_el1);
 	exception = (frame->tf_scause & 0xf);
 	if (frame->tf_scause & (1 << 31)) {
-		printf("intr sstatus 0x%016lx\n", frame->tf_sstatus);
+		//printf("intr sstatus 0x%016lx\n", frame->tf_sstatus);
 
 		//printf("intr %d, curthread 0x%016lx sepc 0x%016lx sstatus 0x%016lx\n",
 		//		exception, curthread,
 		//		frame->tf_sepc, frame->tf_sstatus);
-		arm_cpu_intr(frame);
-		//printf("ret\n");
+
+		int excp_code;
+		excp_code = (frame->tf_scause & 0xf);
+
+		if (excp_code == 1)
+			arm_cpu_intr(frame);
+		else if (excp_code == 2) {
+			//uint64_t *cc = &console_data;
+			//uint8_t c = *(uint8_t *)cc;
+			//printf("mfromhost %c\n", c);
+			riscv_console_intr();
+
+		}
 		return;
 	}
-	printf("trap started\n");
-
-	printf("scause 0x%016lx sbadaddr 0x%016lx sepc 0x%016lx sstatus 0x%016lx\n",
-			exception, frame->tf_sbadaddr, frame->tf_sepc, frame->tf_sstatus);
+	//printf("trap: scause 0x%016lx sbadaddr 0x%016lx sepc 0x%016lx sstatus 0x%016lx\n",
+	//		exception, frame->tf_sbadaddr, frame->tf_sepc, frame->tf_sstatus);
 	for (i = 0; i < 32; i++) {
-		printf("tf_x[%d] == 0x%016lx\n", i, frame->tf_x[i]);
+		//printf("tf_x[%d] == 0x%016lx\n", i, frame->tf_x[i]);
 	}
 
 #ifdef KDTRACE_HOOKS
@@ -300,9 +319,9 @@ do_trap(struct trapframe *frame)
 	 * be set when we are in a data fault from the same EL and the ISV
 	 * bit (bit 24) is also set.
 	 */
-	KASSERT((esr & ESR_ELx_IL) == ESR_ELx_IL ||
-	    (exception == EXCP_DATA_ABORT && ((esr & ISS_DATA_ISV) == 0)),
-	    ("Invalid instruction length in exception"));
+	//KASSERT((esr & ESR_ELx_IL) == ESR_ELx_IL ||
+	//    (exception == EXCP_DATA_ABORT && ((esr & ISS_DATA_ISV) == 0)),
+	//    ("Invalid instruction length in exception"));
 
 	//CTR4(KTR_TRAP,
 	//    "do_el1_sync: curthread: %p, esr %lx, elr: %lx, frame: %p",
@@ -311,18 +330,18 @@ do_trap(struct trapframe *frame)
 	switch(exception) {
 	case EXCP_LOAD_ACCESS_FAULT:
 	case EXCP_STORE_ACCESS_FAULT:
-	case 1:
+	case EXCP_INSTR_ACCESS_FAULT:
 		data_abort(frame, esr, 0);
 		break;
 	//case EXCP_FP_SIMD:
 	//case EXCP_TRAP_FP:
 	//	panic("VFP exception in the kernel");
-	case EXCP_DATA_ABORT:
-		data_abort(frame, esr, 0);
-		break;
-	case 8: /* Env call */
-		svc_handler(frame);
+	//case EXCP_DATA_ABORT:
+	//	data_abort(frame, esr, 0);
+	//	break;
+	case EXCP_ENV_CALL:
 		frame->tf_sepc += 4;
+		svc_handler(frame);
 		break;
 	case EXCP_BRK:
 #ifdef KDTRACE_HOOKS
@@ -347,7 +366,13 @@ do_trap(struct trapframe *frame)
 		panic("Unknown kernel exception %x esr_el1 %lx\n", exception,
 		    esr);
 	}
-	printf("trap finished\n");
+
+	if ((frame->tf_sstatus & (1 << 4)) == 0) {
+		/* trap originated from user mode */
+		userret(td, frame);
+	}
+
+	//printf("trap finished\n");
 }
 
 void

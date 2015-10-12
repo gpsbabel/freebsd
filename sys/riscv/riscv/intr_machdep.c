@@ -305,7 +305,7 @@ arm_enable_intr(void)
 		}
 
 		if (intr->i_handlers > 0) {
-			printf("pic_unmask %d\n", intr->i_hw_irq);
+			//printf("pic_unmask %d\n", intr->i_hw_irq);
 			PIC_UNMASK(root_pic, intr->i_hw_irq);
 		}
 
