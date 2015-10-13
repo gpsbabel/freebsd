@@ -199,11 +199,23 @@ static int ntb_check_link_status(struct ntb_softc *ntb);
 static void save_bar_parameters(struct ntb_pci_bar_info *bar);
 
 static struct ntb_hw_info pci_ids[] = {
-	{ 0x3C0D8086, "Xeon E5/Core i7 Non-Transparent Bridge B2B", NTB_XEON,
-	    NTB_REGS_THRU_MW },
 	{ 0x0C4E8086, "Atom Processor S1200 NTB Primary B2B", NTB_SOC, 0 },
-	{ 0x0E0D8086, "Xeon E5 V2 Non-Transparent Bridge B2B", NTB_XEON,
-	    NTB_REGS_THRU_MW | NTB_BAR_SIZE_4K },
+
+	/* XXX: PS/SS IDs left out until they are supported. */
+	{ 0x37258086, "JSF Xeon C35xx/C55xx Non-Transparent Bridge B2B",
+		NTB_XEON, NTB_REGS_THRU_MW | NTB_B2BDOORBELL_BIT14 },
+	{ 0x3C0D8086, "SNB Xeon E5/Core i7 Non-Transparent Bridge B2B",
+		NTB_XEON, NTB_REGS_THRU_MW | NTB_B2BDOORBELL_BIT14 },
+	{ 0x0E0D8086, "IVT Xeon E5 V2 Non-Transparent Bridge B2B", NTB_XEON,
+		NTB_REGS_THRU_MW | NTB_B2BDOORBELL_BIT14 | NTB_SB01BASE_LOCKUP
+		    | NTB_BAR_SIZE_4K },
+	{ 0x2F0D8086, "HSX Xeon E5 V3 Non-Transparent Bridge B2B", NTB_XEON,
+		NTB_REGS_THRU_MW | NTB_B2BDOORBELL_BIT14 | NTB_SB01BASE_LOCKUP
+	},
+	{ 0x6F0D8086, "BDX Xeon E5 V4 Non-Transparent Bridge B2B", NTB_XEON,
+		NTB_REGS_THRU_MW | NTB_B2BDOORBELL_BIT14 | NTB_SB01BASE_LOCKUP
+	},
+
 	{ 0x00000000, NULL, NTB_SOC, 0 }
 };
 
@@ -896,6 +908,7 @@ ntb_handle_heartbeat(void *arg)
 	if (rc != 0)
 		device_printf(ntb->device,
 		    "Error determining link status\n");
+
 	/* Check to see if a link error is the cause of the link down */
 	if (ntb->link_status == NTB_LINK_DOWN) {
 		status32 = ntb_reg_read(4, SOC_LTSSMSTATEJMP_OFFSET);
@@ -995,7 +1008,15 @@ recover_soc_link(void *arg)
 	uint16_t status16;
 
 	soc_perform_link_restart(ntb);
-	pause("Link", SOC_LINK_RECOVERY_TIME * hz / 1000);
+
+	/*
+	 * There is a potential race between the 2 NTB devices recovering at
+	 * the same time.  If the times are the same, the link will not recover
+	 * and the driver will be stuck in this loop forever.  Add a random
+	 * interval to the recovery time to prevent this race.
+	 */
+	status32 = arc4random() % SOC_LINK_RECOVERY_TIME;
+	pause("Link", (SOC_LINK_RECOVERY_TIME + status32) * hz / 1000);
 
 	status32 = ntb_reg_read(4, SOC_LTSSMSTATEJMP_OFFSET);
 	if ((status32 & SOC_LTSSMSTATEJMP_FORCEDETECT) != 0)
@@ -1005,12 +1026,17 @@ recover_soc_link(void *arg)
 	if ((status32 & SOC_IBIST_ERR_OFLOW) != 0)
 		goto retry;
 
+	status32 = ntb_reg_read(4, ntb->reg_ofs.lnk_cntl);
+	if ((status32 & SOC_CNTL_LINK_DOWN) != 0)
+		goto out;
+
 	status16 = ntb_reg_read(2, ntb->reg_ofs.lnk_stat);
 	width = (status16 & NTB_LINK_WIDTH_MASK) >> 4;
 	speed = (status16 & NTB_LINK_SPEED_MASK);
 	if (ntb->link_width != width || ntb->link_speed != speed)
 		goto retry;
 
+out:
 	callout_reset(&ntb->heartbeat_timer, NTB_HB_TIMEOUT * hz,
 	    ntb_handle_heartbeat, ntb);
 	return;
