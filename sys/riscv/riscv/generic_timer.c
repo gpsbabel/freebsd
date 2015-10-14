@@ -132,15 +132,6 @@ set_mtimecmp(int c)
 		"mv	t6, %1\n"
 		"ecall" :: "r"(ECALL_MTIMECMP), "r"(c)
 	);
-
-	return;
-	__asm __volatile("ecall");
-
-	__asm __volatile(
-		"mv	t5, %1\n"
-		"mv	t6, %0\n"
-		"ecall" :: "r"(c), "r"(ECALL_LOW_PRINTC)
-	);
 }
 
 static void
@@ -253,6 +244,7 @@ arm_tmr_start(struct eventtimer *et, sbintime_t first, sbintime_t period)
 	sc = (struct arm_tmr_softc *)et->et_priv;
 
 	if (first != 0) {
+		//printf(",");
 		counts = ((uint32_t)et->et_frequency * first) >> 32;
 
 		//printf("csr_read(stime) 0x%016lx\n", csr_read(stime));

@@ -1,10 +1,14 @@
 /*-
- * Copyright (c) 2014 Andrew Turner
- * Copyright (c) 2014 The FreeBSD Foundation
+ * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
  *
- * This software was developed by Andrew Turner under sponsorship from
- * the FreeBSD Foundation.
+ * This software was developed by SRI International and the University of
+ * Cambridge Computer Laboratory under DARPA/AFRL contract FA8750-10-C-0237
+ * ("CTSRD"), as part of the DARPA CRASH research programme.
+ *
+ * This software was developed by the University of Cambridge Computer
+ * Laboratory as part of the CTSRD Project, with support from the UK Higher
+ * Education Innovation Fund (HEIF).
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,7 +30,6 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
  */
 
 #include "assym.s"
@@ -48,18 +51,19 @@ ENTRY(cpu_throw)
 	ld	x13, TD_PCB(a1)
 	sd	x13, PC_CURPCB(x14)
 
+	sfence.vm
+
 	/* Switch to the new pmap */
 	ld	t0, PCB_L1ADDR(x13)
 	csrw	sptbr0, t0
+
 	/* Invalidate the TLB */
-	fence
 	sfence.vm
-	fence
 
-	/* gp */
+	/* ra, sp, gp, tp */
+	ld	x1, (PCB_REGS + 1 * 8)(x13)
+	ld	x2, (PCB_REGS + 2 * 8)(x13)
 	ld	x3, (PCB_REGS + 3 * 8)(x13)
-
-	/* tp */
 	ld	x4, (PCB_REGS + 4 * 8)(x13)
 
 	/* we use these in fork_trampoline */
@@ -79,10 +83,6 @@ ENTRY(cpu_throw)
 	ld	x25, (PCB_REGS + 25 * 8)(x13)
 	ld	x26, (PCB_REGS + 26 * 8)(x13)
 	ld	x27, (PCB_REGS + 27 * 8)(x13)
-
-	/* Return address and stack pointer */
-	ld	x1, (PCB_REGS + 1 * 8)(x13)
-	ld	x2, (PCB_REGS + 2 * 8)(x13)
 
 	ret
 
@@ -161,21 +161,15 @@ ENTRY(cpu_switch)
 	ld	x13, TD_PCB(a1)
 	sd	x13, PC_CURPCB(x14)
 
-	/*
-	 * Save the old context.
-	 */
+	/* Save the old context. */
 	ld	x13, TD_PCB(a0)
 
 	/* Store the callee-saved registers */
 
-	/* ra and sp */
+	/* ra, sp, gp, tp */
 	sd	x1, (PCB_REGS + 1 * 8)(x13)
 	sd	x2, (PCB_REGS + 2 * 8)(x13)
-
-	/* gp */
 	sd	x3, (PCB_REGS + 3 * 8)(x13)
-
-	/* tp */
 	sd	x4, (PCB_REGS + 4 * 8)(x13)
 
 	/* we use these in fork_trampoline */
@@ -209,6 +203,8 @@ ENTRY(cpu_switch)
 	 * to a user process.
 	 */
 
+	sfence.vm
+
 	/* Switch to the new pmap */
 	ld	t0, PCB_L1ADDR(x13)
 #if 0
@@ -221,9 +217,9 @@ ENTRY(cpu_switch)
 2:
 #endif
 	csrw	sptbr0, t0
+
 	/* Invalidate the TLB */
 	sfence.vm
-	fence
 
 	/* Release the old thread */
 	sd	a2, TD_LOCK(a0)
@@ -233,32 +229,13 @@ ENTRY(cpu_switch)
 	//mv	sp, t1
 	//msr	tpidr_el0, t2
 
-	/* ra and sp */
+	/* ra, sp, gp, tp */
 	ld	x1, (PCB_REGS + 1 * 8)(x13)
 	ld	x2, (PCB_REGS + 2 * 8)(x13)
-
-#if 0
-	/* If userspace, store kernel sp, otherwise 0 */
-	srli	t0, sp, 63
-	li	t1, 1
-	li	t2, 0
-	beq	t0, t1, 1f
-	mv	t2, sp
-1:
-	csrw	sscratch, t2
-#endif
-	//csrr	t0, sscratch
-	//bnez	t0, 1f
-	/* Store kernel sp */
-	//csrw	sscratch, sp
-
-	/* gp */
 	ld	x3, (PCB_REGS + 3 * 8)(x13)
-
-	/* tp */
 	ld	x4, (PCB_REGS + 4 * 8)(x13)
 
-	/* we use these in fork_trampoline */
+	/* We use these in fork_trampoline */
 	ld	x5, (PCB_REGS + 5 * 8)(x13)
 	ld	x6, (PCB_REGS + 6 * 8)(x13)
 
@@ -275,9 +252,6 @@ ENTRY(cpu_switch)
 	ld	x25, (PCB_REGS + 25 * 8)(x13)
 	ld	x26, (PCB_REGS + 26 * 8)(x13)
 	ld	x27, (PCB_REGS + 27 * 8)(x13)
-
-	//gp
-	//sd	zero, (PCB_REGS + 3 * 8)(x13)
 
 	ret
 #if 0
@@ -415,6 +389,7 @@ ENTRY(fork_trampoline)
 	/* Restore the registers other than sp and ra */
 	//ld	x3, (TF_X + 3 * 8)(sp)
 	//ld	x4, (TF_X + 4 * 8)(sp)
+
 	ld	x5, (TF_X + 5 * 8)(sp)
 	ld	x6, (TF_X + 6 * 8)(sp)
 	ld	x7, (TF_X + 7 * 8)(sp)

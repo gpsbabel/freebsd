@@ -1,6 +1,14 @@
 /*-
- * Copyright (c) 2014 Andrew Turner
+ * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
+ *
+ * This software was developed by SRI International and the University of
+ * Cambridge Computer Laboratory under DARPA/AFRL contract FA8750-10-C-0237
+ * ("CTSRD"), as part of the DARPA CRASH research programme.
+ *
+ * This software was developed by the University of Cambridge Computer
+ * Laboratory as part of the CTSRD Project, with support from the UK Higher
+ * Education Innovation Fund (HEIF).
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -22,11 +30,10 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: head/sys/arm64/arm64/trap.c 285315 2015-07-09 13:07:12Z andrew $");
+__FBSDID("$FreeBSD$");
 
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -81,6 +88,7 @@ extern register_t fsu_intr_fault;
 
 /* Called from exception.S */
 void do_trap(struct trapframe *);
+void do_trap_user(struct trapframe *);
 void do_el0_sync(struct trapframe *);
 void do_el0_error(struct trapframe *);
 
@@ -155,6 +163,9 @@ svc_handler(struct trapframe *frame)
 
 	td = curthread;
 	td->td_frame = frame;
+
+	if ((uint64_t)td == 0xffffffffc0ea5000)
+		panic("syscall from idle thread\n");
 
 	error = syscallenter(td, &sa);
 	syscallret(td, error, &sa);
@@ -278,6 +289,7 @@ do_trap(struct trapframe *frame)
 	esr = 0;//READ_SPECIALREG(esr_el1);
 	exception = (frame->tf_scause & 0xf);
 	if (frame->tf_scause & (1 << 31)) {
+		//printf(".");
 		//printf("intr sstatus 0x%016lx\n", frame->tf_sstatus);
 
 		//printf("intr %d, curthread 0x%016lx sepc 0x%016lx sstatus 0x%016lx\n",
@@ -293,8 +305,9 @@ do_trap(struct trapframe *frame)
 			//uint64_t *cc = &console_data;
 			//uint8_t c = *(uint8_t *)cc;
 			//printf("mfromhost %c\n", c);
-			riscv_console_intr();
 
+			//panic("aaa");
+			riscv_console_intr();
 		}
 		return;
 	}
@@ -339,10 +352,10 @@ do_trap(struct trapframe *frame)
 	//case EXCP_DATA_ABORT:
 	//	data_abort(frame, esr, 0);
 	//	break;
-	case EXCP_ENV_CALL:
-		frame->tf_sepc += 4;
-		svc_handler(frame);
-		break;
+	//case EXCP_ENV_CALL:
+	//	frame->tf_sepc += 4;
+	//	svc_handler(frame);
+	//	break;
 	case EXCP_BRK:
 #ifdef KDTRACE_HOOKS
 		if ((esr & ESR_ELx_ISS_MASK) == 0x40d && \
@@ -363,22 +376,21 @@ do_trap(struct trapframe *frame)
 		for (i = 0; i < 32; i++) {
 			printf("x[%d] == 0x%016lx\n", i, frame->tf_x[i]);
 		}
+
+		printf("sepc == 0x%016lx\n", frame->tf_sepc);
+		printf("sstatus == 0x%016lx\n", frame->tf_sstatus);
+
 		panic("Unknown kernel exception %x esr_el1 %lx\n", exception,
 		    esr);
-	}
-
-	if ((frame->tf_sstatus & (1 << 4)) == 0) {
-		/* trap originated from user mode */
-		userret(td, frame);
 	}
 
 	//printf("trap finished\n");
 }
 
 void
-do_el0_sync(struct trapframe *frame)
+do_trap_user(struct trapframe *frame)
 {
-	uint32_t exception;
+	uint64_t exception;
 	uint64_t esr;
 
 	/* Check we have a sane environment when entering from userland */
@@ -389,12 +401,46 @@ do_el0_sync(struct trapframe *frame)
 	esr = 0;//READ_SPECIALREG(esr_el1);
 	exception = 0;//ESR_ELx_EXCEPTION(esr);
 
+	exception = (frame->tf_scause & 0xf);
+	if (frame->tf_scause & (1 << 31)) {
+		printf(".");
+		//printf("intr sstatus 0x%016lx\n", frame->tf_sstatus);
+
+		//printf("intr %d, curthread 0x%016lx sepc 0x%016lx sstatus 0x%016lx\n",
+		//		exception, curthread,
+		//		frame->tf_sepc, frame->tf_sstatus);
+
+		int excp_code;
+		excp_code = (frame->tf_scause & 0xf);
+
+		if (excp_code == 1)
+			arm_cpu_intr(frame);
+		else if (excp_code == 2) {
+			//uint64_t *cc = &console_data;
+			//uint8_t c = *(uint8_t *)cc;
+			//printf("mfromhost %c\n", c);
+
+			//panic("aaa");
+			riscv_console_intr();
+		}
+		return;
+	}
+
 	CTR4(KTR_TRAP,
 	    "do_el0_sync: curthread: %p, esr %lx, elr: %lx, frame: %p",
 	    curthread, esr, frame->tf_elr, frame);
 
 	switch(exception) {
-	case EXCP_FP_SIMD:
+	case EXCP_LOAD_ACCESS_FAULT:
+	case EXCP_STORE_ACCESS_FAULT:
+	case EXCP_INSTR_ACCESS_FAULT:
+		data_abort(frame, esr, 1);
+		break;
+	case EXCP_ENV_CALL:
+		frame->tf_sepc += 4;
+		svc_handler(frame);
+		break;
+	//case EXCP_FP_SIMD:
 	case EXCP_TRAP_FP:
 #ifdef VFP
 		vfp_restore_state();
@@ -413,6 +459,11 @@ do_el0_sync(struct trapframe *frame)
 		panic("Unknown userland exception %x esr_el1 %lx\n", exception,
 		    esr);
 	}
+
+	//if ((frame->tf_sstatus & (1 << 4)) == 0) {
+	//	/* trap originated from user mode */
+	//	userret(td, frame);
+	//}
 }
 
 void

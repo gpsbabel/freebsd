@@ -40,7 +40,7 @@ options 	VFP			# vfp/neon
 # Debugging
 makeoptions	DEBUG=-g		# Build kernel with gdb(1) debug symbols
 options 	BREAK_TO_DEBUGGER
-options 	VERBOSE_SYSINIT		# Enable verbose sysinit messages
+#options 	VERBOSE_SYSINIT		# Enable verbose sysinit messages
 #options 	KDB
 #options 	DDB			# Enable the kernel debugger
 #options 	INVARIANTS		# Enable calls of extra sanity checking

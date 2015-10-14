@@ -2,6 +2,14 @@
  * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
  *
+ * This software was developed by SRI International and the University of
+ * Cambridge Computer Laboratory under DARPA/AFRL contract FA8750-10-C-0237
+ * ("CTSRD"), as part of the DARPA CRASH research programme.
+ *
+ * This software was developed by the University of Cambridge Computer
+ * Laboratory as part of the CTSRD Project, with support from the UK Higher
+ * Education Innovation Fund (HEIF).
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -235,7 +243,7 @@ console_data:
 	addi	sp, sp, -288
 	/* x0 is hard-wired zero */
 	sd	x1, (TF_X + 1 * 8)(sp)
-	sd	x2, (TF_X + 2 * 8)(sp)
+	/* sd	x2, (TF_X + 2 * 8)(sp) */
 	sd	x3, (TF_X + 3 * 8)(sp)
 	sd	x4, (TF_X + 4 * 8)(sp)
 	sd	x5, (TF_X + 5 * 8)(sp)
@@ -289,7 +297,7 @@ console_data:
 .endm
 
 .macro load_registers el
-	csrr	t0, sstatus
+	//csrr	t0, sstatus
 	//csrr	t0, sptbr
 
 	ld	t0, 264(sp)
@@ -347,7 +355,54 @@ console_data:
 //.endif
 
 	addi	sp, sp, 288
+.endm
 
+.macro	do_ast
+1:
+	la	a1, pcpup
+	ld	a1, 0(a1)
+	ld	a1, PC_CURTHREAD(a1)
+	lw	a2, TD_FLAGS(a1)
+
+	li	a3, (TDF_ASTPENDING|TDF_NEEDRESCHED)
+	and	a2, a2, a3
+	beqz	a2, 2f
+
+	/* handle the ast */
+	mv	a0, sp
+	call	_C_LABEL(ast)
+
+	/* Re-check for new ast scheduled */
+	j	1b
+2:
+#if 0
+	/* Disable interrupts */
+	mrs	x19, daif
+1:
+	msr	daifset, #2
+
+	/* Read the current thread flags */
+	ldr	x1, [x18, #PC_CURTHREAD]	/* Load curthread */
+	ldr	x2, [x1, #TD_FLAGS]
+
+	/* Check if we have either bits set */
+	mov	x3, #((TDF_ASTPENDING|TDF_NEEDRESCHED) >> 8)
+	lsl	x3, x3, #8
+	and	x2, x2, x3
+	cmp	x2, #0
+	b.eq	2f
+
+	/* Restore interrupts */
+	msr	daif, x19
+
+	/* handle the ast */
+	mov	x0, sp
+	bl	_C_LABEL(ast)
+
+	/* Re-check for new ast scheduled */
+	b	1b
+2:
+#endif
 .endm
 
 ENTRY(cpu_exception_handler_sv)
@@ -362,7 +417,8 @@ ENTRY(cpu_exception_handler_user)
 	csrrw   sp, sscratch, sp
 	save_registers 0
 	mv	a0, sp
-	call	_C_LABEL(do_trap)
+	call	_C_LABEL(do_trap_user)
+	do_ast
 	load_registers 0
 	csrrw   sp, sscratch, sp
 	eret
@@ -464,15 +520,11 @@ ENTRY(user_trap)
 	li	t0, MIP_STIP
 	csrs	mip, t0
 
-	/*
-	 * Check if we get here from user mode,
-	 * was user interrupts enabled before trap ?
-	 */
-	//csrr	t0, mstatus
-	//li	t1, (SR_IE1 | (MSTATUS_PRV_U << MSTATUS_PRV1_SHIFT))
-	//and	t0, t0, t1
-	//beq	t0, t1, .Lmrts_user
-	j	.Lmrts_user
+	/* Check if interrupts were enabled before trap */
+	csrr	t0, mstatus
+	li	t1, (SR_IE1)
+	and	t0, t0, t1
+	beq	t0, t1, .Lmrts_user
 
 	ld      t0, 0(sp)
 	ld      t1, 8(sp)
@@ -614,12 +666,10 @@ sv_trap:
 	li	t0, MIP_STIP
 	csrs	mip, t0
 
-	/*
-	 * Check if we get here from supervisor mode,
-	 * was supervisor interrupts enabled before trap ?
-	 */
+	/* Was supervisor interrupts enabled before trap ? */
 	csrr	t0, mstatus
-	li	t1, (SR_IE1 | (MSTATUS_PRV_S << MSTATUS_PRV1_SHIFT))
+	li	t1, (SR_IE1)
+	// | (MSTATUS_PRV_S << MSTATUS_PRV1_SHIFT))
 	and	t0, t0, t1
 	beq	t0, t1, .Lmrts
 
@@ -674,6 +724,12 @@ sv_trap:
 	csrrw	t1, mfromhost, t1
 	sd	t1, 0(t0)
 
+	/* Was supervisor interrupts enabled before trap ? */
+	csrr	t0, mstatus
+	li	t1, (SR_IE1)
+	and	t0, t0, t1
+	bne	t0, t1, .Lquit
+
 	/* Setup supervisor exception handler */
 	la	t0, _C_LABEL(cpu_exception_handler_sv)
 	li	t1, 0xffffffffc0000000
@@ -691,6 +747,17 @@ sv_trap:
 
 	/* Redirect to supervisor */
 	mrts
+
+.Lquit:
+	/* Restore state */
+	ld	t0, 0(sp)
+	ld	t1, 8(sp)
+	ld	t4, 16(sp)
+	ld	t5, 24(sp)
+	ld	t6, 32(sp)
+	addi	sp, sp, 64
+	csrrw	sp, mscratch, sp
+	eret
 
 .Lhandle_trap_in_machine_mode:
 

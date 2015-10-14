@@ -639,6 +639,9 @@ init_proc0(vm_offset_t kstack)
 	pcpup = &__pcpu[0];
 
 	proc_linkup0(&proc0, &thread0);
+	//printf("thread0 is 0x%016lx\n", thread0);
+	//printf("proc0 is 0x%016lx\n", (uint64_t)&proc0);
+
 	thread0.td_kstack = kstack;
 	thread0.td_pcb = (struct pcb *)(thread0.td_kstack) - 1;
 	thread0.td_pcb->pcb_fpflags = 0;
