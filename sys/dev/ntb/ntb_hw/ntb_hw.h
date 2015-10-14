@@ -46,7 +46,7 @@ enum ntb_hw_event {
 
 SYSCTL_DECL(_hw_ntb);
 
-typedef void (*ntb_db_callback)(void *data, int db_num);
+typedef int (*ntb_db_callback)(void *data, int db_num);
 typedef void (*ntb_event_callback)(void *data, enum ntb_hw_event event);
 
 int ntb_register_event_callback(struct ntb_softc *ntb, ntb_event_callback func);
@@ -69,7 +69,7 @@ void *ntb_get_mw_vbase(struct ntb_softc *ntb, unsigned int mw);
 vm_paddr_t ntb_get_mw_pbase(struct ntb_softc *ntb, unsigned int mw);
 u_long ntb_get_mw_size(struct ntb_softc *ntb, unsigned int mw);
 void ntb_set_mw_addr(struct ntb_softc *ntb, unsigned int mw, uint64_t addr);
-void ntb_ring_sdb(struct ntb_softc *ntb, unsigned int db);
+void ntb_ring_doorbell(struct ntb_softc *ntb, unsigned int db);
 bool ntb_query_link_status(struct ntb_softc *ntb);
 device_t ntb_get_device(struct ntb_softc *ntb);
 
