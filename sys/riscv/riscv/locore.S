@@ -54,27 +54,26 @@
 mentry:
 	/* User mode entry point (mtvec + 0x000) */
 	.align 6
-	j user_trap
+	j	user_trap
 
 	/* Supervisor mode entry point (mtvec + 0x040) */
 	.align 6
-	j sv_trap
+	j	supervisor_trap
 
 	/* Hypervisor mode entry point (mtvec + 0x080) */
 	.align 6
-	j bad_trap
+	j	bad_trap
 
 	/* Machine mode entry point (mtvec + 0x0C0) */
 	.align 6
-	j bad_trap
+	j	bad_trap
 
 	/* Reset vector */
 	.text
 	.align 8
 	.globl _start
 _start:
-	//li	s11, VM_MIN_KERNEL_ADDRESS
-	li	s11, 0xffffffffc0000000
+	li	s11, KERNBASE
 
 	la	t0, hardstack_end
 	sub	t0, t0, s11
@@ -101,7 +100,7 @@ _start:
 	la	s2, pagetable_l2	/* Link to next level PN */
 	srli	s2, s2, PAGE_SHIFT
 
-	li	a5, 0xffffffffc0000000
+	li	a5, KERNBASE
 	srli	a5, a5, 0x1e		/* >> 30 */
 	andi	a5, a5, 0x1ff		/* & 0x1ff */
 	li	t4, (PTE_VALID | (PTE_TYPE_PTR << PTE_TYPE_S))
@@ -423,105 +422,9 @@ pagetable_end:
 init_pt_va:
 	.quad pagetable_l2	/* XXX: Keep page tables VA */
 
-ENTRY(bad_trap)
-	j bad_trap
-END(bad_trap)
-
-ENTRY(user_trap)
-	csrrw	sp, mscratch, sp
-	addi	sp, sp, -64
-	sd	t0, 0(sp)
-	sd	t1, 8(sp)
-
-	csrr    t0, mcause
-	bltz    t0, .Luser_interrupt
-	
-	/* Setup supervisor exception handler */
-	la	t0, _C_LABEL(cpu_exception_handler_user)
-	li	t1, 0xffffffffc0000000
-	add	t0, t0, t1
-	csrw	stvec, t0
-
-	/* Restore state */
-	ld      t0, 0(sp)
-	ld      t1, 8(sp)
-	addi	sp, sp, 64
-	csrrw   sp, mscratch, sp
-
-	/* Redirect to supervisor */
-	mrts
-
-.Luser_interrupt:
-	/* HTIF interrupt ? */
-	csrr	t0, mcause
-	andi	t0, t0, 2
-	bnez	t0, .Lhtif_user
-
-	/* Disable interrupts */
-	li	t0, MIE_MTIE
-	csrc	mie, t0
-
-	/* Clear pending */
-	li	t0, MIP_MTIP
-	csrc	mip, t0
-
-	/* Post supervisor interrupt */
-	li	t0, MIP_STIP
-	csrs	mip, t0
-
-	/* Check if interrupts were enabled before trap */
-	csrr	t0, mstatus
-	li	t1, (SR_IE1)
-	and	t0, t0, t1
-	beq	t0, t1, .Lmrts_user
-
-	ld      t0, 0(sp)
-	ld      t1, 8(sp)
-	addi	sp, sp, 64
-	csrrw   sp, mscratch, sp
-	eret
-
-.Lmrts_user:
-	/* Clear pending */
-	li      t0, MIP_STIP
-	csrc    mip, t0
-
-	/* Setup supervisor exception handler */
-	la	t0, _C_LABEL(cpu_exception_handler_user)
-	li	t1, 0xffffffffc0000000
-	add	t0, t0, t1
-	csrw	stvec, t0
-
-	/* Restore state */
-	ld	t0, 0(sp)
-	ld	t1, 8(sp)
-	addi	sp, sp, 64
-	csrrw	sp, mscratch, sp
-
-	/* Redirect to supervisor */
-	mrts
-
-.Lhtif_user:
-	la	t0, console_data
-	li	t1, 0
-	csrrw	t1, mfromhost, t1
-	sd	t1, 0(t0)
-
-	/* Setup exception handler */
-	la	t0, _C_LABEL(cpu_exception_handler_user)
-	li	t1, 0xffffffffc0000000
-	add	t0, t0, t1
-	csrw	stvec, t0
-
-	/* Restore state */
-	ld	t0, 0(sp)
-	ld	t1, 8(sp)
-	addi	sp, sp, 64
-	csrrw	sp, mscratch, sp
-
-	/* Redirect to supervisor */
-	mrts
-END(user_trap)
+/*
+ * Trap handlers
+ */
 
 #define	HANDLE_SUPERVISOR_TRAP_IN_MACHINE_MODE 0 \
   | (0 << (31 - 0)) /* IF misaligned */           \
@@ -535,7 +438,31 @@ END(user_trap)
   | (0 << (31 - 8)) /* user environment call */   \
   | (1 << (31 - 9)) /* super environment call */  \
 
-ENTRY(sv_trap)
+	.text
+bad_trap:
+	j bad_trap
+
+user_trap:
+	csrrw	sp, mscratch, sp
+	addi	sp, sp, -64
+	sd	t0, 0(sp)
+	sd	t1, 8(sp)
+	sd	t4, 16(sp)
+	sd	t5, 24(sp)
+	sd	t6, 32(sp)
+
+	csrr    t0, mcause
+	bltz    t0, .Linterrupt
+
+	/* Setup user exception handler */
+	la	t0, _C_LABEL(cpu_exception_handler_user)
+	li	t1, KERNBASE
+	add	t0, t0, t1
+	csrw	stvec, t0
+
+	j	.Lexit_mrts
+
+supervisor_trap:
 	/* Save state */
 	csrrw	sp, mscratch, sp
 	addi	sp, sp, -64
@@ -547,50 +474,25 @@ ENTRY(sv_trap)
 
 	csrr	t0, mcause
 	bltz	t0, .Linterrupt
+
 	li	t1, HANDLE_SUPERVISOR_TRAP_IN_MACHINE_MODE
 	sllw	t1, t1, t0
 	bltz	t1, .Lhandle_trap_in_machine_mode
 
 	/* Setup supervisor exception handler */
 	la	t0, _C_LABEL(cpu_exception_handler_sv)
-	li	t1, 0xffffffffc0000000
+	li	t1, KERNBASE
 	add	t0, t0, t1
 	csrw	stvec, t0
-
-	/* Restore state */
-	ld	t0, 0(sp)
-	ld	t1, 8(sp)
-	ld	t4, 16(sp)
-	ld	t5, 24(sp)
-	ld	t6, 32(sp)
-	addi	sp, sp, 64
-	csrrw	sp, mscratch, sp
-
-	/* Redirect to supervisor */
-	mrts
+	j	.Lexit_mrts
 
 .Linterrupt:
-	/* Supervisor interrupt ? */
-	//csrr	t0, mstatus
-	//and	t0, t0, (MSTATUS_PRV_MASK)
-	//li	t1, (MSTATUS_PRV_S << MSTATUS_PRV_SHIFT)
-	//csrr	t0, mip
-	//and	t0, t0, (MIP_STIP)
-	//li	t1, (MIP_STIP)
-	//beq	t0, t1, .Lmrts
-
 	/* HTIF interrupt ? */
 	csrr	t0, mcause
 	andi	t0, t0, 2
-	bnez	t0, .Lhtif
-	
-	//csrr	t0, mip
-	//and	t0, t0, (MIP_MSIP | MIP_SSIP)
-	//bnez	t0, .Lhtif
+	bnez	t0, .Lhtif_interrupt
 
-	/* Debugging */
-	csrr	t0, mstatus
-
+.Ltimer_interrupt:
 	/* Disable interrupts */
 	li	t0, MIE_MTIE
 	csrc	mie, t0
@@ -603,32 +505,11 @@ ENTRY(sv_trap)
 	li	t0, MIP_STIP
 	csrs	mip, t0
 
-	/* Was supervisor interrupts enabled before trap ? */
+	/* Was interrupts enabled before trap ? */
 	csrr	t0, mstatus
 	li	t1, (SR_IE1)
-	// | (MSTATUS_PRV_S << MSTATUS_PRV1_SHIFT))
 	and	t0, t0, t1
-	beq	t0, t1, .Lmrts
-
-	/* Restore state */
-	ld	t0, 0(sp)
-	ld	t1, 8(sp)
-	ld	t4, 16(sp)
-	ld	t5, 24(sp)
-	ld	t6, 32(sp)
-	addi	sp, sp, 64
-	csrrw	sp, mscratch, sp
-	eret
-
-.Lmrts:
-	//csrr	t0, mip
-	//and	t0, t0, MIP_MTIP
-	//li	t1, MIP_MTIP
-	//beq	t0, t1, .Lpost
-
-	/* Enable interrupts for PRV1, so when we leave this trap it will be PRV */
-	//li	t0, (SR_IE1)
-	//csrs	mstatus, t0
+	beqz	t0, .Lexit_no_mepc
 
 	/* Clear pending */
 	li      t0, MIP_STIP
@@ -636,23 +517,12 @@ ENTRY(sv_trap)
 
 	/* Setup supervisor exception handler */
 	la	t0, _C_LABEL(cpu_exception_handler_sv)
-	li	t1, 0xffffffffc0000000
+	li	t1, KERNBASE
 	add	t0, t0, t1
 	csrw	stvec, t0
+	j	.Lexit_mrts
 
-	/* Restore state */
-	ld	t0, 0(sp)
-	ld	t1, 8(sp)
-	ld	t4, 16(sp)
-	ld	t5, 24(sp)
-	ld	t6, 32(sp)
-	addi	sp, sp, 64
-	csrrw	sp, mscratch, sp
-
-	/* Redirect to supervisor */
-	mrts
-
-.Lhtif:
+.Lhtif_interrupt:
 	la	t0, console_data
 	li	t1, 0
 	csrrw	t1, mfromhost, t1
@@ -662,36 +532,14 @@ ENTRY(sv_trap)
 	csrr	t0, mstatus
 	li	t1, (SR_IE1)
 	and	t0, t0, t1
-	bne	t0, t1, .Lquit
+	bne	t0, t1, .Lexit_no_mepc
 
 	/* Setup supervisor exception handler */
 	la	t0, _C_LABEL(cpu_exception_handler_sv)
-	li	t1, 0xffffffffc0000000
+	li	t1, KERNBASE
 	add	t0, t0, t1
 	csrw	stvec, t0
-
-	/* Restore state */
-	ld	t0, 0(sp)
-	ld	t1, 8(sp)
-	ld	t4, 16(sp)
-	ld	t5, 24(sp)
-	ld	t6, 32(sp)
-	addi	sp, sp, 64
-	csrrw	sp, mscratch, sp
-
-	/* Redirect to supervisor */
-	mrts
-
-.Lquit:
-	/* Restore state */
-	ld	t0, 0(sp)
-	ld	t1, 8(sp)
-	ld	t4, 16(sp)
-	ld	t5, 24(sp)
-	ld	t6, 32(sp)
-	addi	sp, sp, 64
-	csrrw	sp, mscratch, sp
-	eret
+	j	.Lexit_mrts
 
 .Lhandle_trap_in_machine_mode:
 
@@ -705,25 +553,10 @@ ENTRY(sv_trap)
 	li	t4, ECALL_CLEAR_PENDING
 	beq	t5, t4, clear_pending
 
-	/* Exit trap */
-	csrw    mepc, t1
-	/* Restore state */
-	ld	t0, 0(sp)
-	ld	t1, 8(sp)
-	ld	t4, 16(sp)
-	ld	t5, 24(sp)
-	ld	t6, 32(sp)
-	addi	sp, sp, 64
-	csrrw	sp, mscratch, sp
-	eret
+	j	.Lexit
 
 low_printc:
-	//li	t5, 0
-	//li	t0, 0x101000000000000
-	//add	t0, t0, t6
-	//add	t0, t0, a0
 	mv	t0, t6
-
 2:
 	csrrw	t0, mtohost, t0
 	bnez	t0, 2b
@@ -732,20 +565,7 @@ low_printc:
 	li	t0, 0
 	csrw	mfromhost, t0
 
-	//csrrw	t0, mfromhost, 0
-	//csrrw	t0, mfromhost, t0
-
-	/* Exit trap */
-	csrw    mepc, t1
-	/* Restore state */
-	ld	t0, 0(sp)
-	ld	t1, 8(sp)
-	ld	t4, 16(sp)
-	ld	t5, 24(sp)
-	//ld	t6, 32(sp)
-	addi	sp, sp, 64
-	csrrw	sp, mscratch, sp
-	eret
+	j	.Lexit
 
 set_mtimecmp:
 	csrw	mtimecmp, t6
@@ -753,25 +573,22 @@ set_mtimecmp:
 	/* Enable interrupts */
 	li	t0, (MIE_MTIE | MIE_STIE)
 	csrs	mie, t0
-
-	/* Exit trap */
-	csrw    mepc, t1
-	/* Restore state */
-	ld	t0, 0(sp)
-	ld	t1, 8(sp)
-	ld	t4, 16(sp)
-	ld	t5, 24(sp)
-	ld	t6, 32(sp)
-	addi	sp, sp, 64
-	csrrw	sp, mscratch, sp
-	eret
+	j	.Lexit
 
 clear_pending:
 	li      t0, MIP_STIP
 	csrc    mip, t0
+	j	.Lexit
 
+/*
+ * Trap exit functions
+ */
+
+.Lexit:
 	/* Exit trap */
 	csrw    mepc, t1
+
+.Lexit_no_mepc:
 	/* Restore state */
 	ld	t0, 0(sp)
 	ld	t1, 8(sp)
@@ -781,4 +598,16 @@ clear_pending:
 	addi	sp, sp, 64
 	csrrw	sp, mscratch, sp
 	eret
-END(sv_trap)
+
+.Lexit_mrts:
+	/* Restore state */
+	ld	t0, 0(sp)
+	ld	t1, 8(sp)
+	ld	t4, 16(sp)
+	ld	t5, 24(sp)
+	ld	t6, 32(sp)
+	addi	sp, sp, 64
+	csrrw	sp, mscratch, sp
+
+	/* Redirect to supervisor */
+	mrts
