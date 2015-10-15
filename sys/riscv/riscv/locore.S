@@ -66,12 +66,7 @@ mentry:
 
 	/* Machine mode entry point (mtvec + 0x0C0) */
 	.align 6
-	j mm_trap
-
-	.align 3
-hardstack1:
-	.space	56
-hardstack_end1:
+	j bad_trap
 
 	/* Reset vector */
 	.text
@@ -260,20 +255,11 @@ console_data:
 .endm
 
 .macro load_registers el
-	//csrr	t0, sstatus
-	//csrr	t0, sptbr
-
 	ld	t0, 264(sp)
 	csrw	sstatus, t0
 
 	ld	t0, 256(sp)
 	csrw	sepc, t0
-
-	/* Enable interrupts */
-	//li	t0, MIE_MTIE
-	//csrs	mie, t0
-	//li	t0, (SR_IE)
-	//csrs	sstatus, t0
 
 .if \el == 0
 	ld	t0, (TF_X + 2 * 8)(sp)
@@ -549,7 +535,7 @@ END(user_trap)
   | (0 << (31 - 8)) /* user environment call */   \
   | (1 << (31 - 9)) /* super environment call */  \
 
-sv_trap:
+ENTRY(sv_trap)
 	/* Save state */
 	csrrw	sp, mscratch, sp
 	addi	sp, sp, -64
@@ -559,18 +545,6 @@ sv_trap:
 	sd	t5, 24(sp)
 	sd	t6, 32(sp)
 
-	/* Save current sptbr */
-	//csrr	t0, sptbr
-	//sd	t0, 40(sp)
-	//mv	x4, t0
-	/* Load kernel sptbr */
-	//la	t0, pagetable_l1
-	//csrw	sptbr, t0
-
-	/* Debugging */
-	csrr	t0, mstatus
-
-	//csrr	t0, sptbr /* debug */
 	csrr	t0, mcause
 	bltz	t0, .Linterrupt
 	li	t1, HANDLE_SUPERVISOR_TRAP_IN_MACHINE_MODE
@@ -636,9 +610,6 @@ sv_trap:
 	and	t0, t0, t1
 	beq	t0, t1, .Lmrts
 
-	/* Restore sptbr */
-	//ld	t0, 40(sp)
-	//csrw	sptbr, t0
 	/* Restore state */
 	ld	t0, 0(sp)
 	ld	t1, 8(sp)
@@ -736,9 +707,6 @@ sv_trap:
 
 	/* Exit trap */
 	csrw    mepc, t1
-	/* Restore sptbr */
-	//ld	t0, 40(sp)
-	//csrw	sptbr, t0
 	/* Restore state */
 	ld	t0, 0(sp)
 	ld	t1, 8(sp)
@@ -769,9 +737,6 @@ low_printc:
 
 	/* Exit trap */
 	csrw    mepc, t1
-	/* Restore sptbr */
-	//ld	t0, 40(sp)
-	//csrw	sptbr, t0
 	/* Restore state */
 	ld	t0, 0(sp)
 	ld	t1, 8(sp)
@@ -791,9 +756,6 @@ set_mtimecmp:
 
 	/* Exit trap */
 	csrw    mepc, t1
-	/* Restore sptbr */
-	//ld	t0, 40(sp)
-	//csrw	sptbr, t0
 	/* Restore state */
 	ld	t0, 0(sp)
 	ld	t1, 8(sp)
@@ -810,9 +772,6 @@ clear_pending:
 
 	/* Exit trap */
 	csrw    mepc, t1
-	/* Restore sptbr */
-	//ld	t0, 40(sp)
-	//csrw	sptbr, t0
 	/* Restore state */
 	ld	t0, 0(sp)
 	ld	t1, 8(sp)
@@ -822,7 +781,4 @@ clear_pending:
 	addi	sp, sp, 64
 	csrrw	sp, mscratch, sp
 	eret
-
-mm_trap:
-	# Handle trap in supervisor mode
-	j mm_trap
+END(sv_trap)
