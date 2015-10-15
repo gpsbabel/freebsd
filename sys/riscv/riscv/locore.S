@@ -85,11 +85,6 @@ _start:
 	li	t0, 0
 	csrw	sscratch, t0
 
-	/* Setup supervisor exception handler */
-	//la	t0, _C_LABEL(cpu_exception_handler_sv)
-	//add	t0, t0, s11
-	//csrw	stvec, t0
-
 	li	s10, PAGE_SIZE
 	li	s9, (PAGE_SIZE * KSTACK_PAGES)
 
@@ -141,7 +136,7 @@ _start:
 		     (MSTATUS_PRV_U << MSTATUS_PRV2_SHIFT));
 	csrw	mstatus, s0
 
-	/* Exit machine mode */
+	/* Exit from machine mode */
 	la	t0, .Lmmu_on
 	add	t0, t0, s11
 	csrw	mepc, t0
@@ -454,13 +449,7 @@ user_trap:
 	csrr    t0, mcause
 	bltz    t0, .Linterrupt
 
-	/* Setup user exception handler */
-	la	t0, _C_LABEL(cpu_exception_handler_user)
-	li	t1, KERNBASE
-	add	t0, t0, t1
-	csrw	stvec, t0
-
-	j	.Lexit_mrts
+	j	.Lexit_mrts_user
 
 supervisor_trap:
 	/* Save state */
@@ -479,11 +468,6 @@ supervisor_trap:
 	sllw	t1, t1, t0
 	bltz	t1, .Lhandle_trap_in_machine_mode
 
-	/* Setup supervisor exception handler */
-	la	t0, _C_LABEL(cpu_exception_handler_sv)
-	li	t1, KERNBASE
-	add	t0, t0, t1
-	csrw	stvec, t0
 	j	.Lexit_mrts
 
 .Linterrupt:
@@ -515,11 +499,6 @@ supervisor_trap:
 	li      t0, MIP_STIP
 	csrc    mip, t0
 
-	/* Setup supervisor exception handler */
-	la	t0, _C_LABEL(cpu_exception_handler_sv)
-	li	t1, KERNBASE
-	add	t0, t0, t1
-	csrw	stvec, t0
 	j	.Lexit_mrts
 
 .Lhtif_interrupt:
@@ -532,17 +511,11 @@ supervisor_trap:
 	csrr	t0, mstatus
 	li	t1, (SR_IE1)
 	and	t0, t0, t1
-	bne	t0, t1, .Lexit_no_mepc
+	beqz	t0, .Lexit_no_mepc
 
-	/* Setup supervisor exception handler */
-	la	t0, _C_LABEL(cpu_exception_handler_sv)
-	li	t1, KERNBASE
-	add	t0, t0, t1
-	csrw	stvec, t0
 	j	.Lexit_mrts
 
 .Lhandle_trap_in_machine_mode:
-
 	/* Save mepc, point to the next instr */
 	csrr	t1, mepc
 	addi	t1, t1, 4
@@ -552,7 +525,6 @@ supervisor_trap:
 	beq	t5, t4, set_mtimecmp
 	li	t4, ECALL_CLEAR_PENDING
 	beq	t5, t4, clear_pending
-
 	j	.Lexit
 
 low_printc:
@@ -564,7 +536,6 @@ low_printc:
 	csrr	t6, mfromhost
 	li	t0, 0
 	csrw	mfromhost, t0
-
 	j	.Lexit
 
 set_mtimecmp:
@@ -600,6 +571,18 @@ clear_pending:
 	eret
 
 .Lexit_mrts:
+	/* Setup supervisor exception handler */
+	la	t0, _C_LABEL(cpu_exception_handler_sv)
+	j	1f
+
+.Lexit_mrts_user:
+	/* Setup user exception handler */
+	la	t0, _C_LABEL(cpu_exception_handler_user)
+1:
+	li	t1, KERNBASE
+	add	t0, t0, t1
+	csrw	stvec, t0
+
 	/* Restore state */
 	ld	t0, 0(sp)
 	ld	t1, 8(sp)
