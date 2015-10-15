@@ -1,4 +1,5 @@
 riscv/riscv/autoconf.c		standard
+riscv/riscv/exception.S		standard
 riscv/riscv/in_cksum.c		optional	inet | inet6
 riscv/riscv/locore.S		standard	no-obj
 riscv/riscv/pmap.c		standard
