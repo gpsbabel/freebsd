@@ -51,24 +51,21 @@ static int
 cloudabi64_fetch_syscall_args(struct thread *td, struct syscall_args *sa)
 {
 	struct trapframe *frame = td->td_frame;
+	int i;
 
 	/* Obtain system call number. */
-	sa->code = frame->tf_rax;
+	sa->code = frame->tf_x[8];
 	if (sa->code >= CLOUDABI64_SYS_MAXSYSCALL)
 		return (ENOSYS);
 	sa->callp = &cloudabi64_sysent[sa->code];
 
 	/* Fetch system call arguments. */
-	sa->args[0] = frame->tf_rdi;
-	sa->args[1] = frame->tf_rsi;
-	sa->args[2] = frame->tf_rdx;
-	sa->args[3] = frame->tf_rcx; /* Actually %r10. */
-	sa->args[4] = frame->tf_r8;
-	sa->args[5] = frame->tf_r9;
+	for (i = 0; i < MAXARGS; i++)
+		sa->args[i] = frame->tf_x[i];
 
 	/* Default system call return values. */
 	td->td_retval[0] = 0;
-	td->td_retval[1] = frame->tf_rdx;
+	td->td_retval[1] = frame->tf_x[1];
 	return (0);
 }
 
@@ -80,22 +77,20 @@ cloudabi64_set_syscall_retval(struct thread *td, int error)
 	switch (error) {
 	case 0:
 		/* System call succeeded. */
-		frame->tf_rax = td->td_retval[0];
-		frame->tf_rdx = td->td_retval[1];
-		frame->tf_rflags &= ~PSL_C;
+		frame->tf_x[0] = td->td_retval[0];
+		frame->tf_x[1] = td->td_retval[1];
+		frame->tf_spsr &= ~PSR_C;
 		break;
 	case ERESTART:
 		/* Restart system call. */
-		frame->tf_rip -= frame->tf_err;
-		frame->tf_r10 = frame->tf_rcx;
-		set_pcb_flags(td->td_pcb, PCB_FULL_IRET);
+		frame->tf_elr -= 4;
 		break;
 	case EJUSTRETURN:
 		break;
 	default:
 		/* System call returned an error. */
-		frame->tf_rax = cloudabi_convert_errno(error);
-		frame->tf_rflags |= PSL_C;
+		frame->tf_x[0] = cloudabi_convert_errno(error);
+		frame->tf_spsr |= PSR_C;
 		break;
 	}
 }
@@ -105,9 +100,15 @@ cloudabi64_schedtail(struct thread *td)
 {
 	struct trapframe *frame = td->td_frame;
 
-	/* Initial register values for processes returning from fork. */
-	frame->tf_rax = CLOUDABI_PROCESS_CHILD;
-	frame->tf_rdx = td->td_tid;
+	/*
+	 * Initial register values for processes returning from fork.
+	 * Make sure that we only set these values when forking, not
+	 * when creating a new thread.
+	 */
+	if ((td->td_pflags & TDP_FORKING) != 0) {
+		frame->tf_x[0] = CLOUDABI_PROCESS_CHILD;
+		frame->tf_x[1] = td->td_tid;
+	}
 }
 
 void
@@ -128,8 +129,8 @@ cloudabi64_thread_setregs(struct thread *td,
 	 * entry point.
 	 */
 	frame = td->td_frame;
-	frame->tf_rdi = td->td_tid;
-	frame->tf_rsi = attr->argument;
+	frame->tf_x[0] = td->td_tid;
+	frame->tf_x[1] = attr->argument;
 }
 
 static struct sysentvec cloudabi64_elf_sysvec = {
@@ -155,7 +156,7 @@ INIT_SYSENTVEC(elf_sysvec, &cloudabi64_elf_sysvec);
 
 Elf64_Brandinfo cloudabi64_brand = {
 	.brand		= ELFOSABI_CLOUDABI,
-	.machine	= EM_X86_64,
+	.machine	= EM_AARCH64,
 	.sysvec		= &cloudabi64_elf_sysvec,
 	.compat_3_brand	= "CloudABI",
 };
