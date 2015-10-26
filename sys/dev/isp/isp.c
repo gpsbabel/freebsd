@@ -1319,7 +1319,7 @@ isp_reset(ispsoftc_t *isp, int do_load_defaults)
 		}
 	} else {
 		if (ISP_CAP_SCCFW(isp)) {
-			isp->isp_maxluns = 16384;
+			isp->isp_maxluns = 0;	/* No limit -- 2/8 bytes */
 		} else {
 			isp->isp_maxluns = 16;
 		}
@@ -1367,6 +1367,8 @@ isp_scsi_init(ispsoftc_t *isp)
 {
 	sdparam *sdp_chan0, *sdp_chan1;
 	mbreg_t mbs;
+
+	isp->isp_state = ISP_INITSTATE;
 
 	sdp_chan0 = SDPARAM(isp, 0);
 	sdp_chan1 = sdp_chan0;
@@ -1543,7 +1545,7 @@ isp_scsi_init(ispsoftc_t *isp)
 		}
 	}
 
-	isp->isp_state = ISP_INITSTATE;
+	isp->isp_state = ISP_RUNSTATE;
 }
 
 static void
@@ -1667,17 +1669,15 @@ isp_fibre_init(ispsoftc_t *isp)
 	fcparam *fcp;
 	isp_icb_t local, *icbp = &local;
 	mbreg_t mbs;
-	int ownloopid;
 
 	/*
 	 * We only support one channel on non-24XX cards
 	 */
 	fcp = FCPARAM(isp, 0);
-	if (fcp->role == ISP_ROLE_NONE) {
-		isp->isp_state = ISP_INITSTATE;
+	if (fcp->role == ISP_ROLE_NONE)
 		return;
-	}
 
+	isp->isp_state = ISP_INITSTATE;
 	ISP_MEMZERO(icbp, sizeof (*icbp));
 	icbp->icb_version = ICB_VERSION1;
 	icbp->icb_fwoptions = fcp->isp_fwoptions;
@@ -1742,19 +1742,12 @@ isp_fibre_init(ispsoftc_t *isp)
 	}
 	icbp->icb_retry_delay = fcp->isp_retry_delay;
 	icbp->icb_retry_count = fcp->isp_retry_count;
-	icbp->icb_hardaddr = fcp->isp_loopid;
-	ownloopid = (isp->isp_confopts & ISP_CFG_OWNLOOPID) != 0;
-	if (icbp->icb_hardaddr >= LOCAL_LOOP_LIM) {
-		icbp->icb_hardaddr = 0;
-		ownloopid = 0;
-	}
-
-	/*
-	 * Our life seems so much better with 2200s and later with
-	 * the latest f/w if we set Hard Address.
-	 */
-	if (ownloopid || ISP_FW_NEWER_THAN(isp, 2, 2, 5)) {
-		icbp->icb_fwoptions |= ICBOPT_HARD_ADDRESS;
+	if (fcp->isp_loopid < LOCAL_LOOP_LIM) {
+		icbp->icb_hardaddr = fcp->isp_loopid;
+		if (isp->isp_confopts & ISP_CFG_OWNLOOPID)
+			icbp->icb_fwoptions |= ICBOPT_HARD_ADDRESS;
+		else
+			icbp->icb_fwoptions |= ICBOPT_PREV_ADDRESS;
 	}
 
 	/*
@@ -1978,7 +1971,7 @@ isp_fibre_init(ispsoftc_t *isp)
 	/*
 	 * Whatever happens, we're now committed to being here.
 	 */
-	isp->isp_state = ISP_INITSTATE;
+	isp->isp_state = ISP_RUNSTATE;
 }
 
 static void
@@ -1988,7 +1981,6 @@ isp_fibre_init_2400(ispsoftc_t *isp)
 	isp_icb_2400_t local, *icbp = &local;
 	mbreg_t mbs;
 	int chan;
-	int ownloopid = 0;
 
 	/*
 	 * Check to see whether all channels have *some* kind of role
@@ -2001,9 +1993,10 @@ isp_fibre_init_2400(ispsoftc_t *isp)
 	}
 	if (chan == isp->isp_nchan) {
 		isp_prt(isp, ISP_LOG_WARN1, "all %d channels with role 'none'", chan);
-		isp->isp_state = ISP_INITSTATE;
 		return;
 	}
+
+	isp->isp_state = ISP_INITSTATE;
 
 	/*
 	 * Start with channel 0.
@@ -2022,16 +2015,20 @@ isp_fibre_init_2400(ispsoftc_t *isp)
 
 	ISP_MEMZERO(icbp, sizeof (*icbp));
 	icbp->icb_fwoptions1 = fcp->isp_fwoptions;
-	if (fcp->role & ISP_ROLE_TARGET) {
+	icbp->icb_fwoptions2 = fcp->isp_xfwoptions;
+	icbp->icb_fwoptions3 = fcp->isp_zfwoptions;
+	if (isp->isp_nchan > 1 && (isp->isp_fwattr & ISP2400_FW_ATTR_VP0)) {
+		icbp->icb_fwoptions1 &= ~ICB2400_OPT1_INI_DISABLE;
 		icbp->icb_fwoptions1 |= ICB2400_OPT1_TGT_ENABLE;
 	} else {
-		icbp->icb_fwoptions1 &= ~ICB2400_OPT1_TGT_ENABLE;
-	}
-
-	if (fcp->role & ISP_ROLE_INITIATOR) {
-		icbp->icb_fwoptions1 &= ~ICB2400_OPT1_INI_DISABLE;
-	} else {
-		icbp->icb_fwoptions1 |= ICB2400_OPT1_INI_DISABLE;
+		if (fcp->role & ISP_ROLE_TARGET)
+			icbp->icb_fwoptions1 |= ICB2400_OPT1_TGT_ENABLE;
+		else
+			icbp->icb_fwoptions1 &= ~ICB2400_OPT1_TGT_ENABLE;
+		if (fcp->role & ISP_ROLE_INITIATOR)
+			icbp->icb_fwoptions1 &= ~ICB2400_OPT1_INI_DISABLE;
+		else
+			icbp->icb_fwoptions1 |= ICB2400_OPT1_INI_DISABLE;
 	}
 
 	icbp->icb_version = ICB_VERSION1;
@@ -2056,18 +2053,14 @@ isp_fibre_init_2400(ispsoftc_t *isp)
 			icbp->icb_xchgcnt >>= 1;
 	}
 
-
-	ownloopid = (isp->isp_confopts & ISP_CFG_OWNLOOPID) != 0;
-	icbp->icb_hardaddr = fcp->isp_loopid;
-	if (icbp->icb_hardaddr >= LOCAL_LOOP_LIM) {
-		icbp->icb_hardaddr = 0;
-		ownloopid = 0;
+	if (fcp->isp_loopid < LOCAL_LOOP_LIM) {
+		icbp->icb_hardaddr = fcp->isp_loopid;
+		if (isp->isp_confopts & ISP_CFG_OWNLOOPID)
+			icbp->icb_fwoptions1 |= ICB2400_OPT1_HARD_ADDRESS;
+		else
+			icbp->icb_fwoptions1 |= ICB2400_OPT1_PREV_ADDRESS;
 	}
 
-	if (ownloopid)
-		icbp->icb_fwoptions1 |= ICB2400_OPT1_HARD_ADDRESS;
-
-	icbp->icb_fwoptions2 = fcp->isp_xfwoptions;
 	if (isp->isp_confopts & ISP_CFG_NOFCTAPE) {
 		icbp->icb_fwoptions2 &= ~ICB2400_OPT2_FCTAPE;
 	}
@@ -2111,7 +2104,6 @@ isp_fibre_init_2400(ispsoftc_t *isp)
 		break;
 	}
 
-	icbp->icb_fwoptions3 = fcp->isp_zfwoptions;
 	if ((icbp->icb_fwoptions3 & ICB2400_OPT3_RSPSZ_MASK) == 0) {
 		icbp->icb_fwoptions3 |= ICB2400_OPT3_RSPSZ_24;
 	}
@@ -2126,9 +2118,6 @@ isp_fibre_init_2400(ispsoftc_t *isp)
 		icbp->icb_fwoptions3 |= ICB2400_OPT3_RATE_EIGHTGB;
 	} else {
 		icbp->icb_fwoptions3 |= ICB2400_OPT3_RATE_AUTO;
-	}
-	if (ownloopid == 0) {
-		icbp->icb_fwoptions3 |= ICB2400_OPT3_SOFTID;
 	}
 	icbp->icb_logintime = ICB_LOGIN_TOV;
 
@@ -2236,6 +2225,13 @@ isp_fibre_init_2400(ispsoftc_t *isp)
 				if ((fcp2->role & ISP_ROLE_TARGET) == 0)
 					pi.vp_port_options |= ICB2400_VPOPT_TGT_DISABLE;
 			}
+			if (fcp2->isp_loopid < LOCAL_LOOP_LIM) {
+				pi.vp_port_loopid = fcp2->isp_loopid;
+				if (isp->isp_confopts & ISP_CFG_OWNLOOPID)
+					pi.vp_port_options |= ICB2400_VPOPT_HARD_ADDRESS;
+				else
+					pi.vp_port_options |= ICB2400_VPOPT_PREV_ADDRESS;
+			}
 			MAKE_NODE_NAME_FROM_WWN(pi.vp_port_portname, fcp2->isp_wwpn);
 			MAKE_NODE_NAME_FROM_WWN(pi.vp_port_nodename, fcp2->isp_wwnn);
 			off = fcp->isp_scratch;
@@ -2285,7 +2281,7 @@ isp_fibre_init_2400(ispsoftc_t *isp)
 	/*
 	 * Whatever happens, we're now committed to being here.
 	 */
-	isp->isp_state = ISP_INITSTATE;
+	isp->isp_state = ISP_RUNSTATE;
 }
 
 static void
@@ -3164,7 +3160,7 @@ isp_scan_loop(ispsoftc_t *isp, int chan)
 			continue;
 		}
 		if (ISP_CAP_2KLOGIN(isp)) {
-			if (handle >= NPH_RESERVED && handle <= NPH_FL_ID) {
+			if (handle >= NPH_RESERVED && handle <= NPH_IP_BCST) {
 				continue;
 			}
 		}
@@ -4301,8 +4297,8 @@ isp_nxt_handle(ispsoftc_t *isp, int chan, uint16_t handle)
 		if (handle >= FL_ID && handle <= SNS_ID) {
 			handle = SNS_ID+1;
 		}
-		if (handle >= NPH_RESERVED && handle <= NPH_FL_ID) {
-			handle = NPH_FL_ID+1;
+		if (handle >= NPH_RESERVED && handle <= NPH_IP_BCST) {
+			handle = NPH_IP_BCST + 1;
 		}
 		if (ISP_CAP_2KLOGIN(isp)) {
 			if (handle == NPH_MAX_2K) {
@@ -4349,16 +4345,6 @@ isp_start(XS_T *xs)
 	isp = XS_ISP(xs);
 
 	/*
-	 * Now make sure we're running.
-	 */
-
-	if (isp->isp_state != ISP_RUNSTATE) {
-		isp_prt(isp, ISP_LOGERR, "Adapter not at RUNSTATE");
-		XS_SETERR(xs, HBA_BOTCH);
-		return (CMD_COMPLETE);
-	}
-
-	/*
 	 * Check command CDB length, etc.. We really are limited to 16 bytes
 	 * for Fibre Channel, but can do up to 44 bytes in parallel SCSI,
 	 * but probably only if we're running fairly new firmware (we'll
@@ -4380,8 +4366,16 @@ isp_start(XS_T *xs)
 		fcparam *fcp = FCPARAM(isp, XS_CHANNEL(xs));
 
 		if ((fcp->role & ISP_ROLE_INITIATOR) == 0) {
-			isp_prt(isp, ISP_LOG_WARN1, "%d.%d.%d I am not an initiator", XS_CHANNEL(xs), target, XS_LUN(xs));
+			isp_prt(isp, ISP_LOG_WARN1,
+			    "%d.%d.%jx I am not an initiator",
+			    XS_CHANNEL(xs), target, (uintmax_t)XS_LUN(xs));
 			XS_SETERR(xs, HBA_SELTIMEOUT);
+			return (CMD_COMPLETE);
+		}
+
+		if (isp->isp_state != ISP_RUNSTATE) {
+			isp_prt(isp, ISP_LOGERR, "Adapter not at RUNSTATE");
+			XS_SETERR(xs, HBA_BOTCH);
 			return (CMD_COMPLETE);
 		}
 
@@ -4400,21 +4394,34 @@ isp_start(XS_T *xs)
 			return (CMD_COMPLETE);
 		}
 		if (lp->state == FC_PORTDB_STATE_ZOMBIE) {
-			isp_prt(isp, ISP_LOGDEBUG1, "%d.%d.%d target zombie", XS_CHANNEL(xs), target, XS_LUN(xs));
+			isp_prt(isp, ISP_LOGDEBUG1,
+			    "%d.%d.%jx target zombie",
+			    XS_CHANNEL(xs), target, (uintmax_t)XS_LUN(xs));
 			return (CMD_RQLATER);
 		}
 		if (lp->state != FC_PORTDB_STATE_VALID) {
-			isp_prt(isp, ISP_LOGDEBUG1, "%d.%d.%d bad db port state 0x%x", XS_CHANNEL(xs), target, XS_LUN(xs), lp->state);
+			isp_prt(isp, ISP_LOGDEBUG1,
+			    "%d.%d.%jx bad db port state 0x%x",
+			    XS_CHANNEL(xs), target, (uintmax_t)XS_LUN(xs), lp->state);
 			XS_SETERR(xs, HBA_SELTIMEOUT);
 			return (CMD_COMPLETE);
 		}
 	} else {
 		sdparam *sdp = SDPARAM(isp, XS_CHANNEL(xs));
 		if ((sdp->role & ISP_ROLE_INITIATOR) == 0) {
-			isp_prt(isp, ISP_LOGDEBUG1, "%d.%d.%d I am not an initiator", XS_CHANNEL(xs), target, XS_LUN(xs));
+			isp_prt(isp, ISP_LOGDEBUG1,
+			    "%d.%d.%jx I am not an initiator",
+			    XS_CHANNEL(xs), target, (uintmax_t)XS_LUN(xs));
 			XS_SETERR(xs, HBA_SELTIMEOUT);
 			return (CMD_COMPLETE);
 		}
+
+		if (isp->isp_state != ISP_RUNSTATE) {
+			isp_prt(isp, ISP_LOGERR, "Adapter not at RUNSTATE");
+			XS_SETERR(xs, HBA_BOTCH);
+			return (CMD_COMPLETE);
+		}
+
 		if (sdp->update) {
 			isp_spi_update(isp, XS_CHANNEL(xs));
 		}
@@ -4561,14 +4568,20 @@ isp_start(XS_T *xs)
 		t7->req_tidlo = lp->portid;
 		t7->req_tidhi = lp->portid >> 16;
 		t7->req_vpidx = ISP_GET_VPIDX(isp, XS_CHANNEL(xs));
-		if (XS_LUN(xs) > 256) {
+#if __FreeBSD_version >= 1000700
+		be64enc(t7->req_lun, CAM_EXTLUN_BYTE_SWIZZLE(XS_LUN(xs)));
+#else
+		if (XS_LUN(xs) >= 256) {
 			t7->req_lun[0] = XS_LUN(xs) >> 8;
 			t7->req_lun[0] |= 0x40;
 		}
 		t7->req_lun[1] = XS_LUN(xs);
+#endif
 		if (FCPARAM(isp, XS_CHANNEL(xs))->fctape_enabled && (lp->prli_word3 & PRLI_WD3_RETRY)) {
 			if (FCP_NEXT_CRN(isp, &t7->req_crn, xs)) {
-				isp_prt(isp, ISP_LOG_WARN1, "%d.%d.%d cannot generate next CRN", XS_CHANNEL(xs), target, XS_LUN(xs));
+				isp_prt(isp, ISP_LOG_WARN1,
+				    "%d.%d.%jx cannot generate next CRN",
+				    XS_CHANNEL(xs), target, (uintmax_t)XS_LUN(xs));
 				XS_SETERR(xs, HBA_BOTCH);
 				return (CMD_EAGAIN);
 			}
@@ -4585,7 +4598,9 @@ isp_start(XS_T *xs)
 		}
 		if (FCPARAM(isp, XS_CHANNEL(xs))->fctape_enabled && (lp->prli_word3 & PRLI_WD3_RETRY)) {
 			if (FCP_NEXT_CRN(isp, &t2->req_crn, xs)) {
-				isp_prt(isp, ISP_LOG_WARN1, "%d.%d.%d cannot generate next CRN", XS_CHANNEL(xs), target, XS_LUN(xs));
+				isp_prt(isp, ISP_LOG_WARN1,
+				    "%d.%d.%jx cannot generate next CRN",
+				    XS_CHANNEL(xs), target, (uintmax_t)XS_LUN(xs));
 				XS_SETERR(xs, HBA_BOTCH);
 				return (CMD_EAGAIN);
 			}
@@ -4594,11 +4609,19 @@ isp_start(XS_T *xs)
 			ispreqt2e_t *t2e = (ispreqt2e_t *)local;
 			t2e->req_target = lp->handle;
 			t2e->req_scclun = XS_LUN(xs);
+#if __FreeBSD_version < 1000700
+			if (XS_LUN(xs) >= 256)
+				t2e->req_scclun |= 0x4000;
+#endif
 			cdbp = t2e->req_cdb;
 		} else if (ISP_CAP_SCCFW(isp)) {
 			ispreqt2_t *t2 = (ispreqt2_t *)local;
 			t2->req_target = lp->handle;
 			t2->req_scclun = XS_LUN(xs);
+#if __FreeBSD_version < 1000700
+			if (XS_LUN(xs) >= 256)
+				t2->req_scclun |= 0x4000;
+#endif
 			cdbp = t2->req_cdb;
 		} else {
 			t2->req_target = lp->handle;
@@ -5386,12 +5409,14 @@ again:
 			continue;
 		}
 		if (req_status_flags & RQSTF_BUS_RESET) {
-			isp_prt(isp, ISP_LOG_WARN1, "%d.%d.%d bus was reset", XS_CHANNEL(xs), XS_TGT(xs), XS_LUN(xs));
+			isp_prt(isp, ISP_LOG_WARN1, "%d.%d.%jx bus was reset",
+			    XS_CHANNEL(xs), XS_TGT(xs), (uintmax_t)XS_LUN(xs));
 			XS_SETERR(xs, HBA_BUSRESET);
 			ISP_SET_SENDMARKER(isp, XS_CHANNEL(xs), 1);
 		}
 		if (buddaboom) {
-			isp_prt(isp, ISP_LOG_WARN1, "%d.%d.%d buddaboom", XS_CHANNEL(xs), XS_TGT(xs), XS_LUN(xs));
+			isp_prt(isp, ISP_LOG_WARN1, "%d.%d.%jx buddaboom",
+			    XS_CHANNEL(xs), XS_TGT(xs), (uintmax_t)XS_LUN(xs));
 			XS_SETERR(xs, HBA_BOTCH);
 		}
 
@@ -5443,24 +5468,32 @@ again:
 			if (resp && rlen >= 4 && resp[FCP_RSPNS_CODE_OFFSET] != 0) {
 				const char *ptr;
 				char lb[64];
-				const char *rnames[6] = {
-					"Task Management Function Done",
-					"Data Length Differs From Burst Length",
-					"Invalid FCP Cmnd",
-					"FCP DATA RO mismatch with FCP DATA_XFR_RDY RO",
-					"Task Management Function Rejected",
-					"Task Management Function Failed",
+				const char *rnames[10] = {
+				    "Task Management function complete",
+				    "FCP_DATA length different than FCP_BURST_LEN",
+				    "FCP_CMND fields invalid",
+				    "FCP_DATA parameter mismatch with FCP_DATA_RO",
+				    "Task Management function rejected",
+				    "Task Management function failed",
+				    NULL,
+				    NULL,
+				    "Task Management function succeeded",
+				    "Task Management function incorrect logical unit number",
 				};
-				if (resp[FCP_RSPNS_CODE_OFFSET] > 5) {
-					ISP_SNPRINTF(lb, sizeof lb, "Unknown FCP Response Code 0x%x", resp[FCP_RSPNS_CODE_OFFSET]);
+				uint8_t code = resp[FCP_RSPNS_CODE_OFFSET];
+				if (code >= 10 || rnames[code] == NULL) {
+					ISP_SNPRINTF(lb, sizeof(lb),
+					    "Unknown FCP Response Code 0x%x",
+					    code);
 					ptr = lb;
 				} else {
-					ptr = rnames[resp[FCP_RSPNS_CODE_OFFSET]];
+					ptr = rnames[code];
 				}
-				isp_xs_prt(isp, xs, ISP_LOGWARN, "FCP RESPONSE, LENGTH %u: %s CDB0=0x%02x", rlen, ptr, XS_CDBP(xs)[0] & 0xff);
-				if (resp[FCP_RSPNS_CODE_OFFSET] != 0) {
+				isp_xs_prt(isp, xs, ISP_LOGWARN,
+				    "FCP RESPONSE, LENGTH %u: %s CDB0=0x%02x",
+				    rlen, ptr, XS_CDBP(xs)[0] & 0xff);
+				if (code != 0 && code != 8)
 					XS_SETERR(xs, HBA_BOTCH);
-				}
 			}
 			if (IS_24XX(isp)) {
 				isp_parse_status_24xx(isp, (isp24xx_statusreq_t *)sp, xs, &resid);
@@ -5527,7 +5560,11 @@ again:
 				*XS_STSP(xs) = SCSI_QFULL;
 				XS_SETERR(xs, HBA_NOERROR);
 			} else if (XS_NOERR(xs)) {
-				isp_prt(isp, ISP_LOG_WARN1, "%d.%d.%d badness at %s:%u", XS_CHANNEL(xs), XS_TGT(xs), XS_LUN(xs), __func__, __LINE__);
+				isp_prt(isp, ISP_LOG_WARN1,
+				    "%d.%d.%jx badness at %s:%u",
+				    XS_CHANNEL(xs), XS_TGT(xs),
+				    (uintmax_t)XS_LUN(xs),
+				    __func__, __LINE__);
 				XS_SETERR(xs, HBA_BOTCH);
 			}
 			XS_SET_RESID(xs, XS_XFRLEN(xs));
@@ -5939,7 +5976,11 @@ isp_parse_async_fc(ispsoftc_t *isp, uint16_t mbox)
 						continue;
 					}
 					j++;
-					isp_prt(isp, ISP_LOG_WARN1, "%d.%d.%d bus reset set at %s:%u", XS_CHANNEL(xs), XS_TGT(xs), XS_LUN(xs), __func__, __LINE__);
+					isp_prt(isp, ISP_LOG_WARN1,
+					    "%d.%d.%jx bus reset set at %s:%u",
+					    XS_CHANNEL(xs), XS_TGT(xs),
+					    (uintmax_t)XS_LUN(xs),
+					    __func__, __LINE__);
 					XS_SETERR(xs, HBA_BUSRESET);
 				}
 				if (j) {
@@ -6027,21 +6068,21 @@ isp_parse_async_fc(ispsoftc_t *isp, uint16_t mbox)
 
 	case ASYNC_PDB_CHANGED:
 	{
-		int nphdl, nlstate, reason;
-		/*
-		 * We *should* get a channel out of the 24XX, but we don't seem
-		 * to get more than a PDB CHANGED on channel 0, so turn it into
-		 * a broadcast event.
-		 */
+		int echan, nphdl, nlstate, reason;
+
 		if (IS_24XX(isp)) {
 			nphdl = ISP_READ(isp, OUTMAILBOX1);
 			nlstate = ISP_READ(isp, OUTMAILBOX2);
 			reason = ISP_READ(isp, OUTMAILBOX3) >> 8;
+			GET_24XX_BUS(isp, chan, "ASYNC_CHANGE_NOTIFY");
+			echan = (nphdl == NIL_HANDLE) ?
+			    isp->isp_nchan - 1 : chan;
 		} else {
 			nphdl = NIL_HANDLE;
 			nlstate = reason = 0;
+			chan = echan = 0;
 		}
-		for (chan = 0; chan < isp->isp_nchan; chan++) {
+		for (; chan <= echan; chan++) {
 			fcparam *fcp = FCPARAM(isp, chan);
 
 			if (fcp->role == ISP_ROLE_NONE) {
@@ -6418,7 +6459,9 @@ isp_parse_status(ispsoftc_t *isp, ispstatusreq_t *sp, XS_T *xs, long *rp)
 		break;
 
 	case RQCS_XACT_ERR2:
-		isp_xs_prt(isp, xs, ISP_LOGERR, "HBA attempted queued transaction to target routine %d", XS_LUN(xs));
+		isp_xs_prt(isp, xs, ISP_LOGERR,
+		    "HBA attempted queued transaction to target routine %jx",
+		    (uintmax_t)XS_LUN(xs));
 		break;
 
 	case RQCS_XACT_ERR3:
@@ -7871,7 +7914,8 @@ isp_reinit(ispsoftc_t *isp, int do_load_defaults)
 {
 	int i, res = 0;
 
-	isp_reset(isp, do_load_defaults);
+	if (isp->isp_state != ISP_RESETSTATE)
+		isp_reset(isp, do_load_defaults);
 	if (isp->isp_state != ISP_RESETSTATE) {
 		res = EIO;
 		isp_prt(isp, ISP_LOGERR, "%s: cannot reset card", __func__);
@@ -7880,15 +7924,10 @@ isp_reinit(ispsoftc_t *isp, int do_load_defaults)
 	}
 
 	isp_init(isp);
-	if (isp->isp_state == ISP_INITSTATE) {
-		isp->isp_state = ISP_RUNSTATE;
-	}
-
-	if (isp->isp_state != ISP_RUNSTATE) {
+	if (isp->isp_state > ISP_RESETSTATE &&
+	    isp->isp_state != ISP_RUNSTATE) {
 		res = EIO;
-#ifndef	ISP_TARGET_MODE
-		isp_prt(isp, ISP_LOGWARN, "%s: not at runstate", __func__);
-#endif
+		isp_prt(isp, ISP_LOGERR, "%s: cannot init card", __func__);
 		ISP_DISABLE_INTS(isp);
 		if (IS_FC(isp)) {
 			/*
