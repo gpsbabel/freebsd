@@ -58,9 +58,11 @@ void
 init_pltgot(Obj_Entry *obj)
 {
 
+	dbg("pltgot relocbase 0x%016lx obj->pltgot 0x%016lx",
+			(uint64_t)obj->relocbase, (uint64_t)obj->pltgot);
 	if (obj->pltgot != NULL) {
+		obj->pltgot[0] = (Elf_Addr) &_rtld_bind_start;
 		obj->pltgot[1] = (Elf_Addr) obj;
-		obj->pltgot[2] = (Elf_Addr) &_rtld_bind_start;
 	}
 }
 
@@ -87,8 +89,9 @@ do_copy_relocations(Obj_Entry *dstobj)
 	relalim = (const Elf_Rela *)((char *)dstobj->rela +
 	    dstobj->relasize);
 	for (rela = dstobj->rela; rela < relalim; rela++) {
-		if (ELF_R_TYPE(rela->r_info) != R_AARCH64_COPY)
+		if (ELF_R_TYPE(rela->r_info) != R_RISCV_COPY)
 			continue;
+		//dbg("copy");
 
 		dstaddr = (void *)(dstobj->relocbase + rela->r_offset);
 		dstsym = dstobj->symtab + ELF_R_SYM(rela->r_info);
@@ -116,6 +119,7 @@ do_copy_relocations(Obj_Entry *dstobj)
 		}
 
 		srcaddr = (const void *)(defobj->relocbase + srcsym->st_value);
+		//dbg("d 0x%016lx s 0x%016lx sz %ld\n", (uint64_t)dstaddr, (uint64_t)srcaddr, size);
 		memcpy(dstaddr, srcaddr, size);
 	}
 
@@ -196,23 +200,43 @@ reloc_plt(Obj_Entry *obj)
 	relalim = (const Elf_Rela *)((char *)obj->pltrela + obj->pltrelasize);
 	for (rela = obj->pltrela; rela < relalim; rela++) {
 		Elf_Addr *where;
+		uint64_t saved;
+
+		assert(ELF_R_TYPE(rela->r_info) == R_RISCV_JUMP_SLOT);
 
 		where = (Elf_Addr *)(obj->relocbase + rela->r_offset);
 
 		switch(ELF_R_TYPE(rela->r_info)) {
-		case R_AARCH64_JUMP_SLOT:
+		case R_RISCV_JUMP_SLOT:
+			saved = *where;
+
 			*where += (Elf_Addr)obj->relocbase;
-			break;
-		case R_AARCH64_TLSDESC:
-			if (ELF_R_SYM(rela->r_info) == 0) {
-				where[0] = (Elf_Addr)_rtld_tlsdesc;
-				where[1] = obj->tlsoffset + rela->r_addend;
-			} else {
-				where[0] = (Elf_Addr)_rtld_tlsdesc_dynamic;
-				where[1] = (Elf_Addr)reloc_tlsdesc_alloc(obj,
-				    rela);
+#if 0
+			if (*where >= 0x80000000)
+				dbg("FAIL 0 saved 0x%016lx *where 0x%016lx relocbase 0x%016lx r_offset 0x%016lx",
+						saved, *where, (Elf_Addr)obj->relocbase, rela->r_offset);
+			else {
+				dbg("OK 0 saved 0x%016lx *where 0x%016lx relocbase 0x%016lx r_offset 0x%016lx",
+						saved, *where, (Elf_Addr)obj->relocbase, rela->r_offset);
 			}
+#endif
+
+			//dbg("jump where 0x%016lx r_offset 0x%016lx",
+			//	(uint64_t)where, rela->r_offset);
+			//*where += (Elf_Addr)obj->relocbase;
+			//dbg("jump where 0x%016lx [0] 0x%016lx [1] 0x%016lx\n",
+			//	(uint64_t)where, where[0], where[1]);
 			break;
+		//case R_AARCH64_TLSDESC:
+		//	if (ELF_R_SYM(rela->r_info) == 0) {
+		//		where[0] = (Elf_Addr)_rtld_tlsdesc;
+		//		where[1] = obj->tlsoffset + rela->r_addend;
+		//	} else {
+		//		where[0] = (Elf_Addr)_rtld_tlsdesc_dynamic;
+		//		where[1] = (Elf_Addr)reloc_tlsdesc_alloc(obj,
+		//		    rela);
+		//	}
+		//	break;
 		default:
 			_rtld_error("Unknown relocation type %u in PLT",
 			    (unsigned int)ELF_R_TYPE(rela->r_info));
@@ -233,7 +257,7 @@ reloc_jmpslots(Obj_Entry *obj, int flags, RtldLockState *lockstate)
 	const Elf_Rela *relalim;
 	const Elf_Rela *rela;
 	const Elf_Sym *def;
-	struct tls_data *tlsdesc;
+	//struct tls_data *tlsdesc;
 
 	relalim = (const Elf_Rela *)((char *)obj->pltrela + obj->pltrelasize);
 	for (rela = obj->pltrela; rela < relalim; rela++) {
@@ -241,7 +265,7 @@ reloc_jmpslots(Obj_Entry *obj, int flags, RtldLockState *lockstate)
 
 		where = (Elf_Addr *)(obj->relocbase + rela->r_offset);
 		switch(ELF_R_TYPE(rela->r_info)) {
-		case R_AARCH64_JUMP_SLOT:
+		case R_RISCV_JUMP_SLOT:
 			def = find_symdef(ELF_R_SYM(rela->r_info), obj,
 			    &defobj, SYMLOOK_IN_PLT | flags, NULL, lockstate);
 			if (def == NULL) {
@@ -249,16 +273,19 @@ reloc_jmpslots(Obj_Entry *obj, int flags, RtldLockState *lockstate)
 				return (-1);
 			}
 
+			dbg("jmpslots base 0x%016lx st_v 0x%016lx r_addend 0x%016lx t_offset 0x%016lx",
+					(uint64_t)obj->relocbase, def->st_value, rela->r_addend, rela->r_offset);
+
 			*where = (Elf_Addr)(defobj->relocbase + def->st_value);
 			break;
-		case R_AARCH64_TLSDESC:
-			if (ELF_R_SYM(rela->r_info) != 0) {
-				tlsdesc = (struct tls_data *)where[1];
-				if (tlsdesc->index == -1)
-					rtld_tlsdesc_handle_locked(tlsdesc,
-					    SYMLOOK_IN_PLT | flags, lockstate);
-			}
-			break;
+		//case R_AARCH64_TLSDESC:
+		//	if (ELF_R_SYM(rela->r_info) != 0) {
+		//		tlsdesc = (struct tls_data *)where[1];
+		//		if (tlsdesc->index == -1)
+		//			rtld_tlsdesc_handle_locked(tlsdesc,
+		//			    SYMLOOK_IN_PLT | flags, lockstate);
+		//	}
+		//	break;
 		default:
 			_rtld_error("Unknown relocation type %x in jmpslot",
 			    (unsigned int)ELF_R_TYPE(rela->r_info));
@@ -291,7 +318,12 @@ reloc_jmpslot(Elf_Addr *where, Elf_Addr target, const Obj_Entry *defobj,
     const Obj_Entry *obj, const Elf_Rel *rel)
 {
 
-	assert(ELF_R_TYPE(rel->r_info) == R_AARCH64_JUMP_SLOT);
+	//dbg("ELF_R_TYPE(rel->r_info) 0x%016lx target 0x%016lx",
+	//		ELF_R_TYPE(rel->r_info), target);
+	assert(ELF_R_TYPE(rel->r_info) == R_RISCV_JUMP_SLOT);
+
+	if (*where >= 0x80000000)
+		dbg("FAIL 1 *where 0x%016lx", *where);
 
 	if (*where != target)
 		*where = target;
@@ -314,6 +346,8 @@ reloc_non_plt(Obj_Entry *obj, Obj_Entry *obj_rtld, int flags,
 	Elf_Addr *where;
 	unsigned long symnum;
 
+	//Elf_Addr *got = obj->pltgot;
+
 	if ((flags & SYMLOOK_IFUNC) != 0)
 		/* XXX not implemented */
 		return (0);
@@ -334,17 +368,66 @@ reloc_non_plt(Obj_Entry *obj, Obj_Entry *obj_rtld, int flags,
 		symnum = ELF_R_SYM(rela->r_info);
 
 		switch (ELF_R_TYPE(rela->r_info)) {
-		case R_AARCH64_ABS64:
-		case R_AARCH64_GLOB_DAT:
+		case R_RISCV_NONE:
+			//dbg("R_RISCV_NONE base 0x%016lx r_addend 0x%016lx t_offset 0x%016lx",
+			//		(uint64_t)obj->relocbase, rela->r_addend, rela->r_offset);
+			break;
+		case R_RISCV_64:
 			def = find_symdef(symnum, obj, &defobj, flags, cache,
 			    lockstate);
 			if (def == NULL)
 				return (-1);
 
+			//dbg("non plt R_RISCV_64 base 0x%016lx defbase 0x%016lx st_v 0x%016lx r_addend 0x%016lx t_offset 0x%016lx", (uint64_t)obj->relocbase, (uint64_t)defobj->relocbase, def->st_value, rela->r_addend, rela->r_offset);
+
 			*where = (Elf_Addr)defobj->relocbase + def->st_value +
 			    rela->r_addend;
+			if (*where >= 0x80000000)
+				dbg("FAIL 2 *where 0x%016lx", *where);
 			break;
-		case R_AARCH64_COPY:
+
+		case R_RISCV_JUMP_SLOT:
+
+			//def = find_symdef(symnum, obj, &defobj, flags, cache,
+			//   lockstate);
+			//if (def == NULL)
+			//	return (-1);
+			//dbg("non plt JUMP st_v 0x%016lx", def->st_value);
+
+			break;
+
+			dbg("non plt JUMP base 0x%016lx defbase 0x%016lx st_v 0x%016lx st_info %d r_addend 0x%016lx t_offset 0x%016lx tlsindex 0x%016lx def tlsindex 0x%016lx SYMLOOK_IFUNC %d",
+				(uint64_t)obj->relocbase, (uint64_t)defobj->relocbase, def->st_value, def->st_info, rela->r_addend, rela->r_offset, (uint64_t)defobj->tlsindex, (uint64_t)obj->tlsindex, flags & SYMLOOK_IFUNC ? 1 : 0);
+
+
+			*where = (Elf_Addr)defobj->relocbase + def->st_value +
+			    rela->r_addend;
+			if (*where >= 0x80000000)
+				dbg("FAIL 3 *where 0x%016lx", *where);
+			break;
+		case R_RISCV_TLS_DTPMOD64:
+			def = find_symdef(symnum, obj, &defobj, flags, cache,
+			    lockstate);
+			if (def == NULL)
+				return -1;
+			dbg("non plt DTPMOD64 base 0x%016lx defbase 0x%016lx st_v 0x%016lx r_addend 0x%016lx t_offset 0x%016lx", (uint64_t)obj->relocbase, (uint64_t)defobj->relocbase, def->st_value, rela->r_addend, rela->r_offset);
+
+			*where += (Elf_Addr)defobj->tlsindex;
+			//*where += (Elf_Addr)defobj->tlsindex + rela->r_addend;
+			if (*where >= 0x80000000)
+				dbg("FAIL 4 *where 0x%016lx", *where);
+			break;
+		//case R_AARCH64_ABS64:
+		//case R_AARCH64_GLOB_DAT:
+		//	def = find_symdef(symnum, obj, &defobj, flags, cache,
+		//	    lockstate);
+		//	if (def == NULL)
+		//		return (-1);
+
+		//	*where = (Elf_Addr)defobj->relocbase + def->st_value +
+		//	    rela->r_addend;
+		//	break;
+		case R_RISCV_COPY:
 			/*
 			 * These are deferred until all other relocations have
 			 * been done. All we do here is make sure that the
@@ -352,16 +435,48 @@ reloc_non_plt(Obj_Entry *obj, Obj_Entry *obj_rtld, int flags,
 			 * are allowed only in executable files.
 			 */
 			if (!obj->mainprog) {
-				_rtld_error("%s: Unexpected R_AARCH64_COPY "
+				_rtld_error("%s: Unexpected R_RISCV_COPY "
 				    "relocation in shared library", obj->path);
 				return (-1);
 			}
 			break;
-		case R_AARCH64_TLS_TPREL64:
+		case R_RISCV_TLS_DTPREL64:
 			def = find_symdef(symnum, obj, &defobj, flags, cache,
 			    lockstate);
 			if (def == NULL)
 				return (-1);
+			dbg("non plt DTPREL64 base 0x%016lx defbase 0x%016lx st_v 0x%016lx r_addend 0x%016lx t_offset 0x%016lx", (uint64_t)obj->relocbase, (uint64_t)defobj->relocbase, def->st_value, rela->r_addend, rela->r_offset);
+
+			/*
+			 * We lazily allocate offsets for static TLS as we
+			 * see the first relocation that references the
+			 * TLS block. This allows us to support (small
+			 * amounts of) static TLS in dynamically loaded
+			 * modules. If we run out of space, we generate an
+			 * error.
+			 */
+			if (!defobj->tls_done) {
+				if (!allocate_tls_offset((Obj_Entry*) defobj)) {
+					_rtld_error(
+					    "%s: No space available for static "
+					    "Thread Local Storage", obj->path);
+					return (-1);
+				}
+			}
+
+			//*where += def->st_value + rela->r_addend + defobj->tlsoffset;
+			//*where += def->st_value - TLS_DTP_OFFSET;
+			*where += (def->st_value + rela->r_addend);
+			if (*where >= 0x80000000)
+				dbg("FAIL 5 *where 0x%016lx", *where);
+			break;
+		case R_RISCV_TLS_TPREL64:
+			def = find_symdef(symnum, obj, &defobj, flags, cache,
+			    lockstate);
+			if (def == NULL)
+				return (-1);
+
+			dbg("non plt TPREL64 base 0x%016lx defbase 0x%016lx st_v 0x%016lx r_addend 0x%016lx t_offset 0x%016lx", (uint64_t)obj->relocbase, (uint64_t)defobj->relocbase, def->st_value, rela->r_addend, rela->r_offset);
 
 			/*
 			 * We lazily allocate offsets for static TLS as we
@@ -382,9 +497,15 @@ reloc_non_plt(Obj_Entry *obj, Obj_Entry *obj_rtld, int flags,
 
 			*where = def->st_value + rela->r_addend +
 			    defobj->tlsoffset;
+			if (*where >= 0x80000000)
+				dbg("FAIL 6 *where 0x%016lx", *where);
 			break;
-		case R_AARCH64_RELATIVE:
+		case R_RISCV_RELATIVE:
+			//dbg("R_RISCV_RELATIVE base 0x%016lx r_addend 0x%016lx t_offset 0x%016lx",
+			//		(uint64_t)obj->relocbase, rela->r_addend, rela->r_offset);
 			*where = (Elf_Addr)(obj->relocbase + rela->r_addend);
+			//if (*where >= 0x80000000)
+			//	dbg("FAIL: 7 *where 0x%016lx", *where);
 			break;
 		default:
 			rtld_printf("%s: Unhandled relocation %lu\n",
@@ -411,6 +532,17 @@ allocate_initial_tls(Obj_Entry *objs)
 
 	tp = (Elf_Addr **) allocate_tls(objs, NULL, TLS_TCB_SIZE, 16);
 
-	asm volatile("mv	tp, %0" : : "r"(tp));
-	//asm volatile("msr	tpidr_el0, %0" : : "r"(tp));
+	asm volatile("mv  tp, %0" :: "r"((char*)tp + 0x10));
+}
+
+void *
+__tls_get_addr(tls_index* ti)
+{
+	char *_tp;
+	void *p; 
+
+	__asm __volatile("mv %0, tp" : "=r" (_tp));
+	p = tls_get_addr_common((Elf_Addr **)(_tp - 0x10), ti->ti_module, ti->ti_offset);
+
+	return (p);
 }

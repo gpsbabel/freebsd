@@ -15,6 +15,9 @@ MAN=		rtld.1
 CSTD?=		gnu99
 TOPSRCDIR=	${.CURDIR}/../..
 CFLAGS+=	-Wall -DFREEBSD_ELF -DIN_RTLD
+.if ${MACHINE_CPUARCH} == "riscv"
+CFLAGS+=	-ffreestanding
+.endif
 CFLAGS+=	-I${TOPSRCDIR}/lib/csu/common
 .if exists(${.CURDIR}/${MACHINE_ARCH})
 RTLD_ARCH=	${MACHINE_ARCH}

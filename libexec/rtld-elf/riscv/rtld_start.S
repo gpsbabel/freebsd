@@ -30,7 +30,36 @@
 #include <machine/asm.h>
 __FBSDID("$FreeBSD$");
 
+/*
+ * func_ptr_type
+ * _rtld(Elf_Addr *sp, func_ptr_type *exit_proc, Obj_Entry **objp)
+ */
+
 ENTRY(.rtld_start)
+	mv	x8, a0		/* Put ps_strings in a callee-saved register */
+	mv	x9, sp		/* And the stack pointer */
+
+	lla	gp, _DYNAMIC
+
+	/* Handle the old style stack */
+	/* TODO: Remove this when the kernel correctly aligns the stack */
+	//bnez	a0, 1f
+	//mv	a0, sp		/* sp points to the args */
+	//andi	sp, a0, ~0xf	/* Align the stack as needed */
+
+1:	addi	sp, sp, -16	/* Make room for obj_main & exit proc */
+
+	mv	a1, sp		/* exit_proc */
+	addi	a2, a1, 8	/* obj_main */
+	jal	_rtld		/* Call the loader */
+	mv	t0, a0		/* Backup the entry point */
+
+	ld	a2, 0(sp)	/* Load cleanup */
+	ld	a1, 8(sp)	/* Load obj_main */
+	mv	a0, x8		/* Restore ps_strings */
+	mv	sp, x9		/* Restore the stack pointer */
+	jr	t0		/* Jump to the entry point */
+
 #if 0
 	mov	x19, x0		/* Put ps_strings in a callee-saved register */
 	mov	x20, sp		/* And the stack pointer */
@@ -62,7 +91,63 @@ END(.rtld_start)
  * x16 = &GOT[2]
  * x17 = &_rtld_bind_start
  */
+
+/* netbsd hint
+ * t0 = obj pointer
+ * t1 = reloc offset
+ */
+
 ENTRY(_rtld_bind_start)
+	//mv	t1, sp
+
+	/* Save the arguments */
+	addi	sp, sp, -72
+	sd	a0, (8 * 0)(sp)
+	sd	a1, (8 * 1)(sp)
+	sd	a2, (8 * 2)(sp)
+	sd	a3, (8 * 3)(sp)
+	sd	a4, (8 * 4)(sp)
+	sd	a5, (8 * 5)(sp)
+	sd	a6, (8 * 6)(sp)
+	sd	a7, (8 * 7)(sp)
+	sd	ra, (8 * 8)(sp)
+
+	/* Save any floating-point arguments */
+
+	/* Each rela item has 3 entriesso we need reloff = 3 * index */
+	slli	a1, t1, 1
+	add	a1, a1, t1
+
+	/* Load obj */
+	mv	a0, t0
+
+	/* Call into rtld */
+	jal	_rtld_bind
+
+	/* Restore the registers saved by the plt code */
+	//ld	
+	//ldp	xzr, x30, [sp, #(5 * 16 + 4 * 32)]
+
+	/* Backup the address to branch to */
+	mv	t0, a0
+
+	/* restore the arguments */
+	ld	a0, (8 * 0)(sp)
+	ld	a1, (8 * 1)(sp)
+	ld	a2, (8 * 2)(sp)
+	ld	a3, (8 * 3)(sp)
+	ld	a4, (8 * 4)(sp)
+	ld	a5, (8 * 5)(sp)
+	ld	a6, (8 * 6)(sp)
+	ld	a7, (8 * 7)(sp)
+	ld	ra, (8 * 8)(sp)
+	addi	sp, sp, 72
+
+	/* And the part of the stack the plt entry handled */
+	//addi	sp, sp, 16
+
+	/* Call into the correct function */
+	jr	t0
 #if 0
 	mov	x17, sp
 
@@ -128,6 +213,7 @@ END(_rtld_bind_start)
  * Returns the data.
  */
 ENTRY(_rtld_tlsdesc)
+	ld	a0, 8(a0)
 #if 0
 	ldr	x0, [x0, #8]
 #endif
@@ -140,6 +226,79 @@ END(_rtld_tlsdesc)
  * TODO: We could lookup the saved index here to skip saving the entire stack.
  */
 ENTRY(_rtld_tlsdesc_dynamic)
+	/* Store any registers we may use in rtld_tlsdesc_handle */
+	addi	sp, sp, -240
+	sd	x1, (1 * 8)(sp)
+	/* sd	x2, (2 * 8)(sp) */
+	sd	x3, (3 * 8)(sp)
+	sd	x4, (4 * 8)(sp)
+	sd	x5, (5 * 8)(sp)
+	sd	x6, (6 * 8)(sp)
+	sd	x7, (7 * 8)(sp)
+	sd	x8, (8 * 8)(sp)
+	sd	x9, (9 * 8)(sp)
+	sd	x10, (10 * 8)(sp)
+	sd	x11, (11 * 8)(sp)
+	sd	x12, (12 * 8)(sp)
+	sd	x13, (13 * 8)(sp)
+	sd	x14, (14 * 8)(sp)
+	sd	x15, (15 * 8)(sp)
+	sd	x16, (16 * 8)(sp)
+	sd	x17, (17 * 8)(sp)
+	sd	x18, (18 * 8)(sp)
+	sd	x19, (19 * 8)(sp)
+	sd	x20, (20 * 8)(sp)
+	sd	x21, (21 * 8)(sp)
+	sd	x22, (22 * 8)(sp)
+	sd	x23, (23 * 8)(sp)
+	sd	x24, (24 * 8)(sp)
+	sd	x25, (25 * 8)(sp)
+	sd	x26, (26 * 8)(sp)
+	sd	x27, (27 * 8)(sp)
+	sd	x28, (28 * 8)(sp)
+	sd	x29, (29 * 8)(sp)
+	sd	x30, (30 * 8)(sp)
+	sd	x31, (31 * 8)(sp)
+
+	/* Find the tls offset */
+	ld	a0, 8(a0)
+	li	a1, 1
+	call	rtld_tlsdesc_handle
+
+	/* Restore the registers */
+	ld	x1, (1 * 8)(sp)
+	/* ld	x2, (2 * 8)(sp) */
+	ld	x3, (3 * 8)(sp)
+	ld	x4, (4 * 8)(sp)
+	ld	x5, (5 * 8)(sp)
+	ld	x6, (6 * 8)(sp)
+	ld	x7, (7 * 8)(sp)
+	ld	x8, (8 * 8)(sp)
+	ld	x9, (9 * 8)(sp)
+	ld	x10, (10 * 8)(sp)
+	ld	x11, (11 * 8)(sp)
+	ld	x12, (12 * 8)(sp)
+	ld	x13, (13 * 8)(sp)
+	ld	x14, (14 * 8)(sp)
+	ld	x15, (15 * 8)(sp)
+	ld	x16, (16 * 8)(sp)
+	ld	x17, (17 * 8)(sp)
+	ld	x18, (18 * 8)(sp)
+	ld	x19, (19 * 8)(sp)
+	ld	x20, (20 * 8)(sp)
+	ld	x21, (21 * 8)(sp)
+	ld	x22, (22 * 8)(sp)
+	ld	x23, (23 * 8)(sp)
+	ld	x24, (24 * 8)(sp)
+	ld	x25, (25 * 8)(sp)
+	ld	x26, (26 * 8)(sp)
+	ld	x27, (27 * 8)(sp)
+	ld	x28, (28 * 8)(sp)
+	ld	x29, (29 * 8)(sp)
+	ld	x30, (30 * 8)(sp)
+	ld	x31, (31 * 8)(sp)
+	addi	sp, sp, 240
+
 #if 0
 	/* Store any registers we may use in rtld_tlsdesc_handle */
 	stp	x29, x30, [sp, #-(10 * 16)]!
