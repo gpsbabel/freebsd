@@ -66,7 +66,7 @@ CTFFLAGS+= -g
 .SUFFIXES: .out .o .po .So .S .asm .s .c .cc .cpp .cxx .C .f .y .l .ln
 
 .if !defined(PICFLAG)
-.if ${MACHINE_CPUARCH} == "sparc64" || ${MACHINE_CPUARCH} == "riscv"
+.if ${MACHINE_CPUARCH} == "sparc64"
 PICFLAG=-fPIC
 .else
 PICFLAG=-fpic
