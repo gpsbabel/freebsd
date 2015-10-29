@@ -7,8 +7,6 @@ PROG=	ls
 SRCS=	cmp.c ls.c print.c util.c
 LIBADD=	xo util
 
-NO_SHARED?=     YES
-
 .if !defined(RELEASE_CRUNCH) && \
 	${MK_LS_COLORS} != no
 CFLAGS+= -DCOLORLS
