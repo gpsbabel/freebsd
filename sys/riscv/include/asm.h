@@ -39,7 +39,7 @@
 #define	_C_LABEL(x)	x
 
 #define	ENTRY(sym)						\
-	.text; .globl sym; .align 2; sym:
+	.text; .globl sym; .type sym,@function; .align 2; sym:
 #define	EENTRY(sym)						\
 	.globl	sym; sym:
 #define	END(sym) .size sym, . - sym
