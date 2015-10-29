@@ -37,7 +37,7 @@ __FBSDID("$FreeBSD$");
 
 
 	.section .fini,"ax",@progbits
-	ld	ra, (sp)
+	ld	ra, 0(sp)
 	addi	sp, sp, 16
 	ret
 

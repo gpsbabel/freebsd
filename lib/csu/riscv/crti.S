@@ -44,5 +44,4 @@ _init:
 	.type	_fini,@function
 _fini:
 	addi	sp, sp, -16
-	sd	ra, (sp)
-
+	sd	ra, 0(sp)

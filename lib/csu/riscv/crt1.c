@@ -80,7 +80,14 @@ __start(int argc, char *argv[], char *env[], void (*cleanup)(void))
 
 	handle_argv(argc, argv, env);
 
-	if (&_DYNAMIC != NULL)
+	/* TODO: check this */
+
+	//if (&_DYNAMIC != NULL)
+
+	uint64_t *daddr;
+	asm volatile("lla       %0, _DYNAMIC" : "=r"(daddr));
+
+	if (daddr != NULL)
 		atexit(cleanup);
 	else {
 		/*
