@@ -489,12 +489,20 @@ supervisor_trap:
 	li	t0, MIP_STIP
 	csrs	mip, t0
 
-	/* Was interrupts enabled before trap ? */
+	/* If PRV1 is user then serve a trap */
 	csrr	t0, mstatus
-	li	t1, (SR_IE1)
+	li	t1, (MSTATUS_PRV_M << MSTATUS_PRV1_SHIFT)
 	and	t0, t0, t1
-	beqz	t0, .Lexit_no_mepc
+	beqz	t0, 1f
 
+	/* If PRV1 is supervisor and interrupts was enabled, then serve a trap */
+	csrr	t0, mstatus
+	li	t1, (SR_IE1 | (MSTATUS_PRV_M << MSTATUS_PRV1_SHIFT))
+	and	t0, t0, t1
+	li	t1, (SR_IE1 | (MSTATUS_PRV_S << MSTATUS_PRV1_SHIFT))
+	bne	t0, t1, .Lexit_no_mepc
+
+1:
 	/* Clear pending */
 	li      t0, MIP_STIP
 	csrc    mip, t0

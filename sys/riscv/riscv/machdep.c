@@ -302,7 +302,8 @@ exec_setregs(struct thread *td, struct image_params *imgp, u_long stack)
 	//panic("%s", __func__);
 
 	memset(tf, 0, sizeof(struct trapframe));
-	tf->tf_x[2] = stack;
+	tf->tf_x[10] = td->td_retval[0] = stack;
+	tf->tf_x[2] = STACKALIGN(stack);
 	tf->tf_x[1] = imgp->entry_addr;
 	tf->tf_sepc = imgp->entry_addr;
 

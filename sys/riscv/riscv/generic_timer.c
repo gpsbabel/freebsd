@@ -454,6 +454,29 @@ arm_tmr_attach(device_t dev)
 	sc->et.et_priv = sc;
 	et_register(&sc->et);
 
+	/* Atomic tests */
+	uint64_t t1;
+	uint64_t t;
+	t = 0;
+	atomic_add_long(&t, 1);
+	printf("expect 1 == %d\n", t);
+	t1 = atomic_swap_64(&t, 0);
+	printf("expect 0 1 == %d %d\n", t, t1);
+	atomic_subtract_long(&t1, 1);
+	printf("expect 0 == %d\n", t1);
+
+	atomic_add_long(&t, 1);
+	printf("expect 1 == %d\n", t);
+	atomic_clear_long(&t, 1);
+	printf("clear expect 0 == %d\n", t);
+
+	uint32_t t2;
+	t2 = 0;
+	atomic_add_int(&t2, 1);
+	printf("expect 1 == %d\n", t2);
+	atomic_subtract_int(&t2, 1);
+	printf("expect 0 == %d\n", t2);
+
 	return (0);
 }
 

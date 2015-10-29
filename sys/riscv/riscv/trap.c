@@ -101,7 +101,7 @@ call_trapsignal(struct thread *td, int sig, int code, void *addr)
 {
 	ksiginfo_t ksi;
 
-	panic("%s: implement me\n", __func__);
+	//panic("%s: implement me\n", __func__);
 
 	ksiginfo_init_trap(&ksi);
 	ksi.ksi_signo = sig;
