@@ -36,6 +36,7 @@ options 	FREEBSD_BOOT_LOADER
 options 	VFP			# vfp/neon
 
 #options 	EARLY_PRINTF
+options		VM_KMEM_SIZE=16777216	# required for 8mb mdroot
 
 # Debugging
 makeoptions	DEBUG=-g		# Build kernel with gdb(1) debug symbols
@@ -68,7 +69,7 @@ options 	BREAK_TO_DEBUGGER
 
 # Boot device is 2nd slice on MMC/SD card
 options 	MD_ROOT			# MD is a potential root device
-options 	MD_ROOT_SIZE=4096	# 4MB ram disk
+options 	MD_ROOT_SIZE=8192	# 8MB ram disk
 makeoptions	MFS_IMAGE=/home/rb743/dev/freebsd-riscv/riscv-new.img
 options 	ROOTDEVNAME=\"ufs:/dev/md0\"
 
