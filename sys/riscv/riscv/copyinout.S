@@ -69,7 +69,7 @@ ENTRY(copyout)
 
 	SET_FAULT_HANDLER(x0, a7) /* Clear the handler */
 
-2:	mv	a0, x0		/* return 0 */
+2:	li	a0, 0		/* return 0 */
 	ret
 #if 0
 	cbz	x2, 2f		/* If len == 0 then skip loop */
@@ -109,7 +109,7 @@ ENTRY(copyin)
 
 	SET_FAULT_HANDLER(x0, a7) /* Clear the handler */
 
-2:	mv	a0, x0		/* return 0 */
+2:	li	a0, 0		/* return 0 */
 	ret
 #if 0
 	cbz	x2, 2f		/* If len == 0 then skip loop */

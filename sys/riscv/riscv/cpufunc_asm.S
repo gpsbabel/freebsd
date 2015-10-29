@@ -50,6 +50,7 @@ __FBSDID("$FreeBSD: head/sys/arm64/arm64/cpufunc_asm.S 281494 2015-04-13 14:43:1
  * in x1. It will corrupt x0, x1, x2, and x3.
  */
 .macro cache_handle_range dcop = 0, ic = 0, icop = 0
+	sfence.vm
 #if 0
 .if \ic == 0
 	ldr	x3, =dcache_line_size	/* Load the D cache line size */
@@ -85,7 +86,7 @@ END(arm64_nullop)
  * Generic functions to read/modify/write the internal coprocessor registers
  */
 
-#if 0
+#if 1
 ENTRY(arm64_setttb)
 	fence
 	csrw	sptbr0, a0
@@ -102,6 +103,7 @@ END(arm64_setttb)
 #endif
 
 ENTRY(arm64_tlb_flushID)
+	sfence.vm
 #if 0
 #ifdef SMP
 	tlbi	vmalle1is
@@ -115,6 +117,7 @@ ENTRY(arm64_tlb_flushID)
 END(arm64_tlb_flushID)
 
 ENTRY(arm64_tlb_flushID_SE)
+	sfence.vm
 #if 0
 	ldr	x1, .Lpage_mask
 	bic	x0, x0, x1
@@ -133,14 +136,14 @@ END(arm64_tlb_flushID_SE)
  * void arm64_dcache_wb_range(vm_offset_t, vm_size_t)
  */
 ENTRY(arm64_dcache_wb_range)
-	//cache_handle_range	dcop = cvac
+	cache_handle_range	dcop = cvac
 END(arm64_dcache_wb_range)
 
 /*
  * void arm64_dcache_wbinv_range(vm_offset_t, vm_size_t)
  */
 ENTRY(arm64_dcache_wbinv_range)
-	//cache_handle_range	dcop = civac
+	cache_handle_range	dcop = civac
 END(arm64_dcache_wbinv_range)
 
 /*
@@ -150,7 +153,7 @@ END(arm64_dcache_wbinv_range)
  * must use wb-inv of the entire cache.
  */
 ENTRY(arm64_dcache_inv_range)
-	//cache_handle_range	dcop = ivac
+	cache_handle_range	dcop = ivac
 END(arm64_dcache_inv_range)
 
 /*
