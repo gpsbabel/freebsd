@@ -30,7 +30,7 @@
 #define	_MACHINE_ELF_H_
 
 /*
- * ELF definitions for the AArch64 architecture.
+ * ELF definitions for the RISC-V architecture.
  */
 
 #include <sys/elf32.h>	/* Definitions common to all 32 bit architectures. */
@@ -61,7 +61,7 @@ typedef struct {	/* Auxiliary vector entry on initial stack */
 
 __ElfType(Auxinfo);
 
-#define	ELF_ARCH	EM_AARCH64
+#define	ELF_ARCH	EM_RISCV
 
 #define	ELF_MACHINE_OK(x) ((x) == (ELF_ARCH))
 
@@ -96,9 +96,11 @@ __ElfType(Auxinfo);
 /* Define "machine" characteristics */
 #define	ELF_TARG_CLASS	ELFCLASS64
 #define	ELF_TARG_DATA	ELFDATA2LSB
-#define	ELF_TARG_MACH	EM_AARCH64
+#define	ELF_TARG_MACH	EM_RISCV
 #define	ELF_TARG_VER	1
 
-#define	ET_DYN_LOAD_ADDR 0x100000
+//TODO: set correct value
+//#define	ET_DYN_LOAD_ADDR 0x100000
+#define	ET_DYN_LOAD_ADDR 0x800000
 
 #endif /* !_MACHINE_ELF_H_ */
