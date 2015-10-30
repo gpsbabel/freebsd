@@ -403,7 +403,7 @@ do_trap_user(struct trapframe *frame)
 
 	exception = (frame->tf_scause & 0xf);
 	if (frame->tf_scause & (1 << 31)) {
-		printf(".");
+		//printf(".");
 		//printf("intr sstatus 0x%016lx\n", frame->tf_sstatus);
 
 		//printf("intr %d, curthread 0x%016lx sepc 0x%016lx sstatus 0x%016lx\n",

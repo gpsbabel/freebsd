@@ -440,26 +440,33 @@ bad_trap:
 user_trap:
 	csrrw	sp, mscratch, sp
 	addi	sp, sp, -64
-	sd	t0, 0(sp)
-	sd	t1, 8(sp)
-	sd	t4, 16(sp)
-	sd	t5, 24(sp)
-	sd	t6, 32(sp)
+	sd	t0, (8 * 0)(sp)
+	sd	t1, (8 * 1)(sp)
+	sd	t2, (8 * 2)(sp)
+	sd	t3, (8 * 3)(sp)
+	sd	t4, (8 * 4)(sp)
+	sd	t5, (8 * 5)(sp)
+	sd	t6, (8 * 6)(sp)
+
+	la	t2, _C_LABEL(cpu_exception_handler_user)
 
 	csrr    t0, mcause
 	bltz    t0, .Linterrupt
-
-	j	.Lexit_mrts_user
+	j	.Lexit_mrts
 
 supervisor_trap:
 	/* Save state */
 	csrrw	sp, mscratch, sp
 	addi	sp, sp, -64
-	sd	t0, 0(sp)
-	sd	t1, 8(sp)
-	sd	t4, 16(sp)
-	sd	t5, 24(sp)
-	sd	t6, 32(sp)
+	sd	t0, (8 * 0)(sp)
+	sd	t1, (8 * 1)(sp)
+	sd	t2, (8 * 2)(sp)
+	sd	t3, (8 * 3)(sp)
+	sd	t4, (8 * 4)(sp)
+	sd	t5, (8 * 5)(sp)
+	sd	t6, (8 * 6)(sp)
+
+	la	t2, _C_LABEL(cpu_exception_handler_sv)
 
 	csrr	t0, mcause
 	bltz	t0, .Linterrupt
@@ -467,7 +474,6 @@ supervisor_trap:
 	li	t1, HANDLE_SUPERVISOR_TRAP_IN_MACHINE_MODE
 	sllw	t1, t1, t0
 	bltz	t1, .Lhandle_trap_in_machine_mode
-
 	j	.Lexit_mrts
 
 .Linterrupt:
@@ -506,7 +512,6 @@ supervisor_trap:
 	/* Clear pending */
 	li      t0, MIP_STIP
 	csrc    mip, t0
-
 	j	.Lexit_mrts
 
 .Lhtif_interrupt:
@@ -520,13 +525,12 @@ supervisor_trap:
 	li	t1, (SR_IE1)
 	and	t0, t0, t1
 	beqz	t0, .Lexit_no_mepc
-
 	j	.Lexit_mrts
 
 .Lhandle_trap_in_machine_mode:
 	/* Save mepc, point to the next instr */
 	csrr	t1, mepc
-	addi	t1, t1, 4
+	addi	t1, t1, 4		/* Next instruction */
 	li	t4, ECALL_LOW_PRINTC
 	beq	t5, t4, low_printc
 	li	t4, ECALL_MTIMECMP
@@ -562,41 +566,39 @@ clear_pending:
 /*
  * Trap exit functions
  */
-
 .Lexit:
 	/* Exit trap */
 	csrw    mepc, t1
-
 .Lexit_no_mepc:
 	/* Restore state */
-	ld	t0, 0(sp)
-	ld	t1, 8(sp)
-	ld	t4, 16(sp)
-	ld	t5, 24(sp)
-	ld	t6, 32(sp)
+	ld	t0, (8 * 0)(sp)
+	ld	t1, (8 * 1)(sp)
+	ld	t2, (8 * 2)(sp)
+	ld	t3, (8 * 3)(sp)
+	ld	t4, (8 * 4)(sp)
+	ld	t5, (8 * 5)(sp)
+	ld	t6, (8 * 6)(sp)
 	addi	sp, sp, 64
 	csrrw	sp, mscratch, sp
 	eret
 
+/*
+ * Redirect to supervisor
+ */
 .Lexit_mrts:
-	/* Setup supervisor exception handler */
-	la	t0, _C_LABEL(cpu_exception_handler_sv)
-	j	1f
-
-.Lexit_mrts_user:
-	/* Setup user exception handler */
-	la	t0, _C_LABEL(cpu_exception_handler_user)
-1:
+	/* Setup exception handler */
 	li	t1, KERNBASE
-	add	t0, t0, t1
-	csrw	stvec, t0
+	add	t2, t2, t1
+	csrw	stvec, t2
 
 	/* Restore state */
-	ld	t0, 0(sp)
-	ld	t1, 8(sp)
-	ld	t4, 16(sp)
-	ld	t5, 24(sp)
-	ld	t6, 32(sp)
+	ld	t0, (8 * 0)(sp)
+	ld	t1, (8 * 1)(sp)
+	ld	t2, (8 * 2)(sp)
+	ld	t3, (8 * 3)(sp)
+	ld	t4, (8 * 4)(sp)
+	ld	t5, (8 * 5)(sp)
+	ld	t6, (8 * 6)(sp)
 	addi	sp, sp, 64
 	csrrw	sp, mscratch, sp
 
