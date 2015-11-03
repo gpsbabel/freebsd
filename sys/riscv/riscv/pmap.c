@@ -990,7 +990,7 @@ pmap_extract_and_hold(pmap_t pmap, vm_offset_t va, vm_prot_t prot)
 	vm_paddr_t pa;
 	vm_page_t m;
 
-	panic("pmap_extract_and_hold\n");
+	//panic("pmap_extract_and_hold\n");
 	//printf("%s\n", __func__);
 
 	pa = 0;
@@ -999,11 +999,17 @@ pmap_extract_and_hold(pmap_t pmap, vm_offset_t va, vm_prot_t prot)
 retry:
 	l3p = pmap_l3(pmap, va);
 	if (l3p != NULL && (l3 = pmap_load(l3p)) != 0) {
-		if (((l3 & ATTR_AP_RW_BIT) == ATTR_AP(ATTR_AP_RW)) ||
-		    ((prot & VM_PROT_WRITE) == 0)) {
-			if (vm_page_pa_tryrelock(pmap, l3 & ~ATTR_MASK, &pa))
+		if ((pmap_is_write(l3)) || ((prot & VM_PROT_WRITE) == 0)) {
+		//if (((l3 & ATTR_AP_RW_BIT) == ATTR_AP(ATTR_AP_RW)) ||
+		//    ((prot & VM_PROT_WRITE) == 0)) {
+
+			uint64_t phys;
+			phys = l3 >> PTE_PPN0_S;
+			phys *= PAGE_SIZE;
+
+			if (vm_page_pa_tryrelock(pmap, phys, &pa))
 				goto retry;
-			m = PHYS_TO_VM_PAGE(l3 & ~ATTR_MASK);
+			m = PHYS_TO_VM_PAGE(phys);
 			vm_page_hold(m);
 		}
 	}
