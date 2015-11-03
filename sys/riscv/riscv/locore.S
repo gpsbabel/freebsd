@@ -187,7 +187,20 @@ hardstack_end:
 
 	.globl console_data
 console_data:
-	.space  (16)
+	.space  (64)
+
+	.globl htif_ring_cursor
+htif_ring_cursor:
+	.space  (8)
+
+	.globl htif_ring_last
+htif_ring_last:
+	.space  (8)
+
+	.globl console_intr
+console_intr:
+	.space  (8)
+
 //console_data:
 //	.quad htif_data	/* XXX: Keep page tables VA */
 
@@ -480,7 +493,7 @@ supervisor_trap:
 	/* HTIF interrupt ? */
 	csrr	t0, mcause
 	andi	t0, t0, 2
-	bnez	t0, .Lhtif_interrupt
+	bnez	t0, htif_interrupt
 
 .Ltimer_interrupt:
 	/* Disable interrupts */
@@ -514,11 +527,38 @@ supervisor_trap:
 	csrc    mip, t0
 	j	.Lexit_mrts
 
-.Lhtif_interrupt:
-	la	t0, console_data
+htif_interrupt:
+	//la	t0, console_data
 	li	t1, 0
 	csrrw	t1, mfromhost, t1
+	//sd	t1, 0(t0)
+
+	/* put entry */
+	la	t0, htif_ring_cursor
+	ld	t0, 0(t0)	/* load struct */
+	beqz	t0, 1f		/* not initialized */
+	sd	t1, 0(t0)	/* put entry */
+	li	t4, 1
+	sd	t4, 8(t0)	/* mark used */
+	ld	t4, 16(t0)	/* take next */
+	/* update cursor */
+	la	t0, htif_ring_cursor
+	sd	t4, 0(t0)
+
+	////
+	//li	t0, 0
+	//csrw	mfromhost, t0
+1:
+	/* Console intr ? */
+	li	t0, 0x101
+	srli	t1, t1, 48
+	bne	t1, t0, 2f
+	/* Update if yes */
+	la	t0, console_intr
+	li	t1, 1
 	sd	t1, 0(t0)
+
+2:
 
 	/* Was supervisor interrupts enabled before trap ? */
 	csrr	t0, mstatus
@@ -533,21 +573,75 @@ supervisor_trap:
 	addi	t1, t1, 4		/* Next instruction */
 	li	t4, ECALL_LOW_PRINTC
 	beq	t5, t4, low_printc
+	li	t4, ECALL_LOW_GETC
+	beq	t5, t4, low_getc
+	li	t4, ECALL_HTIF_CMD
+	beq	t5, t4, htif_cmd
+	li	t4, ECALL_HTIF_GET_ENTRY
+	beq	t5, t4, htif_get_entry
 	li	t4, ECALL_MTIMECMP
 	beq	t5, t4, set_mtimecmp
 	li	t4, ECALL_CLEAR_PENDING
 	beq	t5, t4, clear_pending
 	j	.Lexit
 
+htif_get_entry:
+	li	t6, 0		/* preset return value */
+	la	t0, htif_ring_last
+	ld	t0, 0(t0)	/* load struct */
+	ld	t4, 8(t0)	/* get used */
+	beqz	t4, 1f
+	ld	t6, 0(t0)	/* get entry */
+	li	t4, 0
+	sd	t4, 8(t0)	/* mark free */
+	sd	t4, 0(t0)	/* free entry, just in case */
+	ld	t4, 16(t0)	/* take next */
+	/* update ring_last */
+	la	t0, htif_ring_last
+	sd	t4, 0(t0)
+1:
+	j	.Lexit_mcall
+
 low_printc:
+	mv	t0, t6
+1:
+	csrrw	t0, mtohost, t0
+	bnez	t0, 1b
+
+	j	.Lexit
+
+	li	t0, 0x101
+2:
+	csrr	t6, mfromhost
+	srli	t6, t6, 48
+	bne	t6, t0, 2b
+
+	li	t0, 0
+	csrw	mfromhost, t0
+
+	j	.Lexit
+
+low_getc:
 	mv	t0, t6
 2:
 	csrrw	t0, mtohost, t0
 	bnez	t0, 2b
 
-	csrr	t6, mfromhost
-	li	t0, 0
-	csrw	mfromhost, t0
+	//csrr	t6, mfromhost
+	//li	t0, 0
+	//csrw	mfromhost, t0
+
+	j	.Lexit
+
+htif_cmd:
+	mv	t0, t6
+2:
+	csrrw	t0, mtohost, t0
+	bnez	t0, 2b
+
+	//csrr	t6, mfromhost
+	//li	t0, 0
+	//csrw	mfromhost, t0
 	j	.Lexit
 
 set_mtimecmp:
@@ -578,6 +672,22 @@ clear_pending:
 	ld	t4, (8 * 4)(sp)
 	ld	t5, (8 * 5)(sp)
 	ld	t6, (8 * 6)(sp)
+	addi	sp, sp, 64
+	csrrw	sp, mscratch, sp
+	eret
+
+.Lexit_mcall:
+	/* Exit trap */
+	csrw    mepc, t1
+
+	/* Restore state */
+	ld	t0, (8 * 0)(sp)
+	ld	t1, (8 * 1)(sp)
+	ld	t2, (8 * 2)(sp)
+	//ld	t3, (8 * 3)(sp)
+	ld	t4, (8 * 4)(sp)
+	ld	t5, (8 * 5)(sp)
+	//ld	t6, (8 * 6)(sp)
 	addi	sp, sp, 64
 	csrrw	sp, mscratch, sp
 	eret

@@ -11,7 +11,7 @@
 #define HTIF_ALIGN          (64)
 
 void htif_init(void);
-void htif_test(void);
+//void htif_test(void);
 
 #if 0
 static inline void htif_tohost(unsigned long dev,
@@ -47,4 +47,5 @@ static inline unsigned long htif_fromhost(void)
 }
 #endif
 
-void riscv_console_intr(void);
+void riscv_console_intr(uint8_t);
+void htif_intr(void);

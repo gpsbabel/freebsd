@@ -4,6 +4,9 @@
 #define	ECALL_MTIMECMP		2
 #define	ECALL_MTIMECMP2		3
 #define	ECALL_CLEAR_PENDING	4
+#define	ECALL_HTIF_CMD		5
+#define	ECALL_HTIF_GET_ENTRY	6
+#define	ECALL_LOW_GETC		7
 
 #define	MSTATUS_MPRV		(1 << 16)
 #define	MSTATUS_PRV_SHIFT	1

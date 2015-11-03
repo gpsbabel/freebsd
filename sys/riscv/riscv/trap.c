@@ -291,7 +291,6 @@ do_trap(struct trapframe *frame)
 	if (frame->tf_scause & (1 << 31)) {
 		//printf(".");
 		//printf("intr sstatus 0x%016lx\n", frame->tf_sstatus);
-
 		//printf("intr %d, curthread 0x%016lx sepc 0x%016lx sstatus 0x%016lx\n",
 		//		exception, curthread,
 		//		frame->tf_sepc, frame->tf_sstatus);
@@ -305,9 +304,9 @@ do_trap(struct trapframe *frame)
 			//uint64_t *cc = &console_data;
 			//uint8_t c = *(uint8_t *)cc;
 			//printf("mfromhost %c\n", c);
-
 			//panic("aaa");
-			riscv_console_intr();
+
+			htif_intr();
 		}
 		return;
 	}
@@ -392,6 +391,7 @@ do_trap_user(struct trapframe *frame)
 {
 	uint64_t exception;
 	uint64_t esr;
+	int i;
 
 	/* Check we have a sane environment when entering from userland */
 	//KASSERT((uintptr_t)get_pcpu() >= VM_MIN_KERNEL_ADDRESS,
@@ -405,7 +405,6 @@ do_trap_user(struct trapframe *frame)
 	if (frame->tf_scause & (1 << 31)) {
 		//printf(".");
 		//printf("intr sstatus 0x%016lx\n", frame->tf_sstatus);
-
 		//printf("intr %d, curthread 0x%016lx sepc 0x%016lx sstatus 0x%016lx\n",
 		//		exception, curthread,
 		//		frame->tf_sepc, frame->tf_sstatus);
@@ -419,9 +418,9 @@ do_trap_user(struct trapframe *frame)
 			//uint64_t *cc = &console_data;
 			//uint8_t c = *(uint8_t *)cc;
 			//printf("mfromhost %c\n", c);
-
 			//panic("aaa");
-			riscv_console_intr();
+
+			htif_intr();
 		}
 		return;
 	}
@@ -456,8 +455,11 @@ do_trap_user(struct trapframe *frame)
 		data_abort(frame, esr, 1);
 		break;
 	default:
-		panic("Unknown userland exception %x esr_el1 %lx\n", exception,
-		    esr);
+		panic("Unknown userland exception %x badaddr %lx\n",
+			exception, frame->tf_sbadaddr);
+		for (i = 0; i < 32; i++) {
+			printf("x[%d] == 0x%016lx\n", i, frame->tf_x[i]);
+		}
 	}
 
 	//if ((frame->tf_sstatus & (1 << 4)) == 0) {

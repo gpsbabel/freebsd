@@ -35,7 +35,13 @@ __FBSDID("$FreeBSD$");
 #include <sys/cons.h>
 #include <sys/consio.h>
 #include <sys/tty.h>
+
+#include <vm/vm.h>
+#include <vm/pmap.h>
+
 #include <machine/htif.h>
+
+#include "htif.h"
 
 #include <dev/ofw/openfirm.h>
 
@@ -43,12 +49,16 @@ __FBSDID("$FreeBSD$");
 
 //#include "riscvcall.h"
 
-#define MAMBOBURSTLEN	4096	/* max number of bytes to write in one chunk */
+//#define MAMBOBURSTLEN	4096	/* max number of bytes to write in one chunk */
+#define MAMBOBURSTLEN	1	/* max number of bytes to write in one chunk */
 
 #define MAMBO_CONSOLE_WRITE	0
 #define MAMBO_CONSOLE_READ	60
 
 extern uint64_t console_data;
+extern uint64_t htif_ring_last;
+extern uint64_t htif_ring_cursor;
+extern uint64_t console_intr;
 
 static tsw_outwakeup_t riscvtty_outwakeup;
 
@@ -77,6 +87,7 @@ static cn_ungrab_t	riscv_cnungrab;
 
 CONSOLE_DRIVER(riscv);
 
+#if 0
 static uint64_t
 htif_cmd(uint64_t cmd)
 {
@@ -91,6 +102,7 @@ htif_cmd(uint64_t cmd)
 
 	return (res);
 }
+#endif
 
 static void 
 htif_early_putc(int c)
@@ -100,7 +112,7 @@ htif_early_putc(int c)
 	cmd = 0x101000000000000;
 	cmd |= c;
 
-	htif_cmd(cmd);
+	htif_command(cmd, ECALL_LOW_PRINTC);
 }
 
 static uint8_t
@@ -111,9 +123,35 @@ htif_getc(void)
 
 	cmd = 0x100000000000000;
 
-	res = htif_cmd(cmd);
+	res = htif_command(cmd, ECALL_LOW_GETC);
 
 	return (res);
+}
+
+static void
+riscv_putc(int c)
+{
+	uint64_t *cc = (uint64_t*)&console_intr;
+	//*cc = 0;
+	console_intr = 0;
+
+	//uint64_t addr;
+	uint64_t val;
+	val = 0;
+
+	__asm __volatile(
+		"li	%0, 0\n"
+		"sd	%0, 0(%1)" : "=&r"(val) : "r"(cc)
+	);
+
+	htif_early_putc(c);
+
+	__asm __volatile(
+		"1:\n"
+		"ld	%0, 0(%1)\n"
+		"beqz	%0, 1b\n"
+		: "=&r"(val) : "r"(cc)
+	);
 }
 
 static void
@@ -151,7 +189,8 @@ riscvtty_outwakeup(struct tty *tp)
 			break;
 		//riscvcall(MAMBO_CONSOLE_WRITE, buf, (register_t)len, 1UL);
 		for (i = 0; i < len; i++)
-			htif_early_putc(buf[i]);
+			riscv_putc(buf[i]);
+			//htif_early_putc(buf[i]);
 	}
 }
 
@@ -170,10 +209,24 @@ riscv_timeout(void *v)
 }
 
 void
-riscv_console_intr(void)
+riscv_console_intr(uint8_t c)
 {
-	uint64_t *cc = &console_data;
-	int c = *(uint8_t *)cc & 0xff;
+	//uint64_t *cc = &console_data;
+	//uint64_t data;
+	//int c;
+
+	//uint64_t *queue_size = &htif_queue_size;
+	//int i;
+	//for (i = 0; i < *sz; i++) {
+	//for (;;) {
+	//	int c = *(uint8_t *)cc & 0xff;
+	//	*queue_size--;
+	//}
+
+	//data = *cc;
+	//c = data & 0xff;
+	//if ((data >> 56) != 1)
+	//	return;
 
 	//tty_lock(tp);
 	if (c) {
@@ -242,9 +295,9 @@ riscv_cngetc(struct consdev *cp)
 static void
 riscv_cnputc(struct consdev *cp, int c)
 {
-	char cbuf;
-
-	cbuf = c;
+	//char cbuf;
+	//cbuf = c;
 	//riscvcall(MAMBO_CONSOLE_WRITE, &cbuf, 1UL, 1UL);
-	htif_early_putc(c);
+
+	riscv_putc(c);
 }
