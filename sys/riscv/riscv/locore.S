@@ -44,6 +44,8 @@
 //#include <machine/vmparam.h>
 
 #define	INIT_STACK_SIZE	(PAGE_SIZE * 4)
+#define	RING_SIZE	(1024)
+#define	RING_LAST	(24 * 1023)
 
 	.globl	kernbase
 	.set	kernbase, KERNBASE
@@ -74,6 +76,31 @@ mentry:
 	.globl _start
 _start:
 	li	s11, KERNBASE
+
+	/* Build ring */
+	la	t0, htif_ring2
+	li	t1, 0
+	sd	t1, 0(t0)	/* zero data */
+	sd	t1, 8(t0)	/* zero used */
+	mv	t2, t0
+	mv	t3, t0
+	li	t5, RING_LAST
+	li	t6, 0
+	add	t4, t0, t5
+1:
+	addi	t3, t3, 24	/* pointer to next */
+	beq	t3, t4, 2f
+	sd	t3, 16(t2)	/* store pointer */
+	addi	t2, t2, 24	/* next entry */
+	addi	t6, t6, 1	/* counter */
+	j	1b
+2:
+	sd	t0, 16(t3)	/* last -> first */
+	la	t1, htif_ring_cursor
+	sd	t0, 0(t1)
+	la	t1, htif_ring_last
+	sd	t0, 0(t1)
+	/* finish building ring */
 
 	la	t0, hardstack_end
 	sub	t0, t0, s11
@@ -114,7 +141,7 @@ _start:
 	li	t4, 0			/* Counter */
 	li	t5, 0
 2:
-	li	t0, (PTE_VALID | (PTE_TYPE_SRWX_G << PTE_TYPE_S))
+	li	t0, (PTE_VALID | (PTE_TYPE_SRWX << PTE_TYPE_S))
 	slli	t2, t4, PTE_PPN1_S	/* << PTE_PPN1_S */
 	or	t5, t0, t2
 	sd	t5, (s1)		/* Store PTE entry to position */
@@ -167,7 +194,8 @@ _start:
 	la	t0, pagetable_l1
 	sd	t0, 8(sp) /* kern_l1pt */
 
-	li	t0, 0xffffffffbffffe00
+	li	t0, KERNBASE
+	addi	t0, t0, -0x200
 	sd	t0, 16(sp) /* kern_delta */
 
 	la	t0, initstack_end
@@ -188,6 +216,10 @@ hardstack_end:
 	.globl console_data
 console_data:
 	.space  (64)
+
+	.globl htif_ring2
+htif_ring2:
+	.space  (24 * 1024)
 
 	.globl htif_ring_cursor
 htif_ring_cursor:
@@ -239,6 +271,13 @@ console_intr:
 	sd	x30, (TF_X + 30 * 8)(sp)
 	sd	x31, (TF_X + 31 * 8)(sp)
 
+.if \el == 1	/* kernel */
+	mv	t0, sp
+	srli	t0, t0, 63
+1:
+	beqz	t0, 1b
+.endif
+
 .if \el == 1
 	/* Store kernel sp */
 	sd	x2, (TF_X + 2 * 8)(sp)
@@ -247,6 +286,8 @@ console_intr:
 	csrr	t0, sscratch
 	sd	t0, (TF_X + 2 * 8)(sp)
 .endif
+	li	t0, 0
+	csrw	sscratch, t0
 
 	csrr	t0, sepc
 	sd	t0, 256(sp)
@@ -269,6 +310,7 @@ console_intr:
 	csrw	sepc, t0
 
 .if \el == 0
+	/* Load user sp */
 	ld	t0, (TF_X + 2 * 8)(sp)
 	csrw	sscratch, t0
 .endif
@@ -305,10 +347,6 @@ console_intr:
 	ld	x29, (TF_X + 29 * 8)(sp)
 	ld	x30, (TF_X + 30 * 8)(sp)
 	ld	x31, (TF_X + 31 * 8)(sp)
-
-//.if \el == 1
-//	ld	x2, (TF_X + 2 * 8)(sp)
-//.endif
 
 	addi	sp, sp, 288
 .endm
@@ -370,13 +408,13 @@ ENTRY(cpu_exception_handler_sv)
 END(cpu_exception_handler_sv)
 
 ENTRY(cpu_exception_handler_user)
-	csrrw   sp, sscratch, sp
+	csrrw	sp, sscratch, sp
 	save_registers 0
 	mv	a0, sp
 	call	_C_LABEL(do_trap_user)
 	do_ast
 	load_registers 0
-	csrrw   sp, sscratch, sp
+	csrrw	sp, sscratch, sp
 	eret
 END(cpu_exception_handler_user)
 
@@ -460,6 +498,7 @@ user_trap:
 	sd	t4, (8 * 4)(sp)
 	sd	t5, (8 * 5)(sp)
 	sd	t6, (8 * 6)(sp)
+	sd	a0, (8 * 7)(sp)
 
 	la	t2, _C_LABEL(cpu_exception_handler_user)
 
@@ -478,6 +517,7 @@ supervisor_trap:
 	sd	t4, (8 * 4)(sp)
 	sd	t5, (8 * 5)(sp)
 	sd	t6, (8 * 6)(sp)
+	sd	a0, (8 * 7)(sp)
 
 	la	t2, _C_LABEL(cpu_exception_handler_sv)
 
@@ -490,10 +530,19 @@ supervisor_trap:
 	j	.Lexit_mrts
 
 .Linterrupt:
-	/* HTIF interrupt ? */
+	/* Type of interrupt ? */
 	csrr	t0, mcause
-	andi	t0, t0, 2
-	bnez	t0, htif_interrupt
+	andi	t0, t0, 3
+	li	t1, 0
+	beq	t1, t0, software_interrupt
+	li	t1, 1
+	beq	t1, t0, .Ltimer_interrupt
+	li	t1, 2
+	beq	t1, t0, htif_interrupt
+
+	/* not reached */
+1:
+	j	1b
 
 .Ltimer_interrupt:
 	/* Disable interrupts */
@@ -522,22 +571,34 @@ supervisor_trap:
 	bne	t0, t1, .Lexit_no_mepc
 
 1:
+	//j	.Lexit_no_mepc
+
 	/* Clear pending */
 	li      t0, MIP_STIP
 	csrc    mip, t0
 	j	.Lexit_mrts
 
 htif_interrupt:
-	//la	t0, console_data
-	li	t1, 0
-	csrrw	t1, mfromhost, t1
-	//sd	t1, 0(t0)
+	li	t5, 0
+	csrrw	t5, mfromhost, t5
 
+	/* Console PUT intr ? */
+	mv	t1, t5
+	li	t0, 0x101
+	srli	t1, t1, 48
+	bne	t1, t0, 1f
+	/* Update if yes */
+	la	t0, console_intr
+	li	t1, 1
+	sd	t1, 0(t0)
+	j	.Lexit_no_mepc
+
+1:
 	/* put entry */
 	la	t0, htif_ring_cursor
+	beqz	t0, 2f		/* not initialized */
 	ld	t0, 0(t0)	/* load struct */
-	beqz	t0, 1f		/* not initialized */
-	sd	t1, 0(t0)	/* put entry */
+	sd	t5, 0(t0)	/* put entry */
 	li	t4, 1
 	sd	t4, 8(t0)	/* mark used */
 	ld	t4, 16(t0)	/* take next */
@@ -545,26 +606,23 @@ htif_interrupt:
 	la	t0, htif_ring_cursor
 	sd	t4, 0(t0)
 
-	////
-	//li	t0, 0
-	//csrw	mfromhost, t0
-1:
-	/* Console intr ? */
-	li	t0, 0x101
-	srli	t1, t1, 48
-	bne	t1, t0, 2f
-	/* Update if yes */
-	la	t0, console_intr
-	li	t1, 1
-	sd	t1, 0(t0)
-
 2:
-
 	/* Was supervisor interrupts enabled before trap ? */
 	csrr	t0, mstatus
 	li	t1, (SR_IE1)
 	and	t0, t0, t1
-	beqz	t0, .Lexit_no_mepc
+	beqz	t0, 3f		/* no */
+	j	.Lexit_mrts	/* yes */
+3:
+	/* Post supervisor software interrupt */
+	li	t0, MIP_SSIP
+	csrs	mip, t0
+	j	.Lexit_no_mepc
+
+software_interrupt:
+	/* Clear supervisor software interrupt */
+	li	t0, MIP_SSIP
+	csrc	mip, t0
 	j	.Lexit_mrts
 
 .Lhandle_trap_in_machine_mode:
@@ -635,9 +693,9 @@ low_getc:
 
 htif_cmd:
 	mv	t0, t6
-2:
+1:
 	csrrw	t0, mtohost, t0
-	bnez	t0, 2b
+	bnez	t0, 1b
 
 	//csrr	t6, mfromhost
 	//li	t0, 0
@@ -672,6 +730,7 @@ clear_pending:
 	ld	t4, (8 * 4)(sp)
 	ld	t5, (8 * 5)(sp)
 	ld	t6, (8 * 6)(sp)
+	ld	a0, (8 * 7)(sp)
 	addi	sp, sp, 64
 	csrrw	sp, mscratch, sp
 	eret
@@ -688,6 +747,7 @@ clear_pending:
 	ld	t4, (8 * 4)(sp)
 	ld	t5, (8 * 5)(sp)
 	//ld	t6, (8 * 6)(sp)
+	ld	a0, (8 * 7)(sp)
 	addi	sp, sp, 64
 	csrrw	sp, mscratch, sp
 	eret
@@ -709,6 +769,7 @@ clear_pending:
 	ld	t4, (8 * 4)(sp)
 	ld	t5, (8 * 5)(sp)
 	ld	t6, (8 * 6)(sp)
+	ld	a0, (8 * 7)(sp)
 	addi	sp, sp, 64
 	csrrw	sp, mscratch, sp
 
