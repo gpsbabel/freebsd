@@ -889,12 +889,12 @@ fake_preload_metadata(struct riscv_bootparams *rvbp __unused)
 	i += 3;
 	fake_preload[i++] = MODINFO_ADDR;
 	fake_preload[i++] = sizeof(vm_offset_t);
-	fake_preload[i++] = (uint64_t)0xffffffffc0000200; //KERNVIRTADDR;
+	fake_preload[i++] = (uint64_t)(KERNBASE + 0x200);
 	i += 1;
 	fake_preload[i++] = MODINFO_SIZE;
 	fake_preload[i++] = sizeof(uint64_t);
 	printf("end is 0x%016lx\n", (uint64_t)&end);
-	fake_preload[i++] = (uint64_t)&end - (uint64_t)0xffffffffc0000200; //KERNVIRTADDR;
+	fake_preload[i++] = (uint64_t)&end - (uint64_t)(KERNBASE + 0x200);
 	i += 1;
 #ifdef DDBremoveme
 	if (*(uint32_t *)KERNVIRTADDR == MAGIC_TRAMP_NUMBER) {
