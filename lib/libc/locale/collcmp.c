@@ -33,7 +33,6 @@
 __FBSDID("$FreeBSD$");
 
 #include <string.h>
-#include <wchar.h>
 #include <xlocale.h>
 #include "collate.h"
 
@@ -41,15 +40,13 @@ __FBSDID("$FreeBSD$");
  * Compare two characters using collate
  */
 
-int __collate_range_cmp(struct xlocale_collate *table, wchar_t c1, wchar_t c2)
+int __collate_range_cmp(struct xlocale_collate *table, int c1, int c2)
 {
-	wchar_t s1[2], s2[2];
+	static char s1[2], s2[2];
 
 	s1[0] = c1;
-	s1[1] = 0;
 	s2[0] = c2;
-	s2[1] = 0;
 	struct _xlocale l = {{0}};
 	l.components[XLC_COLLATE] = (struct xlocale_component *)table;
-	return (wcscoll_l(s1, s2, &l));
+	return (strcoll_l(s1, s2, &l));
 }

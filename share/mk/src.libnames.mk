@@ -57,7 +57,6 @@ _LIBRARIES=	\
 		archive \
 		asn1 \
 		auditd \
-		avl \
 		begemot \
 		bluetooth \
 		bsdxml \

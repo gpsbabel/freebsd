@@ -1,5 +1,4 @@
 /*-
- * Copyright 2010 Nexenta Systems, Inc.  All rights reserved.
  * Copyright (c) 1995 Alex Tatmanjants <alex@elvisti.kiev.ua>
  *		at Electronni Visti IA, Kiev, Ukraine.
  *			All rights reserved.
@@ -36,8 +35,6 @@ __FBSDID("$FreeBSD$");
 
 #include <stdlib.h>
 #include <string.h>
-#include <errno.h>
-#include <wchar.h>
 #include "collate.h"
 
 size_t
@@ -51,10 +48,9 @@ strxfrm(char * __restrict dest, const char * __restrict src, size_t len)
 size_t
 strxfrm_l(char * __restrict dest, const char * __restrict src, size_t len, locale_t locale)
 {
+	int prim, sec, l;
 	size_t slen;
-	size_t xlen;
-	wchar_t *wcs = NULL;
-
+	char *s, *ss;
 	FIX_LOCALE(locale);
 	struct xlocale_collate *table =
 		(struct xlocale_collate*)locale->components[XLC_COLLATE];
@@ -62,42 +58,32 @@ strxfrm_l(char * __restrict dest, const char * __restrict src, size_t len, local
 	if (!*src) {
 		if (len > 0)
 			*dest = '\0';
-		return (0);
+		return 0;
 	}
-
-	/*
-	 * The conversion from multibyte to wide character strings is
-	 * strictly reducing (one byte of an mbs cannot expand to more
-	 * than one wide character.)
-	 */
-	slen = strlen(src);
 
 	if (table->__collate_load_error)
-		goto error;
+		return strlcpy(dest, src, len);
 
-	if ((wcs = malloc((slen + 1) * sizeof (wchar_t))) == NULL)
-		goto error;
-
-	if (mbstowcs_l(wcs, src, slen + 1, locale) == (size_t)-1)
-		goto error;
-
-	if ((xlen = _collate_sxfrm(table, wcs, dest, len)) == (size_t)-1)
-		goto error;
-
-	free(wcs);
-
-	if (len > xlen) {
-		dest[xlen] = 0;
-	} else if (len) {
-		dest[len-1] = 0;
+	slen = 0;
+	prim = sec = 0;
+	ss = s = __collate_substitute(table, src);
+	while (*s) {
+		while (*s && !prim) {
+			__collate_lookup(table, s, &l, &prim, &sec);
+			s += l;
+		}
+		if (prim) {
+			if (len > 1) {
+				*dest++ = (char)prim;
+				len--;
+			}
+			slen++;
+			prim = 0;
+		}
 	}
+	free(ss);
+	if (len > 0)
+		*dest = '\0';
 
-	return (xlen);
-
-error:
-	/* errno should be set to ENOMEM if malloc failed */
-	free(wcs);
-	strlcpy(dest, src, len);
-
-	return (slen);
+	return slen;
 }

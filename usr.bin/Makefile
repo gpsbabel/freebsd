@@ -25,6 +25,7 @@ SUBDIR=	alias \
 	cksum \
 	cmp \
 	col \
+	colldef \
 	colrm \
 	column \
 	comm \
@@ -77,7 +78,6 @@ SUBDIR=	alias \
 	lesskey \
 	limits \
 	locale \
-	localedef \
 	lock \
 	lockf \
 	logger \
@@ -96,6 +96,7 @@ SUBDIR=	alias \
 	mkdep \
 	mkfifo \
 	mkimg \
+	mklocale \
 	mktemp \
 	mkulzma \
 	mkuzip \
