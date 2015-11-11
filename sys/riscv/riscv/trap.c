@@ -164,9 +164,6 @@ svc_handler(struct trapframe *frame)
 	td = curthread;
 	td->td_frame = frame;
 
-	if ((uint64_t)td == 0xffffffffc0ea5000)
-		panic("syscall from idle thread\n");
-
 	error = syscallenter(td, &sa);
 	syscallret(td, error, &sa);
 }
@@ -182,6 +179,7 @@ data_abort(struct trapframe *frame, uint64_t esr, int lower)
 	vm_offset_t va;
 	uint64_t far;
 	int error, sig, ucode;
+	int i;
 
 	td = curthread;
 	pcb = td->td_pcb;
@@ -215,6 +213,8 @@ data_abort(struct trapframe *frame, uint64_t esr, int lower)
 
 	va = trunc_page(far);
 
+	//if (va == 0)
+	//	panic("Va == 0\n");
 	//ftype = ((esr >> 6) & 1) ? VM_PROT_READ | VM_PROT_WRITE : VM_PROT_READ;
 	//ftype = frame->tf_scause == EXCP_LOAD_ACCESS_FAULT ? VM_PROT_READ : (VM_PROT_READ | VM_PROT_WRITE);
 
@@ -265,8 +265,12 @@ data_abort(struct trapframe *frame, uint64_t esr, int lower)
 				//frame->tf_elr = pcb->pcb_onfault;
 				return;
 			}
+			for (i = 0; i < 32; i++) {
+				printf("x[%d] == 0x%016lx\n", i, frame->tf_x[i]);
+			}
+
 			panic("vm_fault failed: %lx, va 0x%016lx",
-				frame->tf_sepc, va);
+				frame->tf_sepc, far);
 			//panic("vm_fault failed: %lx", frame->tf_elr);
 		}
 	}
@@ -298,7 +302,9 @@ do_trap(struct trapframe *frame)
 		int excp_code;
 		excp_code = (frame->tf_scause & 0xf);
 
-		if (excp_code == 1)
+		if (excp_code == 0)
+			htif_intr();
+		else if (excp_code == 1)
 			arm_cpu_intr(frame);
 		else if (excp_code == 2) {
 			//uint64_t *cc = &console_data;
@@ -412,7 +418,9 @@ do_trap_user(struct trapframe *frame)
 		int excp_code;
 		excp_code = (frame->tf_scause & 0xf);
 
-		if (excp_code == 1)
+		if (excp_code == 0)
+			htif_intr();
+		else if (excp_code == 1)
 			arm_cpu_intr(frame);
 		else if (excp_code == 2) {
 			//uint64_t *cc = &console_data;
@@ -455,11 +463,13 @@ do_trap_user(struct trapframe *frame)
 		data_abort(frame, esr, 1);
 		break;
 	default:
-		panic("Unknown userland exception %x badaddr %lx\n",
-			exception, frame->tf_sbadaddr);
 		for (i = 0; i < 32; i++) {
 			printf("x[%d] == 0x%016lx\n", i, frame->tf_x[i]);
 		}
+		printf("tf_sepc 0x%016lx\n", frame->tf_sepc);
+
+		panic("Unknown userland exception %x badaddr %lx\n",
+			exception, frame->tf_sbadaddr);
 	}
 
 	//if ((frame->tf_sstatus & (1 << 4)) == 0) {
