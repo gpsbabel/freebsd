@@ -43,19 +43,19 @@
  * Virtual memory related constants, all in bytes
  */
 #ifndef MAXTSIZ
-#define	MAXTSIZ		(1*1024*1024*1024)	/* max text size */
+#define	MAXTSIZ		(32*1024*1024)	/* max text size */
 #endif
 #ifndef DFLDSIZ
 #define	DFLDSIZ		(128*1024*1024)		/* initial data size limit */
 #endif
 #ifndef MAXDSIZ
-#define	MAXDSIZ		(1*1024*1024*1024)	/* max data size */
+#define	MAXDSIZ		(128*1024*1024)	/* max data size */
 #endif
 #ifndef DFLSSIZ
-#define	DFLSSIZ		(128*1024*1024)		/* initial stack size limit */
+#define	DFLSSIZ		(2*1024*1024)		/* initial stack size limit */
 #endif
 #ifndef MAXSSIZ
-#define	MAXSSIZ		(1*1024*1024*1024)	/* max stack size */
+#define	MAXSSIZ		(8*1024*1024)	/* max stack size */
 #endif
 #ifndef SGROWSIZ
 #define	SGROWSIZ	(128*1024)		/* amount to grow stack */
@@ -152,9 +152,9 @@
 #define	VM_MIN_ADDRESS		(0x0000000000000000UL)
 #define	VM_MAX_ADDRESS		(0xffffffffffffffffUL)
 
-/* 128 MiB of kernel addresses */
+/* 256 MiB of kernel addresses */
 #define	VM_MIN_KERNEL_ADDRESS	(0xffffffffc0000000UL)
-#define	VM_MAX_KERNEL_ADDRESS	(0xffffffffc8000000UL)
+#define	VM_MAX_KERNEL_ADDRESS	(0xffffffffcfffffffUL)
 
 /* Direct Map for 512 MiB of PA: 0x0 - 0x1fffffff */
 #define	DMAP_MIN_ADDRESS	(0xffffffffd0000000UL)
@@ -205,16 +205,17 @@
  * Optional floor (in bytes) on the size of the kmem arena.
  */
 #ifndef VM_KMEM_SIZE_MIN
-#define	VM_KMEM_SIZE_MIN	(16 * 1024 * 1024)
+#define	VM_KMEM_SIZE_MIN	(12 * 1024 * 1024)
 #endif
 
+#define	VM_KMEM_SIZE_MAX	(16 * 1024 * 1024)
 /*
  * Optional ceiling (in bytes) on the size of the kmem arena: 60% of the
  * kernel map.
  */
 #ifndef VM_KMEM_SIZE_MAX
 #define	VM_KMEM_SIZE_MAX	((VM_MAX_KERNEL_ADDRESS - \
-    VM_MIN_KERNEL_ADDRESS + 1) * 3 / 5)
+    VM_MIN_KERNEL_ADDRESS + 1) * 2 / 5)
 #endif
 
 /*
