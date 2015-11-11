@@ -46,10 +46,10 @@
 
 //#define	TRAPF_PC(tfp)		((tfp)->tf_lr)
 //#define	TRAPF_USERMODE(tfp)	(((tfp)->tf_elr & (1ul << 63)) == 0)
-
 //#define	TRAPF_PC(tfp)		((tfp)->tf_sepc)
+
 #define	TRAPF_PC(tfp)		((tfp)->tf_x[1])
-#define	TRAPF_USERMODE(tfp)	(0)
+#define	TRAPF_USERMODE(tfp)	(((tfp)->tf_sepc & (1ul << 63)) == 0)
 
 //#define	cpu_getstack(td)	((td)->td_frame->tf_sp)
 //#define	cpu_setstack(td, sp)	((td)->td_frame->tf_sp = (sp))
