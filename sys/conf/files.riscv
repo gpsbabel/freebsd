@@ -32,6 +32,7 @@ riscv/riscv/swtch.S		standard
 riscv/riscv/pic_if.m		standard
 riscv/riscv/identcpu.c		standard
 riscv/riscv/mem.c		standard
+riscv/riscv/uma_machdep.c	standard
 riscv/htif/htif.c		standard
 riscv/htif/htif_blk.c		standard
 riscv/htif/console3.c		standard

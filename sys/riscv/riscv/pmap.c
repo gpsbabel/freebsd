@@ -312,6 +312,8 @@ pmap_l2(pmap_t pmap, vm_offset_t va)
 
 	l1 = pmap_l1(pmap, va);
 
+	if ((pmap_load(l1) & PTE_VALID) == 0)
+		return (NULL);
 	if ((pmap_load(l1) & PTE_TYPE_M) != (PTE_TYPE_PTR << PTE_TYPE_S))
 		return (NULL);
 	//if ((*l1 & ATTR_DESCR_MASK) != L1_TABLE)
@@ -348,6 +350,8 @@ pmap_l3(pmap_t pmap, vm_offset_t va)
 	l2 = pmap_l2(pmap, va);
 	//printf("%s: l2 is 0x%016lx\n", __func__, l2);
 	if (l2 == NULL)
+		return (NULL);
+	if ((pmap_load(l2) & PTE_VALID) == 0)
 		return (NULL);
 	if (l2 == NULL || (pmap_load(l2) & PTE_TYPE_M) != (PTE_TYPE_PTR << PTE_TYPE_S))
 		return (NULL);
@@ -437,7 +441,7 @@ static __inline void
 pmap_resident_count_inc(pmap_t pmap, int count)
 {
 
-	//printf("%s\n", __func__);
+	//printf("%s: pmap 0x%016lx c %d\n", __func__, pmap, count);
 
 	PMAP_LOCK_ASSERT(pmap, MA_OWNED);
 	pmap->pm_stats.resident_count += count;
@@ -447,7 +451,7 @@ static __inline void
 pmap_resident_count_dec(pmap_t pmap, int count)
 {
 
-	//printf("%s\n", __func__);
+	//printf("%s: pmap 0x%016lx c %d\n", __func__, pmap, count);
 
 	PMAP_LOCK_ASSERT(pmap, MA_OWNED);
 	KASSERT(pmap->pm_stats.resident_count >= count,
@@ -497,7 +501,7 @@ pmap_early_vtophys(vm_offset_t l1pt, vm_offset_t va)
 
 	/* L2 is superpages */
 
-	ret = ((l2[l2_slot] & ~ATTR_MASK) >> PTE_PPN1_S) << L2_SHIFT;
+	ret = (l2[l2_slot] >> PTE_PPN1_S) << L2_SHIFT;
 	ret += (va & L2_OFFSET);
 
 	//printf("%s: ret 0x%016lx\n", __func__, ret);
@@ -625,8 +629,13 @@ pmap_bootstrap_l3(vm_offset_t l1pt, vm_offset_t va, vm_offset_t l3_start)
 
 		pa = pmap_early_vtophys(l1pt, l3pt);
 		pn = (pa / PAGE_SIZE);
-		entry = (PTE_VALID | (PTE_TYPE_SRWX << PTE_TYPE_S));
-                entry |= (pn << PTE_PPN1_S);
+
+		/* check this: should be pointer ? */
+		entry = (PTE_VALID | (PTE_TYPE_PTR << PTE_TYPE_S));
+		entry |= (pn << PTE_PPN0_S);
+
+		//entry = (PTE_VALID | (PTE_TYPE_SRWX << PTE_TYPE_S));
+		//entry |= (pn << PTE_PPN1_S);
 
 		pmap_load_store(&l2[l2_slot], entry);
 
@@ -766,14 +775,20 @@ pmap_bootstrap(vm_offset_t l1pt, vm_paddr_t kernstart, vm_size_t kernlen)
 	//printf("freemempos1 0x%016lx\n", freemempos);
 
 	/* Create the l2 tables up to VM_MAX_KERNEL_ADDRESS */
-	freemempos = pmap_bootstrap_l2(l1pt, va, freemempos);
-	//printf("freemempos2 0x%016lx\n", freemempos);
-	//freemempos += 1024*1024*4;
+
+	if (1 == 0) {
+		freemempos = pmap_bootstrap_l2(l1pt, va, freemempos);
+		//printf("freemempos2 0x%016lx\n", freemempos);
+		//freemempos += 1024*1024*4;
+	}
 
 	/* And the l3 tables for the early devmap */
-	freemempos = pmap_bootstrap_l3(l1pt,
-	    VM_MAX_KERNEL_ADDRESS - L2_SIZE, freemempos);
-	//printf("freemempos3 0x%016lx\n", freemempos);
+	if (1 == 0) {
+		freemempos = pmap_bootstrap_l3(l1pt,
+			VM_MAX_KERNEL_ADDRESS - L2_SIZE, freemempos);
+		printf("freemempos3 0x%016lx\n", freemempos);
+	}
+
 
 	cpu_tlb_flushID();
 
@@ -1038,9 +1053,11 @@ pmap_kextract(vm_offset_t va)
 		//if ((*l2 & ATTR_DESCR_MASK) == L2_BLOCK)
 		//	return ((*l2 & ~ATTR_MASK) | (va & L2_OFFSET));
 		if ((pmap_load(l2) & PTE_TYPE_M) != (PTE_TYPE_PTR << PTE_TYPE_S)) {
-			pa = ((pmap_load(l2) & ~ATTR_MASK)); // | (va & L2_OFFSET));
-			pa >>= (PTE_PPN0_S);
-			pa *= (PAGE_SIZE);
+			pa = (pmap_load(l2) >> PTE_PPN1_S) << L2_SHIFT;
+
+			//pa = ((pmap_load(l2) & ~ATTR_MASK)); // | (va & L2_OFFSET));
+			//pa >>= (PTE_PPN0_S);
+			//pa *= (PAGE_SIZE);
 			pa |= (va & L2_OFFSET);
 			//printf("%s: pa (l2) is 0x%016lx\n", __func__, pa);
 			return (pa);
@@ -1285,7 +1302,8 @@ static inline boolean_t
 pmap_unwire_l3(pmap_t pmap, vm_offset_t va, vm_page_t m, struct spglist *free)
 {
 
-	//printf("%s: m->wire_count %d\n", __func__, m->wire_count);
+	//printf("%s: va 0x%016lx m 0x%016lx m->wire_count %d\n",
+	//	__func__, va, m, m->wire_count);
 
 	--m->wire_count;
 	if (m->wire_count == 0) {
@@ -1361,8 +1379,7 @@ pmap_unuse_l3(pmap_t pmap, vm_offset_t va, pd_entry_t ptepde,
 {
 	vm_page_t mpte;
 
-	//printf("implement me: %s\n", __func__);
-	//printf("%s\n");
+	//printf("%s: va 0x%016lx\n", __func__, va);
 
 	if (va >= VM_MAXUSER_ADDRESS)
 		return (0);
@@ -1371,6 +1388,8 @@ pmap_unuse_l3(pmap_t pmap, vm_offset_t va, pd_entry_t ptepde,
 	uint64_t phys;
 	phys = (ptepde >> PTE_PPN0_S);
 	phys *= PAGE_SIZE;
+
+	//printf("%s: phys 0x%016lx\n", __func__, phys);
 
 	mpte = PHYS_TO_VM_PAGE(phys);
 	//mpte = PHYS_TO_VM_PAGE(ptepde & ~ATTR_MASK);
@@ -1399,6 +1418,8 @@ pmap_pinit(pmap_t pmap)
 	while ((l1pt = vm_page_alloc(NULL, 0xdeadbeef, VM_ALLOC_NORMAL |
 	    VM_ALLOC_NOOBJ | VM_ALLOC_WIRED | VM_ALLOC_ZERO)) == NULL)
 		VM_WAIT;
+
+	//printf("%s: vm_page_alloc l1pt 0x%016lx\n", __func__, l1pt);
 
 	l1phys = VM_PAGE_TO_PHYS(l1pt);
 	pmap->pm_l1 = (pd_entry_t *)PHYS_TO_DMAP(l1phys);
@@ -1456,6 +1477,8 @@ _pmap_alloc_l3(pmap_t pmap, vm_pindex_t ptepindex, struct rwlock **lockp)
 		 */
 		return (NULL);
 	}
+	//printf("%s: vm_page_alloc m 0x%016lx m->wire_count %d\n", __func__, m, m->wire_count);
+
 	if ((m->flags & PG_ZERO) == 0)
 		pmap_zero_page(m);
 
@@ -1480,7 +1503,6 @@ _pmap_alloc_l3(pmap_t pmap, vm_pindex_t ptepindex, struct rwlock **lockp)
 
 		//printf("%s: l1 0x%016lx m 0x%016lx pn %d -> phys 0x%016lx, entry 0x%016lx\n",
 		//	__func__, l1, m, pn, VM_PAGE_TO_PHYS(m), entry);
-
 		//pmap_load_store(l1, VM_PAGE_TO_PHYS(m) | L1_TABLE);
 
 		PTE_SYNC(l1);
@@ -1517,6 +1539,7 @@ _pmap_alloc_l3(pmap_t pmap, vm_pindex_t ptepindex, struct rwlock **lockp)
 		//printf("%s: l2 0x%016lx\n", __func__, l2);
 
 		pn = (VM_PAGE_TO_PHYS(m) / PAGE_SIZE);
+		//printf("%s: VM_PAGE_TO_PHYS: 0x%016lx\n", __func__, VM_PAGE_TO_PHYS(m));
 		entry = (PTE_VALID | (PTE_TYPE_PTR << PTE_TYPE_S));
 		entry |= (pn << PTE_PPN0_S);
 		pmap_load_store(l2, entry);
@@ -1557,6 +1580,8 @@ retry:
 	 * hold count, and activate it.
 	 */
 	if (l2 != NULL && pmap_load(l2) != 0) {
+		//printf("l2 0x%016lx *l2 0x%016lx va 0x%016lx\n",
+		//		l2, pmap_load(l2), va);
 
 		uint64_t phys;
 		phys = (pmap_load(l2) >> PTE_PPN0_S);
@@ -1592,7 +1617,7 @@ pmap_release(pmap_t pmap)
 {
 	vm_page_t m;
 
-	//printf("%s\n", __func__);
+	//printf("%s: 0x%016lx\n", __func__, pmap);
 
 	KASSERT(pmap->pm_stats.resident_count == 0,
 	    ("pmap_release: pmap resident count %ld != 0",
@@ -1784,7 +1809,7 @@ free_pv_entry(pmap_t pmap, pv_entry_t pv)
 	struct pv_chunk *pc;
 	int idx, field, bit;
 
-	//printf("%s\n", __func__);
+	//printf("%s: pv 0x%016lx\n", __func__, pv);
 
 	rw_assert(&pvh_global_lock, RA_LOCKED);
 	PMAP_LOCK_ASSERT(pmap, MA_OWNED);
@@ -1814,7 +1839,7 @@ free_pv_chunk(struct pv_chunk *pc)
 {
 	vm_page_t m;
 
-	//printf("%s\n", __func__);
+	//printf("%s: pc 0x%016lx\n", __func__, pc);
 
 	mtx_lock(&pv_chunks_mutex);
  	TAILQ_REMOVE(&pv_chunks, pc, pc_lru);
@@ -1942,9 +1967,11 @@ pmap_pvh_free(struct md_page *pvh, pmap_t pmap, vm_offset_t va)
 {
 	pv_entry_t pv;
 
-	//printf("%s\n", __func__);
 
 	pv = pmap_pvh_remove(pvh, pmap, va);
+
+	//printf("%s: 0x%016lx\n", __func__, pv);
+
 	KASSERT(pv != NULL, ("pmap_pvh_free: pv not found"));
 	free_pv_entry(pmap, pv);
 }
@@ -2030,8 +2057,8 @@ pmap_remove(pmap_t pmap, vm_offset_t sva, vm_offset_t eva)
 	struct spglist free;
 	int anyvalid;
 
-	//printf("%s: sva 0x%016lx, eva 0x%016lx\n",
-	//		__func__, sva, eva);
+	//printf("%s: pmap 0x%016lx sva 0x%016lx eva 0x%016lx\n",
+	//		__func__, pmap, sva, eva);
 
 	/*
 	 * Perform an unsynchronized read.  This is, however, safe.
@@ -2071,10 +2098,10 @@ pmap_remove(pmap_t pmap, vm_offset_t sva, vm_offset_t eva)
 		if (l2 == NULL)
 			continue;
 
-		//l3_paddr = pmap_load(l2);
+		l3_paddr = pmap_load(l2);
 		//uint64_t phys;
-		l3_paddr = (pmap_load(l2) >> PTE_PPN0_S);
-		l3_paddr *= 4096;
+		//l3_paddr = (pmap_load(l2) >> PTE_PPN0_S);
+		//l3_paddr *= 4096;
 
 		/*
 		 * Weed out invalid mappings.
@@ -2082,14 +2109,9 @@ pmap_remove(pmap_t pmap, vm_offset_t sva, vm_offset_t eva)
 		//printf("weed l3 0x%016lx\n", l3_paddr);
 		if (l3_paddr == 0)
 			continue;
-		//if ((l3_paddr & PTE_TYPE_M) != (PTE_TYPE_PTR << PTE_TYPE_S))
-		//	continue;
-		//if ((l3_paddr & ATTR_DESCR_MASK) != L2_TABLE)
-		//	continue;
-
 		if ((pmap_load(l2) & PTE_TYPE_M) != (PTE_TYPE_PTR << PTE_TYPE_S))
 			continue;
-		//printf("weed 1: sva 0x%016lx\n", sva);
+		//printf("weed 1: l3_paddr 0x%016lx sva 0x%016lx\n", l3_paddr, sva);
 
 		/*
 		 * Limit our scan to either the end of the va represented
@@ -2302,7 +2324,7 @@ pmap_enter(pmap_t pmap, vm_offset_t va, vm_page_t m, vm_prot_t prot,
 	boolean_t nosleep;
 	int pn;
 
-	//printf("%s: va 0x%016lx\n", __func__, va);
+	//printf("%s: pmap 0x%016lx va 0x%016lx\n", __func__, pmap, va);
 
 	va = trunc_page(va);
 	if ((m->oflags & VPO_UNMANAGED) == 0 && !vm_page_xbusied(m))
@@ -2388,6 +2410,7 @@ pmap_enter(pmap_t pmap, vm_offset_t va, vm_page_t m, vm_prot_t prot,
 				l2_m = vm_page_alloc(NULL, 0, VM_ALLOC_NORMAL |
 				    VM_ALLOC_NOOBJ | VM_ALLOC_WIRED |
 				    VM_ALLOC_ZERO);
+				//printf("%s: vm_page_alloc l2_m 0x%016lx va 0x%016lx\n", __func__, l2_m, va);
 				if (l2_m == NULL)
 					panic("pmap_enter: l2 pte_m == NULL");
 				if ((l2_m->flags & PG_ZERO) == 0)
@@ -2403,8 +2426,6 @@ pmap_enter(pmap_t pmap, vm_offset_t va, vm_page_t m, vm_prot_t prot,
 				//printf("%s: l2_pa 0x%016lx l2_pn %d\n", __func__, l2_pa, l2_pn);
 				l1 = pmap_l1(pmap, va);
 				//printf("pmap_enter l1 0x%016lx\n", l1);
-#if riscv
-#endif
 				//printf("%s: l1 0x%016lx\n", l1, __func__);
 				//pmap_load_store(l1, l2_pa | L1_TABLE);
 
@@ -2430,7 +2451,8 @@ pmap_enter(pmap_t pmap, vm_offset_t va, vm_page_t m, vm_prot_t prot,
 			if ((l3_m->flags & PG_ZERO) == 0)
 				pmap_zero_page(l3_m);
 
-			//printf("%s: here 2\n", __func__);
+			//printf("%s: vm_page_alloc l3_m 0x%016lx\n", __func__, l3_m);
+
 			uint64_t entry;
 			int l3_pn;
 
@@ -2496,7 +2518,8 @@ pmap_enter(pmap_t pmap, vm_offset_t va, vm_page_t m, vm_prot_t prot,
 			 */
 			if ((orig_l3 & ATTR_SW_MANAGED) != 0) {
 				new_l3 |= ATTR_SW_MANAGED;
-				if (new_l3 & (1 << PTE_TYPE_S))
+				//if (new_l3 & (1 << PTE_TYPE_S))
+				if (pmap_is_write(new_l3))
 					vm_page_aflag_set(m, PGA_WRITEABLE);
 
 #if riscv
@@ -2664,7 +2687,7 @@ pmap_enter_quick_locked(pmap_t pmap, vm_offset_t va, vm_page_t m,
 	pt_entry_t *l3;
 	vm_paddr_t pa;
 
-	//printf("%s\n", __func__);
+	//printf("%s: va 0x%016lx\n", __func__, va);
 
 	KASSERT(va < kmi.clean_sva || va >= kmi.clean_eva ||
 	    (m->oflags & VPO_UNMANAGED) != 0,
@@ -2943,7 +2966,7 @@ pmap_copy_page(vm_page_t msrc, vm_page_t mdst)
 	pagecopy((void *)src, (void *)dst);
 }
 
-int unmapped_buf_allowed = 0;
+int unmapped_buf_allowed = 1;
 
 void
 pmap_copy_pages(vm_page_t ma[], vm_offset_t a_offset, vm_page_t mb[],
@@ -3454,8 +3477,11 @@ retry:
 			}
 		}
 		l2 = pmap_l2(pmap, pv->pv_va);
-		KASSERT((pmap_load(l2) & ATTR_DESCR_MASK) == L2_TABLE,
+
+		//KASSERT((pmap_load(l2) & ATTR_DESCR_MASK) == L2_TABLE,
+		KASSERT((pmap_load(l2) & PTE_TYPE_M) == (PTE_TYPE_PTR << PTE_TYPE_S),
 		    ("pmap_ts_referenced: found an invalid l2 table"));
+
 		l3 = pmap_l2_to_l3(l2, pv->pv_va);
 		if ((pmap_load(l3) & ATTR_REF) != 0) {
 			if (safe_to_clear_referenced(pmap, pmap_load(l3))) {
