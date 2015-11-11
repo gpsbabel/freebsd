@@ -386,6 +386,9 @@ ENTRY(fork_trampoline)
 	//ld	t0, 264(sp)
 	//csrw	sstatus, t0
 
+	li	t0, (1 << 3)
+	csrw	sstatus, t0
+
 	/* Restore the registers other than sp and ra */
 	//ld	x3, (TF_X + 3 * 8)(sp)
 	//ld	x4, (TF_X + 4 * 8)(sp)
@@ -425,7 +428,11 @@ ENTRY(fork_trampoline)
 
 	/* Load user sp */
 	ld	sp, (TF_X + 2 * 8)(sp)
-
+	/*
+	 * TODO: interrupt can happen here, between ld and eret.
+	 * It will came to supervisor handler
+	 * with user stack causing some panic
+	 */
 	eret
 #if 0
 	mov	x0, x8
