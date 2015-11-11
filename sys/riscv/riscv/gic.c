@@ -51,6 +51,7 @@ __FBSDID("$FreeBSD$");
 #include <machine/intr.h>
 #include <machine/smp.h>
 #include <machine/asm.h>
+#include <machine/trap.h>
 
 #include <arm64/arm64/gic.h>
 
@@ -108,9 +109,6 @@ enum {
 	IRQ_TIMER,
 	NIRQS
 };
-#define	SIE_SSIE	(1 << 1)
-#define	SIE_STIE	(1 << 5)
-
 #define	SR_IE		(1 << 0)
 
 #if 0

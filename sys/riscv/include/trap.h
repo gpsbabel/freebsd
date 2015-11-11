@@ -47,3 +47,6 @@
 #define	SR_IE1		(1 << 3)
 #define	SR_IE2		(1 << 6)
 #define	SR_IE3		(1 << 9)
+
+#define	SIE_SSIE	(1 << 1)
+#define	SIE_STIE	(1 << 5)
