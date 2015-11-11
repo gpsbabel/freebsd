@@ -30,6 +30,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/param.h>
 #include <sys/systm.h>
 #include <sys/kernel.h>
+#include <sys/kthread.h>
 #include <sys/selinfo.h>
 #include <sys/module.h>
 #include <sys/lock.h>
@@ -59,6 +60,17 @@ __FBSDID("$FreeBSD$");
 #include "htif.h"
 #include "htif_blk.h"
 
+#define HTIF_BLK_LOCK(_sc)	mtx_lock(&(_sc)->sc_mtx)
+#define	HTIF_BLK_UNLOCK(_sc)	mtx_unlock(&(_sc)->sc_mtx)
+#define HTIF_BLK_LOCK_INIT(_sc) \
+	mtx_init(&_sc->sc_mtx, device_get_nameunit(_sc->dev), \
+	    "htif_blk", MTX_DEF)
+#define HTIF_BLK_LOCK_DESTROY(_sc)	mtx_destroy(&_sc->sc_mtx);
+#define HTIF_BLK_ASSERT_LOCKED(_sc)	mtx_assert(&_sc->sc_mtx, MA_OWNED);
+#define HTIF_BLK_ASSERT_UNLOCKED(_sc)	mtx_assert(&_sc->sc_mtx, MA_NOTOWNED);
+
+static void htif_blk_task(void *arg);
+
 static int	htif_blk_probe(device_t dev);
 static int	htif_blk_attach(device_t dev);
 static int	htif_blk_detach(device_t dev);
@@ -82,7 +94,17 @@ struct htif_blk_softc {
 	struct disk	*disk;
 	struct htif_dev_softc *sc_dev;
 	struct mtx	htif_io_mtx;
+	struct mtx	sc_mtx;
+	struct proc	*p;
+	struct bio_queue_head bio_queue;
+	int		running;
+	int		intr_chan;
+	int		cmd_done;
+	int		curtag;
+	struct bio	*bp;
 };
+
+struct htif_blk_softc *htif_blk_sc;
 
 static driver_t htif_blk_driver = {
 	"htif_blk",
@@ -91,6 +113,25 @@ static driver_t htif_blk_driver = {
 };
 
 DRIVER_MODULE(htif_blk, htif, htif_blk_driver, htif_blk_devclass, 0, 0);
+
+void
+htif_blk_intr(uint64_t entry)
+{
+	struct htif_blk_softc *sc;
+	uint64_t data;
+
+	sc = htif_blk_sc;
+
+	data = (entry & 0xffff);
+	//printf("htif_blk_intr\n");
+
+	if (sc->curtag == data) {
+		//sc->cmd_done = 1;
+		wakeup(&sc->intr_chan);
+		//printf(".");
+		//biodone(sc->bp);
+	}
+}
 
 static int
 htif_blk_probe(device_t dev)
@@ -106,11 +147,15 @@ htif_blk_attach(device_t dev)
 	struct htif_blk_softc *sc;
 	struct htif_dev_softc *sc_dev;
 	long size;
-
 	sc = device_get_softc(dev);
+	sc->dev = dev;
 	sc_dev = device_get_ivars(dev);
+	printf("my index %d\n", sc_dev->index);
 	sc->sc_dev = sc_dev;
 	mtx_init(&sc->htif_io_mtx, device_get_nameunit(dev), "htif_blk", MTX_DEF);
+	HTIF_BLK_LOCK_INIT(sc);
+
+	htif_blk_sc = sc;
 
 	char *str;
 	char prefix[] = " size=";
@@ -124,8 +169,8 @@ htif_blk_attach(device_t dev)
 
 	printf("htif blk attach, size %ld\n", size);
 
-	printf("disabled\n");
-	return (0);
+	//printf("disabled\n");
+	//return (0);
 
 #if 0
 	struct htif_ld_info *ld_info;
@@ -214,7 +259,7 @@ htif_blk_attach(device_t dev)
 	//sc->ld_disk->d_maxsize = min(sc->ld_controller->htif_max_io * secsize,
 	//    (sc->ld_controller->htif_max_sge - 1) * PAGE_SIZE);
 
-	sc->disk->d_maxsize = 4096;
+	sc->disk->d_maxsize = 512; /* Max transfer */
 	sc->disk->d_name = "htif_blk";
 	sc->disk->d_open = htif_blk_open;
 	sc->disk->d_close = htif_blk_close;
@@ -240,6 +285,13 @@ htif_blk_attach(device_t dev)
 
 	disk_create(sc->ld_disk, DISK_VERSION);
 #endif
+
+	bioq_init(&sc->bio_queue);
+
+	sc->running = 1;
+
+	kproc_create(&htif_blk_task, sc, &sc->p, 0, 0, "%s: transfer", 
+	    device_get_nameunit(dev));
 
 	return (0);
 }
@@ -279,7 +331,7 @@ htif_blk_open(struct disk *dp)
 {
 	int error;
 
-	printf("%s\n", __func__);
+	//printf("%s\n", __func__);
 
 	error = 0;
 #if 0
@@ -341,55 +393,105 @@ htif_blk_enable(struct htif_blk_softc *sc)
 #endif
 
 static void
-htif_blk_strategy(struct bio *bp)
+htif_blk_task(void *arg)
 {
 	struct htif_blk_softc *sc;
+	struct bio *bp;
+	device_t dev;
 	struct htif_dev_softc *sc_dev;
 	int block;
 	int bcount;
 	uint64_t cmd;
 	uint64_t paddr;
-
 	struct htif_blk_request req __aligned(HTIF_ALIGN);
 
-	sc = bp->bio_disk->d_drv1;
+	sc = (struct htif_blk_softc *)arg;
+	dev = sc->dev;
 	sc_dev = sc->sc_dev;
 
-	//printf("%s\n", __func__);
+	while (1) {
+		HTIF_BLK_LOCK(sc);
+		do {
+			//if (sc->running == 0)
+			//	goto out;
+			bp = bioq_takefirst(&sc->bio_queue);
+			if (bp == NULL)
+				msleep(sc, &sc->sc_mtx, PRIBIO, "jobqueue", 0);
+		} while (bp == NULL);
+		HTIF_BLK_UNLOCK(sc);
 
-	mtx_lock(&sc->htif_io_mtx);
+		//mtx_lock(&sc->htif_io_mtx);
+		rmb();
 
-	if (bp->bio_cmd == BIO_READ || bp->bio_cmd == BIO_WRITE) {
-		block = bp->bio_pblkno;
-		bcount = bp->bio_bcount;
-		printf("%d block %d count %d\n", bp->bio_cmd, block, bcount);
+		if (bp->bio_cmd == BIO_READ || bp->bio_cmd == BIO_WRITE) {
+			block = bp->bio_pblkno;
+			bcount = bp->bio_bcount;
+			printf(".");
+			//printf("%d block %d count %d\n", bp->bio_cmd, block, bcount);
 
-		req.offset = (bp->bio_pblkno * sc->disk->d_sectorsize);
-		req.size = bp->bio_bcount;
-		paddr = vtophys(bp->bio_data);
-		KASSERT(paddr != 0, ("paddr is 0"));
-		req.addr = paddr;
-		req.tag = 0;
+			rmb();
+			req.offset = (bp->bio_pblkno * sc->disk->d_sectorsize);
+			req.size = bp->bio_bcount;
+			paddr = vtophys(bp->bio_data);
+			KASSERT(paddr != 0, ("paddr is 0"));
+			req.addr = paddr;
 
-		//printf("index %d addr 0x%016lx\n", sc_dev->index, req.addr);
-		cmd = sc_dev->index;
-		cmd <<= 56;
-		if (bp->bio_cmd == BIO_READ)
-			cmd |= (HTIF_CMD_READ << 48);
-		else
-			cmd |= (HTIF_CMD_WRITE << 48);
-		paddr = vtophys(&req);
-		KASSERT(paddr != 0, ("paddr is 0"));
-		cmd |= paddr;
-		htif_command(cmd, ECALL_HTIF_CMD);
-		biodone(bp);
-		//biofinish(bp, NULL, ENXIO);
+			if (sc->curtag++ >= 65535)
+				sc->curtag = 0;
+			req.tag = sc->curtag;
+
+			//printf("index %d addr 0x%016lx\n", sc_dev->index, req.addr);
+			cmd = sc_dev->index;
+			cmd <<= 56;
+			if (bp->bio_cmd == BIO_READ)
+				cmd |= (HTIF_CMD_READ << 48);
+			else
+				cmd |= (HTIF_CMD_WRITE << 48);
+			paddr = vtophys(&req);
+			KASSERT(paddr != 0, ("paddr is 0"));
+			cmd |= paddr;
+
+			//sc->cmd_done = 0;
+			//sc->bp = bp;
+			htif_command(cmd, ECALL_HTIF_CMD);
+
+			/* Wait for interrupt */
+			HTIF_BLK_LOCK(sc);
+			//while (sc->cmd_done == 0)
+			//	msleep(&sc->intr_chan, &sc->sc_mtx, PRIBIO, "intr", hz/2);
+			msleep(&sc->intr_chan, &sc->sc_mtx, PRIBIO, "intr", 0);
+			HTIF_BLK_UNLOCK(sc);
+
+			//printf(".");
+
+			biodone(bp);
+			//biofinish(bp, NULL, ENXIO);
+		} else {
+			printf("unknown op %d\n", bp->bio_cmd);
+		}
+
+		//mtx_unlock(&sc->htif_io_mtx);
+	}
+}
+
+static void
+htif_blk_strategy(struct bio *bp)
+{
+	struct htif_blk_softc *sc;
+
+	sc = bp->bio_disk->d_drv1;
+
+	HTIF_BLK_LOCK(sc);
+	if (sc->running > 0) {
+		bioq_disksort(&sc->bio_queue, bp);
+		HTIF_BLK_UNLOCK(sc);
+		wakeup(sc);
 	} else {
-		printf("unknown op %d\n", bp->bio_cmd);
+		HTIF_BLK_UNLOCK(sc);
+		biofinish(bp, NULL, ENXIO);
 	}
 
-	mtx_unlock(&sc->htif_io_mtx);
-
+	//printf("%s\n", __func__);
 	//printf("%s done\n", __func__);
 #if 0
 	struct htif_blk *sc;

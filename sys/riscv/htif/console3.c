@@ -87,6 +87,17 @@ static cn_ungrab_t	riscv_cnungrab;
 
 CONSOLE_DRIVER(riscv);
 
+#define	QUEUE_SIZE	256
+struct queue_entry {
+	uint64_t data;
+	uint64_t used;
+	struct queue_entry *next;
+};
+
+struct queue_entry cnqueue[QUEUE_SIZE];
+struct queue_entry *entry_last;
+struct queue_entry *entry_served;
+
 #if 0
 static uint64_t
 htif_cmd(uint64_t cmd)
@@ -211,29 +222,10 @@ riscv_timeout(void *v)
 void
 riscv_console_intr(uint8_t c)
 {
-	//uint64_t *cc = &console_data;
-	//uint64_t data;
-	//int c;
 
-	//uint64_t *queue_size = &htif_queue_size;
-	//int i;
-	//for (i = 0; i < *sz; i++) {
-	//for (;;) {
-	//	int c = *(uint8_t *)cc & 0xff;
-	//	*queue_size--;
-	//}
-
-	//data = *cc;
-	//c = data & 0xff;
-	//if ((data >> 56) != 1)
-	//	return;
-
-	//tty_lock(tp);
-	if (c) {
-		ttydisc_rint(tp, c, 0);
-	}
-	ttydisc_rint_done(tp);
-	//tty_unlock(tp);
+	entry_last->data = c;
+	entry_last->used = 1;
+	entry_last = entry_last->next;
 }
 
 static void
@@ -253,6 +245,19 @@ riscv_cninit(struct consdev *cp)
 
 	/* XXX: This is the alias, but that should be good enough */
 	strcpy(cp->cn_name, "riscvcons");
+
+	int i;
+
+	for (i = 0; i < QUEUE_SIZE; i++) {
+		if (i == (QUEUE_SIZE - 1))
+			cnqueue[i].next = &cnqueue[0];
+		else
+			cnqueue[i].next = &cnqueue[i+1];
+		cnqueue[i].data = 0;
+		cnqueue[i].used = 0;
+	}
+	entry_last = &cnqueue[0];
+	entry_served = &cnqueue[0];
 }
 
 static void
@@ -273,13 +278,23 @@ riscv_cnungrab(struct consdev *cp)
 static int
 riscv_cngetc(struct consdev *cp)
 {
+	uint8_t data;
 	int ch;
 
 	//uint64_t *cc = &console_data;
 	//uint8_t c = *(uint8_t *)cc;
-
 	//ch = 0; //riscvcall(MAMBO_CONSOLE_READ);
+
 	ch = htif_getc();
+
+	if (entry_served->used == 1) {
+		data = entry_served->data;
+		entry_served->used = 0;
+		entry_served = entry_served->next;
+		return (data & 0xff);
+	}
+	return (-1);
+
 	//ch = c;
 	if (ch > 0 && ch < 0xff) {
 		//*cc = 0;

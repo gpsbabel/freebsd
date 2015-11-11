@@ -57,9 +57,7 @@ __FBSDID("$FreeBSD$");
 #include <machine/vmparam.h>
 
 #include "htif.h"
-
-struct mtx test_mtx;
-int mtx_done = 0;
+#include "htif_blk.h"
 
 extern uint64_t console_data;
 extern uint64_t htif_ring_last;
@@ -70,7 +68,7 @@ struct ring_entry {
 	uint64_t used;
 	uint64_t pnext;
 	uint64_t *next;
-} __packed;
+};
 
 #define	HTIF_RING_SIZE	1024
 
@@ -81,18 +79,12 @@ htif_command(uint64_t cmd, uint64_t m)
 {
 	uint64_t res;
 
-	if (mtx_done)
-	mtx_lock(&test_mtx);
-
 	__asm __volatile(
 		"mv	t5, %2\n"
 		"mv	t6, %1\n"
 		"ecall\n"
 		"mv	%0, t6" : "=&r"(res) : "r"(cmd), "r"(m)
 	);
-
-	if (mtx_done)
-	mtx_unlock(&test_mtx);
 
 	return (res);
 }
@@ -103,6 +95,8 @@ htif_intr(void)
 	uint64_t entry;
 	uint64_t cmd;
 
+	//csr_clear(sip, SIE_SSIE);
+
 	cmd = 0;
 	entry = htif_command(cmd, ECALL_HTIF_GET_ENTRY);
 	while (entry) {
@@ -111,6 +105,11 @@ htif_intr(void)
 			riscv_console_intr(entry & 0xff);
 		//if ((entry >> 56) == 1)
 		//if (((entry >> 48) && 0xff) == 1)
+
+		if ((entry >> 56) == 0x2) {
+			//printf("entry 0x%016lx\n", entry);
+			htif_blk_intr(entry);
+		}
 
 		entry = htif_command(cmd, ECALL_HTIF_GET_ENTRY);
 	}
@@ -131,7 +130,8 @@ htif_test(struct htif_softc *sc)
 	char id[HTIF_MAX_ID] __aligned(HTIF_ALIGN);
 	struct htif_dev_softc *dev_sc;
 
-	for (i = 0; i < HTIF_MAX_DEV; i++) {
+	//for (i = 0; i < HTIF_MAX_DEV; i++) {
+	for (i = 0; i < 3; i++) {
 
 		//cmd = 0x101000000000000;
 
@@ -145,12 +145,14 @@ htif_test(struct htif_softc *sc)
 		cmd |= data;
 		htif_command(cmd, ECALL_HTIF_CMD);
 
+		DELAY(10000);
+
 		len = strnlen(id, sizeof(id));
 		if (len <= 0) {
 			continue;
 		}
-		printf("HTIF enumerate %d\n", i);
-		printf("len is %d id is %d\n", len, id[0]);
+		//printf("HTIF enumerate %d\n", i);
+		//printf("len is %d id is %d\n", len, id[0]);
 
 		//htif_tohost(i, HTIF_CMD_IDENTIFY, (__pa(id) << 8) | 0xFF);
 		//htif_fromhost();
@@ -159,7 +161,7 @@ htif_test(struct htif_softc *sc)
 			continue;
 
 		/* block */
-		printf("adding block child\n");
+		//printf("adding block child\n");
 
 		dev_sc = malloc(sizeof(struct htif_dev_softc), M_DEVBUF, M_NOWAIT | M_ZERO);
 		dev_sc->sc = sc;
@@ -209,13 +211,12 @@ htif_attach(device_t dev)
 	sc = device_get_softc(dev);
 	sc->dev = dev;
 	mtx_init(&sc->sc_mtx, device_get_nameunit(dev), "htif_command", MTX_DEF);
-	mtx_init(&test_mtx, device_get_nameunit(dev), "htif_test", MTX_DEF);
-	mtx_done = 1;
 
-
+#if 0
 	int i;
 
 	/* Initialize ring */
+	memset(&htif_ring, 0, sizeof(struct ring_entry) * HTIF_RING_SIZE);
 	for (i = 0; i < HTIF_RING_SIZE; i++) {
 		if (i == (HTIF_RING_SIZE - 1))
 			htif_ring[i].next = (uint64_t *)&htif_ring[0];
@@ -230,6 +231,9 @@ htif_attach(device_t dev)
 
 	uint64_t *cc1 = &htif_ring_last;
 	*cc1 = vtophys((uint64_t)&htif_ring);
+#endif
+
+	csr_set(sie, SIE_SSIE);
 
 	return (htif_test(sc));
 }
