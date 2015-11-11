@@ -891,6 +891,7 @@ fetch_ssl(conn_t *conn, const struct url *URL, int verbose)
 	return (0);
 #else
 	(void)conn;
+	(void)URL;
 	(void)verbose;
 	fprintf(stderr, "SSL support disabled\n");
 	return (-1);
