@@ -54,6 +54,10 @@ void *_rtld_tlsdesc_dynamic(void *);
 
 void _exit(int);
 
+
+#define	TLS_TP_OFFSET	0
+#define	TLS_DTV_OFFSET	0x800
+
 void
 init_pltgot(Obj_Entry *obj)
 {
@@ -91,7 +95,6 @@ do_copy_relocations(Obj_Entry *dstobj)
 	for (rela = dstobj->rela; rela < relalim; rela++) {
 		if (ELF_R_TYPE(rela->r_info) != R_RISCV_COPY)
 			continue;
-		//dbg("copy");
 
 		dstaddr = (void *)(dstobj->relocbase + rela->r_offset);
 		dstsym = dstobj->symtab + ELF_R_SYM(rela->r_info);
@@ -119,7 +122,7 @@ do_copy_relocations(Obj_Entry *dstobj)
 		}
 
 		srcaddr = (const void *)(defobj->relocbase + srcsym->st_value);
-		//dbg("d 0x%016lx s 0x%016lx sz %ld\n", (uint64_t)dstaddr, (uint64_t)srcaddr, size);
+		dbg("copy dst 0x%016lx src 0x%016lx sz %ld\n", (uint64_t)dstaddr, (uint64_t)srcaddr, size);
 		memcpy(dstaddr, srcaddr, size);
 	}
 
@@ -378,10 +381,12 @@ reloc_non_plt(Obj_Entry *obj, Obj_Entry *obj_rtld, int flags,
 			if (def == NULL)
 				return (-1);
 
-			//dbg("non plt R_RISCV_64 base 0x%016lx defbase 0x%016lx st_v 0x%016lx r_addend 0x%016lx t_offset 0x%016lx", (uint64_t)obj->relocbase, (uint64_t)defobj->relocbase, def->st_value, rela->r_addend, rela->r_offset);
+			dbg("non plt R_RISCV_64 base 0x%016lx defbase 0x%016lx st_v 0x%016lx r_addend 0x%016lx t_offset 0x%016lx", (uint64_t)obj->relocbase, (uint64_t)defobj->relocbase, def->st_value, rela->r_addend, rela->r_offset);
 
-			*where = (Elf_Addr)defobj->relocbase + def->st_value +
-			    rela->r_addend;
+			//*where = (Elf_Addr)defobj->relocbase + def->st_value +
+			//   rela->r_addend;
+			*where = (Elf_Addr)defobj->relocbase + def->st_value;
+
 			if (*where >= 0x80000000)
 				dbg("FAIL 2 *where 0x%016lx", *where);
 			break;
@@ -466,7 +471,10 @@ reloc_non_plt(Obj_Entry *obj, Obj_Entry *obj_rtld, int flags,
 
 			//*where += def->st_value + rela->r_addend + defobj->tlsoffset;
 			//*where += def->st_value - TLS_DTP_OFFSET;
-			*where += (def->st_value + rela->r_addend);
+			//*where += (def->st_value + rela->r_addend);
+			*where += (Elf_Addr)(def->st_value + rela->r_addend
+                    		- TLS_DTV_OFFSET);
+
 			if (*where >= 0x80000000)
 				dbg("FAIL 5 *where 0x%016lx", *where);
 			break;
@@ -495,8 +503,13 @@ reloc_non_plt(Obj_Entry *obj, Obj_Entry *obj_rtld, int flags,
 				}
 			}
 
-			*where = def->st_value + rela->r_addend +
-			    defobj->tlsoffset;
+			//*where = def->st_value + rela->r_addend +
+			//    defobj->tlsoffset;
+
+			*(Elf_Addr **)where = *where * sizeof(Elf_Addr)
+                	    + (Elf_Addr *)(def->st_value + rela->r_addend
+                	    + defobj->tlsoffset - TLS_TP_OFFSET);
+
 			if (*where >= 0x80000000)
 				dbg("FAIL 6 *where 0x%016lx", *where);
 			break;
@@ -530,9 +543,10 @@ allocate_initial_tls(Obj_Entry *objs)
 	tls_static_space = tls_last_offset + tls_last_size +
 	    RTLD_STATIC_TLS_EXTRA;
 
-	tp = (Elf_Addr **) allocate_tls(objs, NULL, TLS_TCB_SIZE, 16);
+	tp = (Elf_Addr **) ((char *)allocate_tls(objs, NULL, TLS_TCB_SIZE, 16)
+	    + TLS_TP_OFFSET + TLS_TCB_SIZE);
 
-	asm volatile("mv  tp, %0" :: "r"((char*)tp + 0x10));
+	asm volatile("mv  tp, %0" :: "r"(tp));
 }
 
 void *
@@ -542,7 +556,9 @@ __tls_get_addr(tls_index* ti)
 	void *p; 
 
 	__asm __volatile("mv %0, tp" : "=r" (_tp));
-	p = tls_get_addr_common((Elf_Addr **)(_tp - 0x10), ti->ti_module, ti->ti_offset);
 
-	return (p);
+	p = tls_get_addr_common((Elf_Addr**)((Elf_Addr)_tp - TLS_TP_OFFSET
+	    - TLS_TCB_SIZE), ti->ti_module, ti->ti_offset);
+ 
+	return (p + TLS_DTV_OFFSET);
 }
