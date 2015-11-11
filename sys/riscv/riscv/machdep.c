@@ -186,17 +186,17 @@ bzero(void *buf, size_t len)
 int
 fill_regs(struct thread *td, struct reg *regs)
 {
-	//struct trapframe *frame;
+	struct trapframe *frame;
 
-	panic("%s", __func__);
+	frame = td->td_frame;
+	regs->epc = frame->tf_sepc;
 
-	//frame = td->td_frame;
 	//regs->sp = frame->tf_sp;
 	//regs->lr = frame->tf_lr;
 	//regs->elr = frame->tf_elr;
 	//regs->spsr = frame->tf_spsr;
 
-	//memcpy(regs->x, frame->tf_x, sizeof(regs->x));
+	memcpy(regs->x, frame->tf_x, sizeof(regs->x));
 
 	return (0);
 }
