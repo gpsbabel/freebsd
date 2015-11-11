@@ -1,4 +1,5 @@
 /*-
+ * Copyright (c) 2006 Peter Wemm
  * Copyright (c) 2015 The FreeBSD Foundation
  * All rights reserved.
  *
@@ -8,6 +9,7 @@
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
+ *
  * 1. Redistributions of source code must retain the above copyright
  *    notice, this list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright
@@ -28,23 +30,73 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: head/sys/arm64/arm64/minidump_machdep.c 281494 2015-04-13 14:43:10Z andrew $");
+__FBSDID("$FreeBSD$");
+
+#include "opt_watchdog.h"
 
 #include "opt_watchdog.h"
 
 #include <sys/param.h>
 #include <sys/systm.h>
 #include <sys/conf.h>
+#include <sys/cons.h>
 #include <sys/kernel.h>
 #include <sys/kerneldump.h>
+#include <sys/msgbuf.h>
+#include <sys/watchdog.h>
+
+#include <vm/vm.h>
+#include <vm/vm_param.h>
+#include <vm/vm_page.h>
+#include <vm/vm_phys.h>
+#include <vm/pmap.h>
 
 #include <machine/md_var.h>
+#include <machine/pmap.h>
+#include <machine/pte.h>
+#include <machine/vmparam.h>
+#include <machine/minidump.h>
+
+CTASSERT(sizeof(struct kerneldumpheader) == 512);
+
+/*
+ * Don't touch the first SIZEOF_METADATA bytes on the dump device. This
+ * is to protect us from metadata and to protect metadata from us.
+ */
+#define	SIZEOF_METADATA		(64*1024)
+
+uint64_t *vm_page_dump;
+int vm_page_dump_size;
+
+CTASSERT(sizeof(*vm_page_dump) == 8);
 
 int
 minidumpsys(struct dumperinfo *di)
 {
 
-	printf("minidumpsys\n");
-	while (1);
+	panic("minidumpsys");
+
+	return (0);
 }
 
+void
+dump_add_page(vm_paddr_t pa)
+{
+	int idx, bit;
+
+	pa >>= PAGE_SHIFT;
+	idx = pa >> 6;		/* 2^6 = 64 */
+	bit = pa & 63;
+	atomic_set_long(&vm_page_dump[idx], 1ul << bit);
+}
+
+void
+dump_drop_page(vm_paddr_t pa)
+{
+	int idx, bit;
+
+	pa >>= PAGE_SHIFT;
+	idx = pa >> 6;		/* 2^6 = 64 */
+	bit = pa & 63;
+	atomic_clear_long(&vm_page_dump[idx], 1ul << bit);
+}
