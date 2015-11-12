@@ -176,7 +176,7 @@ cn_drvinit(void *unused)
 
 		tp = tty_alloc(&riscv_ttydevsw, NULL);
 		tty_init_console(tp, 0);
-		tty_makedev(tp, NULL, "%s", "riscvcons");
+		tty_makedev(tp, NULL, "%s", "rcons");
 
 		polltime = 1;
 
@@ -244,7 +244,7 @@ riscv_cninit(struct consdev *cp)
 {
 
 	/* XXX: This is the alias, but that should be good enough */
-	strcpy(cp->cn_name, "riscvcons");
+	strcpy(cp->cn_name, "rcons");
 
 	int i;
 
