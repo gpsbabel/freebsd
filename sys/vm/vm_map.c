@@ -386,8 +386,6 @@ vmspace_exit(struct thread *td)
 	 * reference to the vmspace.
 	 */
 
-	//printf("vmspace_exit td 0x%016lx\n", td);
-
 	p = td->td_proc;
 	vm = p->p_vmspace;
 	atomic_add_int(&vmspace0.vm_refcnt, 1);
@@ -3845,8 +3843,6 @@ vmspace_exec(struct proc *p, vm_offset_t minuser, vm_offset_t maxuser)
 	struct vmspace *oldvmspace = p->p_vmspace;
 	struct vmspace *newvmspace;
 
-	//printf("vmspace_exec td 0x%016lx\n", curthread);
-
 	KASSERT((curthread->td_pflags & TDP_EXECVMSPC) == 0,
 	    ("vmspace_exec recursed"));
 	newvmspace = vmspace_alloc(minuser, maxuser, NULL);
@@ -3879,8 +3875,6 @@ vmspace_unshare(struct proc *p)
 	struct vmspace *oldvmspace = p->p_vmspace;
 	struct vmspace *newvmspace;
 	vm_ooffset_t fork_charge;
-
-	//printf("vmspace_unshare td 0x%016lx\n", curthread);
 
 	if (oldvmspace->vm_refcnt == 1)
 		return (0);

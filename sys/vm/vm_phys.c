@@ -744,9 +744,7 @@ vm_phys_add_page(vm_paddr_t pa)
 	    ("vm_phys_add_page: page %p has unexpected order %d",
 	    m, m->order));
 	m->pool = VM_FREEPOOL_DEFAULT;
-	//printf("pmap_page_init 0\n");
 	pmap_page_init(m);
-	//printf("pmap_page_init 1\n");
 	mtx_lock(&vm_page_queue_free_mtx);
 	vm_phys_freecnt_adj(m, 1);
 	vm_phys_free_pages(m, 0);
