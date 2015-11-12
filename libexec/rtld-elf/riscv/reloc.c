@@ -1,8 +1,14 @@
-/*      $NetBSD: ppc_reloc.c,v 1.10 2001/09/10 06:09:41 mycroft Exp $   */
-
 /*-
- * Copyright (C) 1998   Tsubai Masanari
+ * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
+ *
+ * This software was developed by SRI International and the University of
+ * Cambridge Computer Laboratory under DARPA/AFRL contract FA8750-10-C-0237
+ * ("CTSRD"), as part of the DARPA CRASH research programme.
+ *
+ * This software was developed by the University of Cambridge Computer
+ * Laboratory as part of the CTSRD Project, with support from the UK Higher
+ * Education Innovation Fund (HEIF).
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -12,21 +18,18 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. The name of the author may not be used to endorse or promote products
- *    derived from this software without specific prior written permission.
  *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
- * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
- * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
- * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- * $FreeBSD$
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
  */
 
 #include <sys/param.h>
@@ -116,42 +119,6 @@ do_copy_relocations(Obj_Entry *dstobj)
 
 	return (0);
 }
-
-
-/*
- * Perform early relocation of the run-time linker image
- */
-void
-reloc_non_plt_self(Elf_Dyn *dynp, Elf_Addr relocbase)
-{
-	const Elf_Rela *rela = 0, *relalim;
-	Elf_Addr relasz = 0;
-	Elf_Addr *where;
-
-	/*
-	 * Extract the rela/relasz values from the dynamic section
-	 */
-	for (; dynp->d_tag != DT_NULL; dynp++) {
-		switch (dynp->d_tag) {
-		case DT_RELA:
-			rela = (const Elf_Rela *)(relocbase+dynp->d_un.d_ptr);
-			break;
-		case DT_RELASZ:
-			relasz = dynp->d_un.d_val;
-			break;
-		}
-	}
-
-	/*
-	 * Relocate these values
-	 */
-	relalim = (const Elf_Rela *)((caddr_t)rela + relasz);
-	for (; rela < relalim; rela++) {
-		where = (Elf_Addr *)(relocbase + rela->r_offset);
-		*where = (Elf_Addr)(relocbase + rela->r_addend);
-	}
-}
-
 
 /*
  * Relocate a non-PLT object with addend.
@@ -330,34 +297,6 @@ done:
 	return (r);
 }
 
-
-/*
- * Initialise a PLT slot to the resolving trampoline
- */
-static int
-reloc_plt_object(Obj_Entry *obj, const Elf_Rela *rela)
-{
-	Elf_Addr *where = (Elf_Addr *)(obj->relocbase + rela->r_offset);
-	Elf_Addr *glink;
-	long reloff;
-
-	reloff = rela - obj->pltrela;
-
-	if (obj->priv == NULL)
-		obj->priv = xmalloc(obj->pltrelasize);
-	glink = obj->priv + reloff*sizeof(Elf_Addr)*2;
-
-	dbg(" reloc_plt_object: where=%p,reloff=%lx,glink=%p", (void *)where, reloff, glink);
-
-	memcpy(where, _rtld_bind_start, sizeof(struct funcdesc));
-	((struct funcdesc *)(where))->env = (Elf_Addr)glink;
-	*(glink++) = (Elf_Addr)obj;
-	*(glink++) = reloff*sizeof(Elf_Rela);
-
-	return (0);
-}
-
-
 /*
  * Process the PLT relocations.
  */
@@ -376,10 +315,6 @@ reloc_plt(Obj_Entry *obj)
 
 			where = (Elf_Addr *)(obj->relocbase + rela->r_offset);
 			*where += (Elf_Addr)obj->relocbase;
-
-			//if (reloc_plt_object(obj, rela) < 0) {
-			//	return (-1);
-			//}
 		}
 	}
 
@@ -446,34 +381,14 @@ reloc_jmpslot(Elf_Addr *wherep, Elf_Addr target, const Obj_Entry *defobj,
 	      const Obj_Entry *obj, const Elf_Rel *rel)
 {
 
-	if (*wherep != target)
-                *wherep = target;
-
-	return (target);
-
+#if 0
 	dbg(" reloc_jmpslot: where=%p, target=%p (%#lx + %#lx)",
 	    (void *)wherep, (void *)target, *(Elf_Addr *)target,
 	    (Elf_Addr)defobj->relocbase);
+#endif
 
-	/*
-	 * At the PLT entry pointed at by `wherep', construct
-	 * a direct transfer to the now fully resolved function
-	 * address.
-	 */
-
-	memcpy(wherep, (void *)target, sizeof(struct funcdesc));
-	if (((struct funcdesc *)(wherep))->addr < (Elf_Addr)defobj->relocbase) {
-		/*
-		 * XXX: It is possible (e.g. LD_BIND_NOW) that the function
-		 * descriptor we are copying has not yet been relocated.
-		 * If this happens, fix it.
-		 */
-
-		((struct funcdesc *)(wherep))->addr +=
-		    (Elf_Addr)defobj->relocbase;
-		((struct funcdesc *)(wherep))->toc +=
-		    (Elf_Addr)defobj->relocbase;
-	}
+	if (*wherep != target)
+                *wherep = target;
 
 	//__asm __volatile("dcbst 0,%0; sync" :: "r"(wherep) : "memory");
 
