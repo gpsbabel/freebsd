@@ -57,7 +57,9 @@ static __inline void
 _tcb_set(struct tcb *tcb)
 {
 
-	__asm __volatile("mv	tp, %0" :: "r" (tcb));
+	__asm __volatile("mv tp, %0" :: "r"((uint8_t *)tcb + 0x10));
+
+	//__asm __volatile("mv	tp, %0" :: "r" (tcb));
 	//__asm __volatile("msr	tpidr_el0, %x0" :: "r" (tcb));
 }
 
@@ -67,11 +69,16 @@ _tcb_set(struct tcb *tcb)
 static __inline struct tcb *
 _tcb_get(void)
 {
-	struct tcb *tcb;
+	register uint8_t *_tp;
 
-	__asm __volatile("mv	%0, tp" : "=&r" (tcb));
+	__asm __volatile("mv %0, tp" : "=r"(_tp));
+
+	return ((struct tcb *)(_tp - 0x10));
+
+	//struct tcb *tcb;
+	//__asm __volatile("mv	%0, tp" : "=&r" (tcb));
 	//__asm __volatile("mrs	%x0, tpidr_el0" : "=r" (tcb));
-	return (tcb);
+	//return (tcb);
 }
 
 extern struct pthread *_thr_initial;
@@ -80,7 +87,9 @@ static __inline struct pthread *
 _get_curthread(void)
 {
 
-	return (_tcb_get()->tcb_thread);
+	if (_thr_initial)
+		return (_tcb_get()->tcb_thread);
+	return (NULL);
 }
 
 #endif /* _PTHREAD_MD_H_ */
