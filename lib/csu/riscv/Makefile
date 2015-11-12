@@ -1,4 +1,4 @@
-# $FreeBSD: head/lib/csu/aarch64/Makefile 280259 2015-03-19 13:53:47Z andrew $
+# $FreeBSD$
 
 .PATH: ${.CURDIR}/../common
 

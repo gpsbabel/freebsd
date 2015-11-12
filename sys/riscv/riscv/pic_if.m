@@ -24,7 +24,7 @@
 # SUCH DAMAGE.
 #
 # from: src/sys/kern/bus_if.m,v 1.21 2002/04/21 11:16:10 markm Exp
-# $FreeBSD: head/sys/arm64/arm64/pic_if.m 281494 2015-04-13 14:43:10Z andrew $
+# $FreeBSD$
 #
 
 #include <sys/bus.h>

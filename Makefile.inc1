@@ -1,5 +1,5 @@
 #
-# $FreeBSD: head/Makefile.inc1 285009 2015-07-01 15:51:11Z br $
+# $FreeBSD$
 #
 # Make command line options:
 #	-DNO_CLEANDIR run ${MAKE} clean, instead of ${MAKE} cleandir

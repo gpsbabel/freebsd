@@ -28,7 +28,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: head/sys/arm64/arm64/vfp.c 285014 2015-07-01 17:27:44Z andrew $");
+__FBSDID("$FreeBSD$");
 
 #ifdef VFP
 #include <sys/param.h>
