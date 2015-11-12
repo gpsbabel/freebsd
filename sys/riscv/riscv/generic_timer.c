@@ -454,6 +454,7 @@ arm_tmr_attach(device_t dev)
 	sc->et.et_priv = sc;
 	et_register(&sc->et);
 
+#if 0
 	/* Atomic tests */
 	uint64_t t1;
 	uint64_t t;
@@ -476,6 +477,7 @@ arm_tmr_attach(device_t dev)
 	printf("expect 1 == %d\n", t2);
 	atomic_subtract_int(&t2, 1);
 	printf("expect 0 == %d\n", t2);
+#endif
 
 	return (0);
 }
