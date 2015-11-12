@@ -93,10 +93,8 @@ extern _Thread_local const _RuneLocale *_ThreadRuneLocale;
 static __inline const _RuneLocale *__getCurrentRuneLocale(void)
 {
 
-#if !defined(__riscv__) /* RISCVTODO */
 	if (_ThreadRuneLocale) 
 		return _ThreadRuneLocale;
-#endif
 	if (_CurrentRuneLocale) 
 		return _CurrentRuneLocale;
 	return &_DefaultRuneLocale;
