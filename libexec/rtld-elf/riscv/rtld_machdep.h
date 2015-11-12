@@ -1,10 +1,6 @@
 /*-
  * Copyright (c) 1999, 2000 John D. Polstra.
- * Copyright (c) 2014 the FreeBSD Foundation
  * All rights reserved.
- *
- * Portions of this software were developed by Andrew Turner
- * under sponsorship from the FreeBSD Foundation.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,7 +27,7 @@
  */
 
 #ifndef RTLD_MACHDEP_H
-#define	RTLD_MACHDEP_H	1
+#define RTLD_MACHDEP_H	1
 
 #include <sys/types.h>
 #include <machine/atomic.h>
@@ -39,43 +35,55 @@
 struct Struct_Obj_Entry;
 
 /* Return the address of the .dynamic section in the dynamic linker. */
-#define	rtld_dynamic(obj)						\
-({									\
-	Elf_Addr _dynamic_addr;						\
-	asm volatile("lla	%0, _DYNAMIC" : "=r"(_dynamic_addr));	\
-	(const Elf_Dyn *)_dynamic_addr;					\
+#define rtld_dynamic(obj)                                               \
+({                                                                      \
+        Elf_Addr _dynamic_addr;                                         \
+        asm volatile("lla       %0, _DYNAMIC" : "=r"(_dynamic_addr));   \
+        (const Elf_Dyn *)_dynamic_addr;                                 \
 })
-#define	RTLD_IS_DYNAMIC() (1)
+#define RTLD_IS_DYNAMIC() (1)
 
 Elf_Addr reloc_jmpslot(Elf_Addr *where, Elf_Addr target,
 		       const struct Struct_Obj_Entry *defobj,
 		       const struct Struct_Obj_Entry *obj,
 		       const Elf_Rel *rel);
 
-#define	make_function_pointer(def, defobj) \
+#define make_function_pointer(def, defobj) \
 	((defobj)->relocbase + (def)->st_value)
 
-#define	call_initfini_pointer(obj, target) \
+#define call_initfini_pointer(obj, target) \
 	(((InitFunc)(target))())
 
-#define	call_init_pointer(obj, target) \
+#define call_init_pointer(obj, target) \
 	(((InitArrFunc)(target))(main_argc, main_argv, environ))
 
-#define	round(size, align) \
-	(((size) + (align) - 1) & ~((align) - 1))
-#define	calculate_first_tls_offset(size, align) \
-	round(16, align)
-#define	calculate_tls_offset(prev_offset, prev_size, size, align) \
-	round(prev_offset + prev_size, align)
-#define	calculate_tls_end(off, size) 	((off) + (size))
+/*
+ * Lazy binding entry point, called via PLT.
+ */
+void _rtld_bind_start(void);
 
-#define	TLS_TCB_SIZE	16
+/*
+ * TLS
+ */
+
+#define TLS_TP_OFFSET	0x0
+#define TLS_DTV_OFFSET	0x800
+#define TLS_TCB_SIZE	16
+
+#define round(size, align) \
+    (((size) + (align) - 1) & ~((align) - 1))
+#define calculate_first_tls_offset(size, align) \
+    round(16, align)
+#define calculate_tls_offset(prev_offset, prev_size, size, align) \
+    round(prev_offset + prev_size, align)
+#define calculate_tls_end(off, size)    ((off) + (size))
+ 
 typedef struct {
-    unsigned long ti_module;
-    unsigned long ti_offset;
+	unsigned long ti_module;
+	unsigned long ti_offset;
 } tls_index;
 
-extern void *__tls_get_addr(tls_index *ti);
+extern void *__tls_get_addr(tls_index* ti);
 
 #define	RTLD_DEFAULT_STACK_PF_EXEC	PF_X
 #define	RTLD_DEFAULT_STACK_EXEC		PROT_EXEC
