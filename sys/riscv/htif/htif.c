@@ -95,8 +95,6 @@ htif_intr(void)
 	uint64_t entry;
 	uint64_t cmd;
 
-	//csr_clear(sip, SIE_SSIE);
-
 	cmd = 0;
 	entry = htif_command(cmd, ECALL_HTIF_GET_ENTRY);
 	while (entry) {
@@ -113,6 +111,8 @@ htif_intr(void)
 
 		entry = htif_command(cmd, ECALL_HTIF_GET_ENTRY);
 	}
+
+	csr_clear(sip, SIE_SSIE);
 }
 
 int

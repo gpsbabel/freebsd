@@ -608,11 +608,11 @@ htif_interrupt:
 
 2:
 	/* Was supervisor interrupts enabled before trap ? */
-	csrr	t0, mstatus
-	li	t1, (SR_IE1)
-	and	t0, t0, t1
-	beqz	t0, 3f		/* no */
-	j	.Lexit_mrts	/* yes */
+	//csrr	t0, mstatus
+	//li	t1, (SR_IE1)
+	//and	t0, t0, t1
+	//beqz	t0, 3f		/* no */
+	//j	.Lexit_mrts	/* yes */
 3:
 	/* Post supervisor software interrupt */
 	li	t0, MIP_SSIP
@@ -621,8 +621,8 @@ htif_interrupt:
 
 software_interrupt:
 	/* Clear supervisor software interrupt */
-	li	t0, MIP_SSIP
-	csrc	mip, t0
+	//li	t0, MIP_SSIP
+	//csrc	mip, t0
 	j	.Lexit_mrts
 
 .Lhandle_trap_in_machine_mode:

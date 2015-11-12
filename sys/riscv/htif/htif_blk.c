@@ -126,7 +126,7 @@ htif_blk_intr(uint64_t entry)
 	//printf("htif_blk_intr\n");
 
 	if (sc->curtag == data) {
-		//sc->cmd_done = 1;
+		sc->cmd_done = 1;
 		wakeup(&sc->intr_chan);
 		//printf(".");
 		//biodone(sc->bp);
@@ -426,7 +426,7 @@ htif_blk_task(void *arg)
 		if (bp->bio_cmd == BIO_READ || bp->bio_cmd == BIO_WRITE) {
 			block = bp->bio_pblkno;
 			bcount = bp->bio_bcount;
-			printf(".");
+			//printf(".");
 			//printf("%d block %d count %d\n", bp->bio_cmd, block, bcount);
 
 			rmb();
@@ -453,13 +453,14 @@ htif_blk_task(void *arg)
 
 			//sc->cmd_done = 0;
 			//sc->bp = bp;
+			sc->cmd_done = 0;
 			htif_command(cmd, ECALL_HTIF_CMD);
 
 			/* Wait for interrupt */
 			HTIF_BLK_LOCK(sc);
-			//while (sc->cmd_done == 0)
-			//	msleep(&sc->intr_chan, &sc->sc_mtx, PRIBIO, "intr", hz/2);
-			msleep(&sc->intr_chan, &sc->sc_mtx, PRIBIO, "intr", 0);
+			while (sc->cmd_done == 0)
+				msleep(&sc->intr_chan, &sc->sc_mtx, PRIBIO, "intr", hz/2);
+			//msleep(&sc->intr_chan, &sc->sc_mtx, PRIBIO, "intr", 0);
 			HTIF_BLK_UNLOCK(sc);
 
 			//printf(".");
