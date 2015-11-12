@@ -16,6 +16,7 @@ SUBDIR=	adduser \
 	crashinfo \
 	cron \
 	ctladm \
+	ctld \
 	daemon \
 	dconschat \
 	devctl \
@@ -88,6 +89,7 @@ SUBDIR=	adduser \
 	traceroute \
 	trpt \
 	tzsetup \
+	uefisign \
 	ugidfw \
 	vigr \
 	vipw \
