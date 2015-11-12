@@ -323,18 +323,20 @@ get_mcontext(struct thread *td, mcontext_t *mcp, int clear_ret)
 {
 	struct trapframe *tf = td->td_frame;
 
-	panic("%s", __func__);
-
 	if (clear_ret & GET_MC_CLEAR_RET) {
-		mcp->mc_gpregs.gp_x[0] = 0;
+		mcp->mc_gpregs.gp_x[10] = 0;
 		//mcp->mc_gpregs.gp_spsr = tf->tf_spsr & ~PSR_C;
 	} else {
-		mcp->mc_gpregs.gp_x[0] = tf->tf_x[0];
+		mcp->mc_gpregs.gp_x[10] = tf->tf_x[0];
 		//mcp->mc_gpregs.gp_spsr = tf->tf_spsr;
 	}
 
 	memcpy(&mcp->mc_gpregs.gp_x[1], &tf->tf_x[1],
 	    sizeof(mcp->mc_gpregs.gp_x[1]) * (nitems(mcp->mc_gpregs.gp_x) - 1));
+
+	mcp->mc_gpregs.gp_x[2] = tf->tf_x[2]; /* sp */
+	mcp->mc_gpregs.gp_x[1] = tf->tf_x[1]; /* ra */
+	mcp->mc_gpregs.gp_epc = tf->tf_sepc;
 
 	//mcp->mc_gpregs.gp_sp = tf->tf_sp;
 	//mcp->mc_gpregs.gp_lr = tf->tf_lr;
@@ -567,7 +569,7 @@ sendsig(sig_t catcher, ksiginfo_t *ksi, sigset_t *mask)
 	struct sigacts *psp;
 	int code, onstack, sig;
 
-	panic("%s: implement me\n", __func__);
+	//panic("%s: implement me\n", __func__);
 
 	td = curthread;
 	p = td->td_proc;
@@ -579,7 +581,7 @@ sendsig(sig_t catcher, ksiginfo_t *ksi, sigset_t *mask)
 	mtx_assert(&psp->ps_mtx, MA_OWNED);
 
 	tf = td->td_frame;
-	//onstack = sigonstack(tf->tf_sp);
+	onstack = sigonstack(tf->tf_x[2]);
 
 	CTR4(KTR_SIG, "sendsig: td=%p (%s) catcher=%p sig=%d", td, p->p_comm,
 	    catcher, sig);
@@ -594,6 +596,7 @@ sendsig(sig_t catcher, ksiginfo_t *ksi, sigset_t *mask)
 #endif
 	} else {
 		//fp = (struct sigframe *)td->td_frame->tf_sp;
+		fp = (struct sigframe *)td->td_frame->tf_x[2];
 	}
 
 	/* Make room, keeping the stack aligned */
@@ -619,10 +622,13 @@ sendsig(sig_t catcher, ksiginfo_t *ksi, sigset_t *mask)
 		sigexit(td, SIGILL);
 	}
 
-	tf->tf_x[0]= sig;
-	tf->tf_x[1] = (register_t)&fp->sf_si;
-	tf->tf_x[2] = (register_t)&fp->sf_uc;
+	tf->tf_x[10] = sig;
+	tf->tf_x[11] = (register_t)&fp->sf_si;
+	tf->tf_x[12] = (register_t)&fp->sf_uc;
 
+	tf->tf_sepc = (register_t)catcher;
+	tf->tf_x[2] = (register_t)fp;
+	tf->tf_x[1] = (register_t)(PS_STRINGS - *(p->p_sysent->sv_szsigcode));
 	//tf->tf_elr = (register_t)catcher;
 	//tf->tf_sp = (register_t)fp;
 	//tf->tf_lr = (register_t)(PS_STRINGS - *(p->p_sysent->sv_szsigcode));
