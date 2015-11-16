@@ -58,7 +58,7 @@ __FBSDID("$FreeBSD$");
 //#include <dev/htif/htif_ioctl.h>
 //#include <dev/htif/htifvar.h>
 #include "htif.h"
-#include "htif_blk.h"
+#include "htif_block.h"
 
 #define HTIF_BLK_LOCK(_sc)	mtx_lock(&(_sc)->sc_mtx)
 #define	HTIF_BLK_UNLOCK(_sc)	mtx_unlock(&(_sc)->sc_mtx)

@@ -57,7 +57,7 @@ __FBSDID("$FreeBSD$");
 #include <machine/vmparam.h>
 
 #include "htif.h"
-#include "htif_blk.h"
+#include "htif_block.h"
 
 extern uint64_t console_data;
 extern uint64_t htif_ring_last;
