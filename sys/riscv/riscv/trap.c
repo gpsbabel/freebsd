@@ -192,6 +192,7 @@ data_abort(struct trapframe *frame, uint64_t esr, int lower)
 	 * handle them early on in the trap handler.
 	 */
 	if (__predict_false(pcb->pcb_onfault == (vm_offset_t)&fsu_intr_fault)) {
+		frame->tf_sepc = pcb->pcb_onfault;
 		//frame->tf_elr = pcb->pcb_onfault;
 		return;
 	}

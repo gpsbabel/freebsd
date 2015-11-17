@@ -67,7 +67,7 @@ proc_regget(struct proc_handle *phdl, proc_reg_t reg, unsigned long *regvalue)
 #elif defined(__powerpc__)
 		*regvalue = regs.pc;
 #elif defined(__riscv__)
-		*regvalue = regs.epc;
+		*regvalue = regs.sepc;
 #endif
 		break;
 	case REG_SP:
@@ -122,7 +122,7 @@ proc_regset(struct proc_handle *phdl, proc_reg_t reg, unsigned long regvalue)
 #elif defined(__powerpc__)
 		regs.pc = regvalue;
 #elif defined(__riscv__)
-		regs.epc = regvalue;
+		regs.sepc = regvalue;
 #endif
 		break;
 	case REG_SP:

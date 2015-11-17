@@ -358,7 +358,9 @@ console_intr:
 	ld	a1, PC_CURTHREAD(a1)
 	lw	a2, TD_FLAGS(a1)
 
-	li	a3, (TDF_ASTPENDING|TDF_NEEDRESCHED)
+	/* TODO: check if we can do this with no shift */
+	li	a3, ((TDF_ASTPENDING|TDF_NEEDRESCHED) >> 8)
+	slli	a3, a3, 8
 	and	a2, a2, a3
 	beqz	a2, 2f
 

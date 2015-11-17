@@ -189,7 +189,8 @@ fill_regs(struct thread *td, struct reg *regs)
 	struct trapframe *frame;
 
 	frame = td->td_frame;
-	regs->epc = frame->tf_sepc;
+	regs->sepc = frame->tf_sepc;
+	regs->sstatus = frame->tf_sstatus;
 
 	//regs->sp = frame->tf_sp;
 	//regs->lr = frame->tf_lr;
@@ -299,17 +300,17 @@ exec_setregs(struct thread *td, struct image_params *imgp, u_long stack)
 {
 	struct trapframe *tf = td->td_frame;
 
-	//panic("%s", __func__);
-
 	memset(tf, 0, sizeof(struct trapframe));
+
+	/*
+	 * We need to set a0 for init as it doesn't call
+	 * cpu_set_syscall_retval to copy the value. We also
+	 * need to set td_retval for the cases where we do.
+	 */
 	tf->tf_x[10] = td->td_retval[0] = stack;
 	tf->tf_x[2] = STACKALIGN(stack);
 	tf->tf_x[1] = imgp->entry_addr;
 	tf->tf_sepc = imgp->entry_addr;
-
-	//tf->tf_sp = stack;
-	//tf->tf_lr = imgp->entry_addr;
-	//tf->tf_elr = imgp->entry_addr;
 }
 
 /* Sanity check these are the same size, they will be memcpy'd to and fro */
@@ -323,24 +324,22 @@ get_mcontext(struct thread *td, mcontext_t *mcp, int clear_ret)
 {
 	struct trapframe *tf = td->td_frame;
 
-	if (clear_ret & GET_MC_CLEAR_RET) {
-		mcp->mc_gpregs.gp_x[10] = 0;
-		//mcp->mc_gpregs.gp_spsr = tf->tf_spsr & ~PSR_C;
-	} else {
-		mcp->mc_gpregs.gp_x[10] = tf->tf_x[0];
-		//mcp->mc_gpregs.gp_spsr = tf->tf_spsr;
-	}
-
 	memcpy(&mcp->mc_gpregs.gp_x[1], &tf->tf_x[1],
 	    sizeof(mcp->mc_gpregs.gp_x[1]) * (nitems(mcp->mc_gpregs.gp_x) - 1));
 
+	if (clear_ret & GET_MC_CLEAR_RET) {
+		mcp->mc_gpregs.gp_x[10] = 0;
+		mcp->mc_gpregs.gp_x[5] = 0; /* syscall error == 0 */
+		//mcp->mc_gpregs.gp_spsr = tf->tf_spsr & ~PSR_C;
+	} else {
+		mcp->mc_gpregs.gp_x[10] = tf->tf_x[10];
+		//mcp->mc_gpregs.gp_spsr = tf->tf_spsr;
+	}
+
 	mcp->mc_gpregs.gp_x[2] = tf->tf_x[2]; /* sp */
 	mcp->mc_gpregs.gp_x[1] = tf->tf_x[1]; /* ra */
-	mcp->mc_gpregs.gp_epc = tf->tf_sepc;
-
-	//mcp->mc_gpregs.gp_sp = tf->tf_sp;
-	//mcp->mc_gpregs.gp_lr = tf->tf_lr;
-	//mcp->mc_gpregs.gp_elr = tf->tf_elr;
+	mcp->mc_gpregs.gp_sepc = tf->tf_sepc;
+	mcp->mc_gpregs.gp_sstatus = tf->tf_sstatus;
 
 	return (0);
 }
@@ -348,11 +347,14 @@ get_mcontext(struct thread *td, mcontext_t *mcp, int clear_ret)
 int
 set_mcontext(struct thread *td, mcontext_t *mcp)
 {
-	struct trapframe *tf = td->td_frame;
+	struct trapframe *tf;
 
-	panic("%s", __func__);
+	tf = td->td_frame;
 
 	memcpy(tf->tf_x, mcp->mc_gpregs.gp_x, sizeof(tf->tf_x));
+
+	tf->tf_sepc = mcp->mc_gpregs.gp_sepc;
+	tf->tf_sstatus = mcp->mc_gpregs.gp_sstatus;
 
 	//tf->tf_sp = mcp->mc_gpregs.gp_sp;
 	//tf->tf_lr = mcp->mc_gpregs.gp_lr;
@@ -513,19 +515,27 @@ int
 sys_sigreturn(struct thread *td, struct sigreturn_args *uap)
 {
 	ucontext_t uc;
+#if 0
 	uint32_t spsr;
-
-	panic("implement me: sys_sigreturn\n");
+#endif
 
 	if (uap == NULL)
 		return (EFAULT);
 	if (copyin(uap->sigcntxp, &uc, sizeof(uc)))
 		return (EFAULT);
 
+#if 0
+	/* RISCVTODO */
+
+	/*
+	 * Make sure the processor mode has not been tampered with and
+	 * interrupts have not been disabled.
+	 */
 	spsr = uc.uc_mcontext.mc_gpregs.gp_spsr;
 	if ((spsr & PSR_M_MASK) != PSR_M_EL0t ||
 	    (spsr & (PSR_F | PSR_I | PSR_A | PSR_D)) != 0)
 		return (EINVAL); 
+#endif
 
 	set_mcontext(td, &uc.uc_mcontext);
 	set_fpcontext(td, &uc.uc_mcontext);
@@ -595,7 +605,6 @@ sendsig(sig_t catcher, ksiginfo_t *ksi, sigset_t *mask)
 		td->td_sigstk.ss_flags |= SS_ONSTACK;
 #endif
 	} else {
-		//fp = (struct sigframe *)td->td_frame->tf_sp;
 		fp = (struct sigframe *)td->td_frame->tf_x[2];
 	}
 
@@ -629,9 +638,6 @@ sendsig(sig_t catcher, ksiginfo_t *ksi, sigset_t *mask)
 	tf->tf_sepc = (register_t)catcher;
 	tf->tf_x[2] = (register_t)fp;
 	tf->tf_x[1] = (register_t)(PS_STRINGS - *(p->p_sysent->sv_szsigcode));
-	//tf->tf_elr = (register_t)catcher;
-	//tf->tf_sp = (register_t)fp;
-	//tf->tf_lr = (register_t)(PS_STRINGS - *(p->p_sysent->sv_szsigcode));
 
 	CTR3(KTR_SIG, "sendsig: return td=%p pc=%#x sp=%#x", td, tf->tf_elr,
 	    tf->tf_sp);

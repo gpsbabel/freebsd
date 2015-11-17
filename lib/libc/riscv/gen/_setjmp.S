@@ -31,12 +31,13 @@ __FBSDID("$FreeBSD$");
 
 ENTRY(_setjmp)
 	/* Store the magic value and stack pointer */
-	ld	t0, .Lmagic
+	la	t0, .Lmagic
+	ld	t0, 0(t0)
 	sd	t0, (0 * 8)(a0)
 	sd	sp, (1 * 8)(a0)
 	addi	a0, a0, 16
 
-	/* Store the general purpose registers and lr */
+	/* Store the general purpose registers and ra */
 	sd	s0, (0 * 8)(a0)
 	sd	s1, (1 * 8)(a0)
 	sd	s2, (2 * 8)(a0)
@@ -49,7 +50,7 @@ ENTRY(_setjmp)
 	sd	s9, (9 * 8)(a0)
 	sd	s10, (10 * 8)(a0)
 	sd	s11, (11 * 8)(a0)
-	sd	x1, (12 * 8)(a0)	/* ra */
+	sd	ra, (12 * 8)(a0)
 	addi	a0, a0, 104
 
 #ifndef _STANDALONE
@@ -83,7 +84,8 @@ END(_setjmp)
 ENTRY(_longjmp)
 	/* Check the magic value */
 	ld	t0, 0(a0)
-	ld	t1, .Lmagic
+	la	t1, .Lmagic
+	ld	t1, 0(t1)
 	bne	t0, t1, botch
 
 	/* Restore the stack pointer */

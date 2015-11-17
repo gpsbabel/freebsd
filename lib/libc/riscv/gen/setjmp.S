@@ -41,7 +41,7 @@ ENTRY(setjmp)
 	addi	a2, a0, (_JB_SIGMASK * 8)	/* oset */
 	li	a1, 0				/* set */
 	li	a0, 1				/* SIG_BLOCK */
-	call	sigprocmask
+	jal	sigprocmask
 
 	//add	x2, x0, #(_JB_SIGMASK * 8)	/* oset */
 	//mov	x1, #0				/* set */
@@ -56,7 +56,8 @@ ENTRY(setjmp)
 	//add	sp, sp, #16
 
 	/* Store the magic value and stack pointer */
-	ld	t0, .Lmagic
+	la	t0, .Lmagic
+	ld	t0, 0(t0)
 	sd	t0, (0 * 8)(a0)
 	sd	sp, (1 * 8)(a0)
 	addi	a0, a0, 16
@@ -134,7 +135,7 @@ ENTRY(longjmp)
 	li	a2, 0				/* oset */
 	addi	a1, a0, (_JB_SIGMASK * 8)	/* set */
 	li	a0, 3				/* SIG_BLOCK */
-	call	sigprocmask
+	jal	sigprocmask
 
 	//mov	x2, #0				/* oset */
 	//add	x1, x0, #(_JB_SIGMASK * 8)	/* set */
@@ -152,7 +153,8 @@ ENTRY(longjmp)
 
 	/* Check the magic value */
 	ld	t0, 0(a0)
-	ld	t1, .Lmagic
+	la	t1, .Lmagic
+	ld	t1, 0(t1)
 	bne	t0, t1, botch
 
 	/* Restore the stack pointer */

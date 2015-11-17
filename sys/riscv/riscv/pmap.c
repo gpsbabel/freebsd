@@ -2345,30 +2345,16 @@ pmap_enter(pmap_t pmap, vm_offset_t va, vm_page_t m, vm_prot_t prot,
 
 	new_l3 = PTE_VALID;
 
-	if (prot & VM_PROT_EXECUTE) {
-		if ((prot & VM_PROT_WRITE) == 0) { /* Read-only */
-			if ((va >> 63) == 0) /* USER */
-				new_l3 |= (PTE_TYPE_SURX << PTE_TYPE_S);
-			else
-				new_l3 |= (PTE_TYPE_SRX << PTE_TYPE_S);
-		} else {
-			if ((va >> 63) == 0) /* USER */
-				new_l3 |= (PTE_TYPE_SURWX << PTE_TYPE_S);
-			else
-				new_l3 |= (PTE_TYPE_SRWX << PTE_TYPE_S);
-		}
+	if ((prot & VM_PROT_WRITE) == 0) { /* Read-only */
+		if ((va >> 63) == 0) /* USER */
+			new_l3 |= (PTE_TYPE_SURX << PTE_TYPE_S);
+		else
+			new_l3 |= (PTE_TYPE_SRX << PTE_TYPE_S);
 	} else {
-		if ((prot & VM_PROT_WRITE) == 0) { /* Read-only */
-			if ((va >> 63) == 0) /* USER */
-				new_l3 |= (PTE_TYPE_SURO << PTE_TYPE_S);
-			else
-				new_l3 |= (PTE_TYPE_SRO << PTE_TYPE_S);
-		} else {
-			if ((va >> 63) == 0) /* USER */
-				new_l3 |= (PTE_TYPE_SURW << PTE_TYPE_S);
-			else
-				new_l3 |= (PTE_TYPE_SRW << PTE_TYPE_S);
-		}
+		if ((va >> 63) == 0) /* USER */
+			new_l3 |= (PTE_TYPE_SURWX << PTE_TYPE_S);
+		else
+			new_l3 |= (PTE_TYPE_SRWX << PTE_TYPE_S);
 	}
 
 	new_l3 |= (pn << PTE_PPN0_S);

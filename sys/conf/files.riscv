@@ -26,7 +26,6 @@ riscv/riscv/bus_machdep.c	standard
 riscv/riscv/busdma_bounce.c	standard
 riscv/riscv/busdma_machdep.c	standard
 riscv/riscv/vm_machdep.c	standard
-riscv/riscv/vfp.c		standard
 riscv/riscv/trap.c		standard
 riscv/riscv/swtch.S		standard
 riscv/riscv/pic_if.m		standard

@@ -35,12 +35,8 @@
 
 struct gpregs {
 	unsigned long long gp_x[32];
-	//unsigned long long gp_lr;
-	//unsigned long long gp_sp;
-	//unsigned long long gp_elr;
-	unsigned long long gp_epc;
-	uint32_t	gp_spsr;
-	u_int		gp_pad;
+	unsigned long long gp_sepc;
+	unsigned long long gp_sstatus;
 };
 
 struct fpregs {
