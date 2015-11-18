@@ -961,7 +961,7 @@ initriscv(struct riscv_bootparams *rvbp)
 	printf("boothowto\n");
 
 	boothowto = 0; //MD_FETCH(kmdp, MODINFOMD_HOWTO, int);
-	boothowto = RB_SINGLE;
+	//boothowto = RB_SINGLE;
 
 	printf("kern_envp\n");
 	kern_envp = NULL; //MD_FETCH(kmdp, MODINFOMD_ENVP, char *);
