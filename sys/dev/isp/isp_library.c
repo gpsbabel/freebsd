@@ -2157,6 +2157,20 @@ isp_put_rft_id(ispsoftc_t *isp, rft_id_t *src, rft_id_t *dst)
 }
 
 void
+isp_put_rff_id(ispsoftc_t *isp, rff_id_t *src, rff_id_t *dst)
+{
+	int i;
+
+	isp_put_ct_hdr(isp, &src->rffid_hdr, &dst->rffid_hdr);
+	ISP_IOZPUT_8(isp, src->rffid_reserved, &dst->rffid_reserved);
+	for (i = 0; i < 3; i++)
+		ISP_IOZPUT_8(isp, src->rffid_portid[i], &dst->rffid_portid[i]);
+	ISP_IOZPUT_16(isp, src->rffid_reserved2, &dst->rffid_reserved2);
+	ISP_IOZPUT_8(isp, src->rffid_fc4features, &dst->rffid_fc4features);
+	ISP_IOZPUT_8(isp, src->rffid_fc4type, &dst->rffid_fc4type);
+}
+
+void
 isp_get_ct_hdr(ispsoftc_t *isp, ct_hdr_t *src, ct_hdr_t *dst)
 {
 	ISP_IOZGET_8(isp, &src->ct_revision, dst->ct_revision);
@@ -2469,7 +2483,7 @@ isp_find_pdb_by_wwn(ispsoftc_t *isp, int chan, uint64_t wwn, fcportdb_t **lptr)
 #ifdef	ISP_TARGET_MODE
 
 int
-isp_find_pdb_by_handle(ispsoftc_t *isp, int chan, uint32_t handle, fcportdb_t **lptr)
+isp_find_pdb_by_handle(ispsoftc_t *isp, int chan, uint16_t handle, fcportdb_t **lptr)
 {
 	fcparam *fcp;
 	int i;
