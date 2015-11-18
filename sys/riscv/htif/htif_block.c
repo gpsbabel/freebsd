@@ -458,8 +458,13 @@ htif_blk_task(void *arg)
 
 			/* Wait for interrupt */
 			HTIF_BLK_LOCK(sc);
-			while (sc->cmd_done == 0)
+			int i = 0;
+			while (sc->cmd_done == 0) {
 				msleep(&sc->intr_chan, &sc->sc_mtx, PRIBIO, "intr", hz/2);
+				i+=1;
+				if ( i > 1 )
+					printf("Err %d\n", i);
+			}
 			HTIF_BLK_UNLOCK(sc);
 
 			//printf(".");

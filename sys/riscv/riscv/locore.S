@@ -44,8 +44,8 @@
 //#include <machine/vmparam.h>
 
 #define	INIT_STACK_SIZE	(PAGE_SIZE * 4)
-#define	RING_SIZE	(1024)
-#define	RING_LAST	(24 * 1023)
+#define	RING_SIZE	(64)
+#define	RING_LAST	(24 * (RING_SIZE - 1))
 
 	.globl	kernbase
 	.set	kernbase, KERNBASE
@@ -581,24 +581,26 @@ supervisor_trap:
 	j	.Lexit_mrts
 
 htif_interrupt:
+1:
 	li	t5, 0
 	csrrw	t5, mfromhost, t5
+	beqz	t5, 3f
 
 	/* Console PUT intr ? */
 	mv	t1, t5
 	li	t0, 0x101
 	srli	t1, t1, 48
-	bne	t1, t0, 1f
+	bne	t1, t0, 2f
 	/* Update if yes */
 	la	t0, console_intr
 	li	t1, 1
 	sd	t1, 0(t0)
-	j	.Lexit_no_mepc
+	j	3f
 
-1:
+2:
 	/* put entry */
 	la	t0, htif_ring_cursor
-	beqz	t0, 2f		/* not initialized */
+	beqz	t0, 3f		/* not initialized */
 	ld	t0, 0(t0)	/* load struct */
 	sd	t5, 0(t0)	/* put entry */
 	li	t4, 1
@@ -608,17 +610,11 @@ htif_interrupt:
 	la	t0, htif_ring_cursor
 	sd	t4, 0(t0)
 
-2:
-	/* Was supervisor interrupts enabled before trap ? */
-	//csrr	t0, mstatus
-	//li	t1, (SR_IE1)
-	//and	t0, t0, t1
-	//beqz	t0, 3f		/* no */
-	//j	.Lexit_mrts	/* yes */
-3:
 	/* Post supervisor software interrupt */
 	li	t0, MIP_SSIP
 	csrs	mip, t0
+
+3:
 	j	.Lexit_no_mepc
 
 software_interrupt:
