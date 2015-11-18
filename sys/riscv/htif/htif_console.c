@@ -157,11 +157,20 @@ riscv_putc(int c)
 
 	htif_early_putc(c);
 
+	uint64_t tmp;
+
+	tmp = 0;
+
 	__asm __volatile(
+		"li	%0, 1 \n"
+		"slli	%0, %0, 12 \n"
 		"1:\n"
-		"ld	%0, 0(%1)\n"
-		"beqz	%0, 1b\n"
-		: "=&r"(val) : "r"(cc)
+		"addi	%0, %0, -1 \n"
+		"beqz	%0, 2f \n"
+		"ld	%1, 0(%2)\n"
+		"beqz	%1, 1b\n"
+		"2:\n"
+		: "=&r"(tmp), "=&r"(val) : "r"(cc)
 	);
 }
 
