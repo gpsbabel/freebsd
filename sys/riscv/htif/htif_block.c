@@ -123,7 +123,9 @@ htif_blk_intr(uint64_t entry)
 	sc = htif_blk_sc;
 
 	data = (entry & 0xffff);
-	//printf("htif_blk_intr\n");
+
+	//if (sc->cmd_done == 1)
+	//	printf("htif_blk_intr: entry 0x%016lx\n", entry);
 
 	if (sc->curtag == data) {
 		sc->cmd_done = 1;
@@ -259,7 +261,7 @@ htif_blk_attach(device_t dev)
 	//sc->ld_disk->d_maxsize = min(sc->ld_controller->htif_max_io * secsize,
 	//    (sc->ld_controller->htif_max_sge - 1) * PAGE_SIZE);
 
-	sc->disk->d_maxsize = 512; /* Max transfer */
+	sc->disk->d_maxsize = 4096; /* Max transfer */
 	sc->disk->d_name = "htif_blk";
 	sc->disk->d_open = htif_blk_open;
 	sc->disk->d_close = htif_blk_close;
@@ -451,8 +453,6 @@ htif_blk_task(void *arg)
 			KASSERT(paddr != 0, ("paddr is 0"));
 			cmd |= paddr;
 
-			//sc->cmd_done = 0;
-			//sc->bp = bp;
 			sc->cmd_done = 0;
 			htif_command(cmd, ECALL_HTIF_CMD);
 
@@ -460,7 +460,6 @@ htif_blk_task(void *arg)
 			HTIF_BLK_LOCK(sc);
 			while (sc->cmd_done == 0)
 				msleep(&sc->intr_chan, &sc->sc_mtx, PRIBIO, "intr", hz/2);
-			//msleep(&sc->intr_chan, &sc->sc_mtx, PRIBIO, "intr", 0);
 			HTIF_BLK_UNLOCK(sc);
 
 			//printf(".");
