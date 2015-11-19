@@ -26,7 +26,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $FreeBSD: head/sys/arm64/include/bus_dma_impl.h 282655 2015-05-08 18:47:19Z zbb $
+ * $FreeBSD$
  */
 
 #ifndef _MACHINE_BUS_DMA_IMPL_H_

@@ -1,7 +1,7 @@
 #
 # DEFAULTS -- Default kernel configuration file for FreeBSD/arm64
 #
-# $FreeBSD: head/sys/arm64/conf/DEFAULTS 281610 2015-04-16 19:23:08Z emaste $
+# $FreeBSD$
 
 machine		riscv
 
@@ -11,4 +11,3 @@ device		mem		# Memory and kernel memory devices
 # Default partitioning schemes
 options 	GEOM_PART_BSD
 options 	GEOM_PART_MBR
-

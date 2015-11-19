@@ -31,7 +31,7 @@
 
 #include <machine/asm.h>
 #include <machine/param.h>
-__FBSDID("$FreeBSD: head/sys/arm64/arm64/cpufunc_asm.S 281494 2015-04-13 14:43:10Z andrew $");
+__FBSDID("$FreeBSD$");
 
 /*
  * FIXME:

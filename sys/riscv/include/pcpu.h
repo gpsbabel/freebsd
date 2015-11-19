@@ -24,7 +24,7 @@
  * SUCH DAMAGE.
  *
  *	from: FreeBSD: src/sys/i386/include/globaldata.h,v 1.27 2001/04/27
- * $FreeBSD: head/sys/arm64/include/pcpu.h 284273 2015-06-11 15:45:33Z andrew $
+ * $FreeBSD$
  */
 
 #ifndef	_MACHINE_PCPU_H_
@@ -61,20 +61,14 @@ static inline struct thread *
 get_curthread(void)
 {
 	//struct thread *td;
-
 	//__asm __volatile("ld %0, 0(gp)" : "=&r"(td));
 	//td = *(uint64_t **)pcpup;
-
-	//works
 	//td = (struct thread *)*(uint64_t *)pcpup;
-
 	//uint64_t p;
 	//p = *(uint64_t *)pcpup;
 	//td = (struct thread *)p;
-
 	//__asm __volatile("ld %0, 0(tp)" : "=&r"(td));
 	//return (td);
-
 	//return (get_pcpu()->pc_curthread);
 
 	return ((struct thread *)*(uint64_t *)pcpup);

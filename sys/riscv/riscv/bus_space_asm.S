@@ -27,7 +27,7 @@
 
 #include <machine/asm.h>
 
-__FBSDID("$FreeBSD: head/sys/arm64/arm64/bus_space_asm.S 282200 2015-04-28 20:33:31Z br $");
+__FBSDID("$FreeBSD$");
 
 ENTRY(generic_bs_r_1)
 #if 0

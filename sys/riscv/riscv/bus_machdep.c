@@ -28,7 +28,7 @@
 #include "opt_platform.h"
 
 #include <sys/param.h>
-__FBSDID("$FreeBSD: head/sys/arm64/arm64/bus_machdep.c 282200 2015-04-28 20:33:31Z br $");
+__FBSDID("$FreeBSD$");
 
 #include <vm/vm.h>
 #include <vm/pmap.h>

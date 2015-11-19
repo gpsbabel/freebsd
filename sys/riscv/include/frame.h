@@ -1,10 +1,14 @@
 /*-
- * Copyright (c) 2014 Andrew Turner
- * Copyright (c) 2014 The FreeBSD Foundation
+ * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
  *
- * This software was developed by Andrew Turner under
- * sponsorship from the FreeBSD Foundation.
+ * This software was developed by SRI International and the University of
+ * Cambridge Computer Laboratory under DARPA/AFRL contract FA8750-10-C-0237
+ * ("CTSRD"), as part of the DARPA CRASH research programme.
+ *
+ * This software was developed by the University of Cambridge Computer
+ * Laboratory as part of the CTSRD Project, with support from the UK Higher
+ * Education Innovation Fund (HEIF).
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,7 +31,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $FreeBSD: head/sys/arm64/include/frame.h 280711 2015-03-26 21:10:42Z andrew $
+ * $FreeBSD$
  */
 
 #ifndef _MACHINE_FRAME_H_
@@ -42,10 +46,6 @@
  * NOTE: keep this structure in sync with struct reg and struct mcontext.
  */
 struct trapframe {
-	//uint64_t tf_sp;
-	//uint64_t tf_lr;
-	//uint64_t tf_elr;
-	//uint64_t tf_spsr;
 	uint64_t tf_x[32];
 	uint64_t tf_sepc;
 	uint64_t tf_sstatus;

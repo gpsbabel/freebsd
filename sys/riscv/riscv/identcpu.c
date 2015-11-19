@@ -30,7 +30,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: head/sys/arm64/arm64/identcpu.c 285311 2015-07-09 11:32:29Z zbb $");
+__FBSDID("$FreeBSD$");
 
 #include <sys/param.h>
 #include <sys/pcpu.h>

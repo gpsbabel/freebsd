@@ -29,7 +29,7 @@
  */
 
 #include <machine/asm.h>
-__FBSDID("$FreeBSD: head/sys/arm64/arm64/copyinout.S 281494 2015-04-13 14:43:10Z andrew $");
+__FBSDID("$FreeBSD$");
 
 #include <sys/errno.h>
 
