@@ -27,7 +27,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $FreeBSD: head/sys/arm64/include/db_machdep.h 281494 2015-04-13 14:43:10Z andrew $
+ * $FreeBSD$
  */
 
 #ifndef	_MACHINE_DB_MACHDEP_H_
@@ -43,8 +43,7 @@
 typedef vm_offset_t	db_addr_t;
 typedef long		db_expr_t;
 
-//#define	PC_REGS()	((db_addr_t)kdb_thrctx->pcb_pc)
-#define	PC_REGS()	((db_addr_t)kdb_thrctx->pcb_x[1])
+#define	PC_REGS()	((db_addr_t)kdb_thrctx->pcb_sepc)
 
 #define	BKPT_INST	(0xd4200000)
 #define	BKPT_SIZE	(4)
