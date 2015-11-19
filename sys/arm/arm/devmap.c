@@ -47,7 +47,7 @@ __FBSDID("$FreeBSD$");
 static const struct arm_devmap_entry *devmap_table;
 static boolean_t devmap_bootstrap_done = false;
 
-#if defined(__aarch64__)
+#if defined(__aarch64__) || defined(__riscv__)
 #define	MAX_VADDR	VM_MAX_KERNEL_ADDRESS
 #define	PTE_DEVICE	VM_MEMATTR_DEVICE
 #elif defined(__arm__)

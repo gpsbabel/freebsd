@@ -23,7 +23,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $FreeBSD: head/sys/arm64/include/elf.h 280364 2015-03-23 11:54:56Z andrew $
+ * $FreeBSD$
  */
 
 #ifndef	_MACHINE_ELF_H_
@@ -99,8 +99,8 @@ __ElfType(Auxinfo);
 #define	ELF_TARG_MACH	EM_RISCV
 #define	ELF_TARG_VER	1
 
-//TODO: set correct value
-//#define	ET_DYN_LOAD_ADDR 0x100000
-#define	ET_DYN_LOAD_ADDR 0x800000
+/* TODO: set correct value */
+#define	ET_DYN_LOAD_ADDR 0x100000
+//#define	ET_DYN_LOAD_ADDR 0x800000
 
 #endif /* !_MACHINE_ELF_H_ */

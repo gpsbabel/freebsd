@@ -1,6 +1,14 @@
 /*-
- * Copyright (c) 2013 Andrew Turner <andrew@freebsd.org>
+ * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
+ *
+ * This software was developed by SRI International and the University of
+ * Cambridge Computer Laboratory under DARPA/AFRL contract FA8750-10-C-0237
+ * ("CTSRD"), as part of the DARPA CRASH research programme.
+ *
+ * This software was developed by the University of Cambridge Computer
+ * Laboratory as part of the CTSRD Project, with support from the UK Higher
+ * Education Innovation Fund (HEIF).
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,7 +31,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $FreeBSD: head/sys/arm64/include/machdep.h 281494 2015-04-13 14:43:10Z andrew $
+ * $FreeBSD$
  */
 
 #ifndef _MACHINE_MACHDEP_H_
@@ -31,7 +39,7 @@
 
 struct riscv_bootparams {
 	vm_offset_t	modulep;
-	vm_offset_t	kern_l1pt;	/* L1 page table for the kernel */
+	vm_offset_t	kern_l1pt;	/* Kernel L1 base */
 	uint64_t	kern_delta;
 	vm_offset_t	kern_stack;
 };
@@ -41,6 +49,5 @@ extern u_int physmap_idx;
 
 vm_offset_t fake_preload_metadata(struct riscv_bootparams *rbp);
 void initriscv(struct riscv_bootparams *);
-void c_test(void);
 
 #endif /* _MACHINE_MACHDEP_H_ */
