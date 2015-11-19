@@ -1,9 +1,14 @@
 /*-
- * Copyright (c) 2015 The FreeBSD Foundation
+ * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
  *
- * This software was developed by Andrew Turner under
- * sponsorship from the FreeBSD Foundation.
+ * This software was developed by SRI International and the University of
+ * Cambridge Computer Laboratory under DARPA/AFRL contract FA8750-10-C-0237
+ * ("CTSRD"), as part of the DARPA CRASH research programme.
+ *
+ * This software was developed by the University of Cambridge Computer
+ * Laboratory as part of the CTSRD Project, with support from the UK Higher
+ * Education Innovation Fund (HEIF).
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,7 +30,6 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
  */
 
 #include <sys/cdefs.h>
@@ -65,7 +69,6 @@ static void
 configure_first(void *dummy)
 {
 
-	//printf("%s\n", __func__);
 	/* nexus0 is the top of the device tree */
 	device_add_child(root_bus, "nexus", 0);
 }
@@ -74,7 +77,6 @@ static void
 configure(void *dummy)
 {
 
-	//printf("%s\n", __func__);
 	/* initialize new bus architecture */
 	root_bus_configure();
 }
@@ -83,8 +85,8 @@ static void
 configure_final(void *dummy)
 {
 
-	//panic("configure_final\n");
 	printf("%s\n", __func__);
+
 	arm_enable_intr();
 	cninit_finish(); 
 
