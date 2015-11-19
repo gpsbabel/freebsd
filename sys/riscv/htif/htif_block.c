@@ -462,8 +462,15 @@ htif_blk_task(void *arg)
 			while (sc->cmd_done == 0) {
 				msleep(&sc->intr_chan, &sc->sc_mtx, PRIBIO, "intr", hz/2);
 				i+=1;
-				if ( i > 1 )
+				if ( i > 2 ) {
 					printf("Err %d\n", i);
+
+					bp->bio_error = EIO;
+					//bp->bio_resid = (end - block) * sz;
+					bp->bio_flags |= BIO_ERROR;
+
+					break;
+				}
 			}
 			HTIF_BLK_UNLOCK(sc);
 
