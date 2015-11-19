@@ -1,9 +1,14 @@
 /*-
- * Copyright (c) 2015 The FreeBSD Foundation
+ * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
  *
- * This software was developed by Andrew Turner under
- * sponsorship from the FreeBSD Foundation.
+ * This software was developed by SRI International and the University of
+ * Cambridge Computer Laboratory under DARPA/AFRL contract FA8750-10-C-0237
+ * ("CTSRD"), as part of the DARPA CRASH research programme.
+ *
+ * This software was developed by the University of Cambridge Computer
+ * Laboratory as part of the CTSRD Project, with support from the UK Higher
+ * Education Innovation Fund (HEIF).
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,7 +30,6 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
  */
 
 #include <machine/asm.h>
@@ -42,11 +46,6 @@ ENTRY(copyio_fault)
 	SET_FAULT_HANDLER(x0, a1) /* Clear the handler */
 	li	a0, EFAULT
 	ret
-#if 0
-	SET_FAULT_HANDLER(xzr, x1) /* Clear the handler */
-	mov	x0, #EFAULT
-	ret
-#endif
 END(copyio_fault)
 
 /*
@@ -71,22 +70,6 @@ ENTRY(copyout)
 
 2:	li	a0, 0		/* return 0 */
 	ret
-#if 0
-	cbz	x2, 2f		/* If len == 0 then skip loop */
-
-	adr	x6, copyio_fault /* Get the handler address */
-	SET_FAULT_HANDLER(x6, x7) /* Set the handler */
-
-1:	ldrb	w4, [x0], #1	/* Load from kaddr */
-	strb	w4, [x1], #1	/* Store in uaddr */
-	sub	x2, x2, #1	/* len-- */
-	cbnz	x2, 1b
-
-	SET_FAULT_HANDLER(xzr, x7) /* Clear the handler */
-
-2:	mov	x0, xzr		/* return 0 */
-	ret
-#endif
 END(copyout)
 
 /*
@@ -111,22 +94,6 @@ ENTRY(copyin)
 
 2:	li	a0, 0		/* return 0 */
 	ret
-#if 0
-	cbz	x2, 2f		/* If len == 0 then skip loop */
-
-	adr	x6, copyio_fault /* Get the handler address */
-	SET_FAULT_HANDLER(x6, x7) /* Set the handler */
-
-1:	ldrb	w4, [x0], #1	/* Load from uaddr */
-	strb	w4, [x1], #1	/* Store in kaddr */
-	sub	x2, x2, #1	/* len-- */
-	cbnz	x2, 1b
-
-	SET_FAULT_HANDLER(xzr, x7) /* Clear the handler */
-
-2:	mov	x0, xzr		/* return 0 */
-	ret
-#endif
 END(copyin)
 
 /*
@@ -158,27 +125,4 @@ ENTRY(copyinstr)
 
 4:	mv	a0, x0		/* return 0 */
 	ret
-#if 0
-	mov	x5, xzr		/* count = 0 */
-	cbz	x2, 3f		/* If len == 0 then skip loop */
-
-	adr	x6, copyio_fault /* Get the handler address */
-	SET_FAULT_HANDLER(x6, x7) /* Set the handler */
-
-1:	ldrb	w4, [x0], #1	/* Load from uaddr */
-	strb	w4, [x1], #1	/* Store in kaddr */
-	cbz	w4, 2f		/* If == 0 then break */
-	sub	x2, x2, #1	/* len-- */
-	add	x5, x5, #1	/* count++ */
-	cbnz	x2, 1b
-
-2:	SET_FAULT_HANDLER(xzr, x7) /* Clear the handler */
-
-3:	cbz	x3, 4f		/* Check if done != NULL */
-	add	x5, x5, #1	/* count++ */
-	str	x5, [x3]	/* done = count */
-
-4:	mov	x0, xzr		/* return 0 */
-	ret
-#endif
 END(copyinstr)

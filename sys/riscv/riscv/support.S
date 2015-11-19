@@ -1,10 +1,14 @@
 /*-
- * Copyright (c) 2014 Andrew Turner
- * Copyright (c) 2014-2015 The FreeBSD Foundation
+ * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
  *
- * Portions of this software were developed by Andrew Turner
- * under sponsorship from the FreeBSD Foundation
+ * This software was developed by SRI International and the University of
+ * Cambridge Computer Laboratory under DARPA/AFRL contract FA8750-10-C-0237
+ * ("CTSRD"), as part of the DARPA CRASH research programme.
+ *
+ * This software was developed by the University of Cambridge Computer
+ * Laboratory as part of the CTSRD Project, with support from the UK Higher
+ * Education Innovation Fund (HEIF).
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,7 +30,6 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
  */
 
 #include <machine/asm.h>
@@ -43,11 +46,6 @@ ENTRY(fsu_fault)
 	SET_FAULT_HANDLER(x0, a1)	/* Reset the handler function */
 	li	a0, -1
 	ret
-#if 0
-	SET_FAULT_HANDLER(xzr, x1)	/* Reset the handler function */
-	mov	x0, #-1
-	ret
-#endif
 END(fsu_fault)
 
 /*
@@ -147,16 +145,6 @@ EENTRY(fueword64)
 	sd	a0, 0(a1)		/* Save the data in kernel space */
 	li	a0, 0			/* Success */
 	ret				/* Return */
-
-#if 0
-	adr	x6, fsu_fault		/* Load the fault handler */
-	SET_FAULT_HANDLER(x6, x2)	/* And set it */
-	ldr	x0, [x0]		/* Try loading the data */
-	SET_FAULT_HANDLER(xzr, x2)	/* Reset the fault handler */
-	str	x0, [x1]		/* Save the data in kernel space */
-	mov	x0, #0			/* Success */
-	ret				/* Return */
-#endif
 EEND(fueword64)
 END(fueword)
 
@@ -170,14 +158,6 @@ ENTRY(subyte)
 	SET_FAULT_HANDLER(x0, a2)	/* Reset the fault handler */
 	li	a0, 0			/* Success */
 	ret				/* Return */
-#if 0
-	adr	x6, fsu_fault		/* Load the fault handler */
-	SET_FAULT_HANDLER(x6, x2)	/* And set it */
-	strb	w1, [x0]		/* Try storing the data */
-	SET_FAULT_HANDLER(xzr, x2)	/* Reset the fault handler */
-	mov	x0, #0			/* Success */
-	ret				/* Return */
-#endif
 END(subyte)
 
 /*
@@ -205,14 +185,6 @@ ENTRY(suword32)
 	SET_FAULT_HANDLER(x0, a2)	/* Reset the fault handler */
 	li	a0, 0			/* Success */
 	ret				/* Return */
-#if 0
-	adr	x6, fsu_fault		/* Load the fault handler */
-	SET_FAULT_HANDLER(x6, x2)	/* And set it */
-	str	w1, [x0]		/* Try storing the data */
-	SET_FAULT_HANDLER(xzr, x2)	/* Reset the fault handler */
-	mov	x0, #0			/* Success */
-	ret				/* Return */
-#endif
 END(suword32)
 
 /*
@@ -226,14 +198,6 @@ EENTRY(suword64)
 	SET_FAULT_HANDLER(x0, a2)
 	li	a0, 0
 	ret
-#if 0
-	adr	x6, fsu_fault		/* Load the fault handler */
-	SET_FAULT_HANDLER(x6, x2)	/* And set it */
-	str	x1, [x0]		/* Try storing the data */
-	SET_FAULT_HANDLER(xzr, x2)	/* Reset the fault handler */
-	mov	x0, #0			/* Success */
-	ret				/* Return */
-#endif
 EEND(suword64)
 END(suword)
 
