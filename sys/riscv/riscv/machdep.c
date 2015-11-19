@@ -66,7 +66,6 @@ __FBSDID("$FreeBSD$");
 
 #include <machine/armreg.h>
 #include <machine/cpu.h>
-#include <machine/debug_monitor.h>
 #include <machine/kdb.h>
 #include <machine/devmap.h>
 #include <machine/machdep.h>
@@ -1067,9 +1066,6 @@ initriscv(struct riscv_bootparams *rvbp)
 
 	printf("init param2\n");
 	init_param2(physmem);
-
-	printf("dbg monitor init\n");
-	dbg_monitor_init();
 
 	printf("kdb_init\n");
 	kdb_init();
