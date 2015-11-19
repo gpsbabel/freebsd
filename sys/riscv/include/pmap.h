@@ -30,7 +30,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $FreeBSD: head/sys/arm64/include/pmap.h 282221 2015-04-29 15:00:43Z andrew $
+ * $FreeBSD$
  */
 
 #ifndef _MACHINE_PMAP_H_
