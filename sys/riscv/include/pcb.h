@@ -1,6 +1,14 @@
 /*-
- * Copyright (c) 2001 Jake Burkholder.
+ * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
+ *
+ * This software was developed by SRI International and the University of
+ * Cambridge Computer Laboratory under DARPA/AFRL contract FA8750-10-C-0237
+ * ("CTSRD"), as part of the DARPA CRASH research programme.
+ *
+ * This software was developed by the University of Cambridge Computer
+ * Laboratory as part of the CTSRD Project, with support from the UK Higher
+ * Education Innovation Fund (HEIF).
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,7 +31,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $FreeBSD: head/sys/arm64/include/pcb.h 280364 2015-03-23 11:54:56Z andrew $
+ * $FreeBSD$
  */
 
 #ifndef	_MACHINE_PCB_H_
@@ -33,17 +41,14 @@
 
 struct trapframe;
 
-#define	PCB_LR		1
+#define	PCB_RA		1
 
 struct pcb {
 	uint64_t	pcb_x[32];
-	//uint64_t	pcb_pc;
-	/* These two need to be in order as we access them together */
-	//uint64_t	pcb_sp;
-	//uint64_t	pcb_tpidr_el0;
+	uint64_t	pcb_sepc;
 	vm_offset_t	pcb_l1addr;
 
-	/* Fault handler, the error value is passed in x0 */
+	/* Fault handler, the error value is passed in a0 */
 	vm_offset_t	pcb_onfault;
 
 	/* Place last to simplify the asm to access the rest if the struct */
