@@ -98,23 +98,6 @@ struct queue_entry cnqueue[QUEUE_SIZE];
 struct queue_entry *entry_last;
 struct queue_entry *entry_served;
 
-#if 0
-static uint64_t
-htif_cmd(uint64_t cmd)
-{
-	uint64_t res;
-
-	__asm __volatile(
-		"mv	t5, %2\n"
-		"mv	t6, %1\n"
-		"ecall\n"
-		"mv	%0, t6" : "=&r"(res) : "r"(cmd), "r"(ECALL_LOW_PRINTC)
-	);
-
-	return (res);
-}
-#endif
-
 static void 
 htif_early_putc(int c)
 {
@@ -123,7 +106,7 @@ htif_early_putc(int c)
 	cmd = 0x101000000000000;
 	cmd |= c;
 
-	htif_command(cmd, ECALL_LOW_PRINTC);
+	htif_command(cmd, ECALL_HTIF_CMD);
 }
 
 static uint8_t
@@ -134,7 +117,7 @@ htif_getc(void)
 
 	cmd = 0x100000000000000;
 
-	res = htif_command(cmd, ECALL_LOW_GETC);
+	res = htif_command(cmd, ECALL_HTIF_CMD);
 
 	return (res);
 }

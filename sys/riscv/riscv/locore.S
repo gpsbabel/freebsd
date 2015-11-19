@@ -271,6 +271,7 @@ console_intr:
 	sd	x30, (TF_X + 30 * 8)(sp)
 	sd	x31, (TF_X + 31 * 8)(sp)
 
+	/* XXX: panic - spin if stack is not kernel one */
 .if \el == 1	/* kernel */
 	mv	t0, sp
 	srli	t0, t0, 63
@@ -358,9 +359,7 @@ console_intr:
 	ld	a1, PC_CURTHREAD(a1)
 	lw	a2, TD_FLAGS(a1)
 
-	/* TODO: check if we can do this with no shift */
-	li	a3, ((TDF_ASTPENDING|TDF_NEEDRESCHED) >> 8)
-	slli	a3, a3, 8
+	li	a3, (TDF_ASTPENDING|TDF_NEEDRESCHED)
 	and	a2, a2, a3
 	beqz	a2, 2f
 
@@ -627,10 +626,6 @@ software_interrupt:
 	/* Save mepc, point to the next instr */
 	csrr	t1, mepc
 	addi	t1, t1, 4		/* Next instruction */
-	li	t4, ECALL_LOW_PRINTC
-	beq	t5, t4, low_printc
-	li	t4, ECALL_LOW_GETC
-	beq	t5, t4, low_getc
 	li	t4, ECALL_HTIF_CMD
 	beq	t5, t4, htif_cmd
 	li	t4, ECALL_HTIF_GET_ENTRY
@@ -658,46 +653,12 @@ htif_get_entry:
 1:
 	j	.Lexit_mcall
 
-low_printc:
-	mv	t0, t6
-1:
-	csrrw	t0, mtohost, t0
-	bnez	t0, 1b
-
-	j	.Lexit
-
-	li	t0, 0x101
-2:
-	csrr	t6, mfromhost
-	srli	t6, t6, 48
-	bne	t6, t0, 2b
-
-	li	t0, 0
-	csrw	mfromhost, t0
-
-	j	.Lexit
-
-low_getc:
-	mv	t0, t6
-2:
-	csrrw	t0, mtohost, t0
-	bnez	t0, 2b
-
-	//csrr	t6, mfromhost
-	//li	t0, 0
-	//csrw	mfromhost, t0
-
-	j	.Lexit
-
 htif_cmd:
 	mv	t0, t6
 1:
 	csrrw	t0, mtohost, t0
 	bnez	t0, 1b
 
-	//csrr	t6, mfromhost
-	//li	t0, 0
-	//csrw	mfromhost, t0
 	j	.Lexit
 
 set_mtimecmp:
