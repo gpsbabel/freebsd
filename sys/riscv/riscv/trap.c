@@ -306,7 +306,7 @@ do_trap(struct trapframe *frame)
 		if (excp_code == 0)
 			htif_intr();
 		else if (excp_code == 1)
-			arm_cpu_intr(frame);
+			riscv_cpu_intr(frame);
 		else if (excp_code == 2) {
 			//uint64_t *cc = &console_data;
 			//uint8_t c = *(uint8_t *)cc;
@@ -422,7 +422,7 @@ do_trap_user(struct trapframe *frame)
 		if (excp_code == 0)
 			htif_intr();
 		else if (excp_code == 1)
-			arm_cpu_intr(frame);
+			riscv_cpu_intr(frame);
 		else if (excp_code == 2) {
 			//uint64_t *cc = &console_data;
 			//uint8_t c = *(uint8_t *)cc;

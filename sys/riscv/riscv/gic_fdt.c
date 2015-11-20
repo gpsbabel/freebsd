@@ -42,7 +42,7 @@ __FBSDID("$FreeBSD$");
 #include <dev/ofw/ofw_bus.h>
 #include <dev/ofw/ofw_bus_subr.h>
 
-#include <arm64/arm64/gic.h>
+#include <riscv/riscv/gic.h>
 
 static struct ofw_compat_data compat_data[] = {
 	{"riscv,pic",		true},	/* Non-standard, used in FreeBSD dts. */
@@ -50,7 +50,7 @@ static struct ofw_compat_data compat_data[] = {
 };
 
 static int
-arm_gic_fdt_probe(device_t dev)
+riscv_gic_fdt_probe(device_t dev)
 {
 
 	if (!ofw_bus_status_okay(dev))
@@ -63,19 +63,19 @@ arm_gic_fdt_probe(device_t dev)
 	return (BUS_PROBE_DEFAULT);
 }
 
-static device_method_t arm_gic_fdt_methods[] = {
+static device_method_t riscv_gic_fdt_methods[] = {
 	/* Device interface */
-	DEVMETHOD(device_probe,		arm_gic_fdt_probe),
+	DEVMETHOD(device_probe,		riscv_gic_fdt_probe),
 
 	DEVMETHOD_END
 };
 
-DEFINE_CLASS_1(gic, arm_gic_fdt_driver, arm_gic_fdt_methods,
-    sizeof(struct arm_gic_softc), arm_gic_driver);
+DEFINE_CLASS_1(gic, riscv_gic_fdt_driver, riscv_gic_fdt_methods,
+    sizeof(struct riscv_gic_softc), riscv_gic_driver);
 
-static devclass_t arm_gic_fdt_devclass;
+static devclass_t riscv_gic_fdt_devclass;
 
-EARLY_DRIVER_MODULE(gic, simplebus, arm_gic_fdt_driver,
-    arm_gic_fdt_devclass, 0, 0, BUS_PASS_INTERRUPT + BUS_PASS_ORDER_MIDDLE);
-EARLY_DRIVER_MODULE(gic, ofwbus, arm_gic_fdt_driver, arm_gic_fdt_devclass,
+EARLY_DRIVER_MODULE(gic, simplebus, riscv_gic_fdt_driver,
+    riscv_gic_fdt_devclass, 0, 0, BUS_PASS_INTERRUPT + BUS_PASS_ORDER_MIDDLE);
+EARLY_DRIVER_MODULE(gic, ofwbus, riscv_gic_fdt_driver, riscv_gic_fdt_devclass,
     0, 0, BUS_PASS_INTERRUPT + BUS_PASS_ORDER_MIDDLE);

@@ -87,7 +87,7 @@ configure_final(void *dummy)
 
 	printf("%s\n", __func__);
 
-	arm_enable_intr();
+	riscv_enable_intr();
 	cninit_finish(); 
 
 	if (bootverbose)

@@ -57,7 +57,7 @@ __FBSDID("$FreeBSD$");
 #include <machine/asm.h>
 #include <machine/trap.h>
 
-#include <arm64/arm64/gic.h>
+#include <riscv/riscv/gic.h>
 
 #include "pic_if.h"
 
@@ -116,14 +116,14 @@ enum {
 #define	SR_IE		(1 << 0)
 
 #if 0
-static struct resource_spec arm_gic_spec[] = {
+static struct resource_spec riscv_gic_spec[] = {
 	{ SYS_RES_MEMORY,	0,	RF_ACTIVE },	/* Distributor registers */
 	{ SYS_RES_MEMORY,	1,	RF_ACTIVE },	/* CPU Interrupt Intf. registers */
 	{ -1, 0 }
 };
 #endif
 
-static struct arm_gic_softc *arm_gic_sc = NULL;
+static struct riscv_gic_softc *riscv_gic_sc = NULL;
 
 #define	gic_c_read_4(_sc, _reg)		\
     bus_space_read_4((_sc)->gic_c_bst, (_sc)->gic_c_bsh, (_reg))
@@ -143,7 +143,7 @@ static pic_unmask_t gic_unmask_irq;
 static void
 gic_init_secondary(device_t dev)
 {
-	struct arm_gic_softc *sc = device_get_softc(dev);
+	struct riscv_gic_softc *sc = device_get_softc(dev);
 	int i;
 
 	for (i = 0; i < sc->nirqs; i += 4)
@@ -173,30 +173,30 @@ gic_init_secondary(device_t dev)
 #endif
 
 static int
-arm_gic_attach(device_t dev)
+riscv_gic_attach(device_t dev)
 {
-	struct		arm_gic_softc *sc;
+	struct		riscv_gic_softc *sc;
 	//int		i;
 	//uint32_t	icciidr;
 
-	if (arm_gic_sc)
+	if (riscv_gic_sc)
 		return (ENXIO);
 
 	sc = device_get_softc(dev);
 
-	//if (bus_alloc_resources(dev, arm_gic_spec, sc->gic_res)) {
+	//if (bus_alloc_resources(dev, riscv_gic_spec, sc->gic_res)) {
 	//	device_printf(dev, "could not allocate resources\n");
 	//	return (ENXIO);
 	//}
 
 	sc->gic_dev = dev;
-	arm_gic_sc = sc;
+	riscv_gic_sc = sc;
 
 	/* Initialize mutex */
 	mtx_init(&sc->mutex, "GIC lock", "", MTX_SPIN);
 
 	sc->nirqs = 2;
-	arm_register_root_pic(dev, sc->nirqs);
+	riscv_register_root_pic(dev, sc->nirqs);
 
 	//csr_set(sstatus, SR_IE);
 	//csr_clear(sie, (1 << 5));
@@ -217,7 +217,7 @@ arm_gic_attach(device_t dev)
 	sc->nirqs = gic_d_read_4(sc, GICD_TYPER);
 	sc->nirqs = 32 * ((sc->nirqs & 0x1f) + 1);
 
-	arm_register_root_pic(dev, sc->nirqs);
+	riscv_register_root_pic(dev, sc->nirqs);
 
 	icciidr = gic_c_read_4(sc, GICC_IIDR);
 	device_printf(dev,"pn 0x%x, arch 0x%x, rev 0x%x, implementer 0x%x irqs %u\n",
@@ -260,7 +260,7 @@ arm_gic_attach(device_t dev)
 
 static void gic_dispatch(device_t dev, struct trapframe *frame)
 {
-	struct arm_gic_softc *sc = device_get_softc(dev);
+	struct riscv_gic_softc *sc = device_get_softc(dev);
 	uint32_t active_irq;
 	int first = 1;
 
@@ -268,7 +268,7 @@ static void gic_dispatch(device_t dev, struct trapframe *frame)
 	if (frame->tf_scause & (1 << 31)) {
 
 		//printf("gic_dispatch %d\n", active_irq);
-		arm_dispatch_intr(active_irq, frame);
+		riscv_dispatch_intr(active_irq, frame);
 		return;
 	}
 
@@ -293,7 +293,7 @@ static void gic_dispatch(device_t dev, struct trapframe *frame)
 			return;
 		}
 
-		arm_dispatch_intr(active_irq, frame);
+		riscv_dispatch_intr(active_irq, frame);
 		first = 0;
 	}
 }
@@ -301,7 +301,7 @@ static void gic_dispatch(device_t dev, struct trapframe *frame)
 static void
 gic_eoi(device_t dev, u_int irq)
 {
-	//struct arm_gic_softc *sc = device_get_softc(dev);
+	//struct riscv_gic_softc *sc = device_get_softc(dev);
 
 	//printf("%s\n", __func__);
 	//gic_c_write_4(sc, GICC_EOIR, irq);
@@ -310,7 +310,7 @@ gic_eoi(device_t dev, u_int irq)
 void
 gic_mask_irq(device_t dev, u_int irq)
 {
-	//struct arm_gic_softc *sc = device_get_softc(dev);
+	//struct riscv_gic_softc *sc = device_get_softc(dev);
 
 	printf("gic_mask_irq\n");
 
@@ -321,7 +321,7 @@ gic_mask_irq(device_t dev, u_int irq)
 void
 gic_unmask_irq(device_t dev, u_int irq)
 {
-	struct arm_gic_softc *sc;
+	struct riscv_gic_softc *sc;
 
 	sc = device_get_softc(dev);
 
@@ -347,7 +347,7 @@ gic_unmask_irq(device_t dev, u_int irq)
 static void
 gic_ipi_send(device_t dev, cpuset_t cpus, u_int ipi)
 {
-	struct arm_gic_softc *sc = device_get_softc(dev);
+	struct riscv_gic_softc *sc = device_get_softc(dev);
 	uint32_t val = 0, i;
 
 	for (i = 0; i < MAXCPU; i++)
@@ -358,7 +358,7 @@ gic_ipi_send(device_t dev, cpuset_t cpus, u_int ipi)
 }
 
 static int
-arm_gic_ipi_read(device_t dev, int i)
+riscv_gic_ipi_read(device_t dev, int i)
 {
 
 	if (i != -1) {
@@ -375,15 +375,15 @@ arm_gic_ipi_read(device_t dev, int i)
 }
 
 static void
-arm_gic_ipi_clear(device_t dev, int ipi)
+riscv_gic_ipi_clear(device_t dev, int ipi)
 {
 	/* no-op */
 }
 #endif
 
-static device_method_t arm_gic_methods[] = {
+static device_method_t riscv_gic_methods[] = {
 	/* Device interface */
-	DEVMETHOD(device_attach,	arm_gic_attach),
+	DEVMETHOD(device_attach,	riscv_gic_attach),
 
 	/* pic_if */
 	DEVMETHOD(pic_dispatch,		gic_dispatch),
@@ -399,5 +399,5 @@ static device_method_t arm_gic_methods[] = {
 	{ 0, 0 }
 };
 
-DEFINE_CLASS_0(gic, arm_gic_driver, arm_gic_methods,
-    sizeof(struct arm_gic_softc));
+DEFINE_CLASS_0(gic, riscv_gic_driver, riscv_gic_methods,
+    sizeof(struct riscv_gic_softc));

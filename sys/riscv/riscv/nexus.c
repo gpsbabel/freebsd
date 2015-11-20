@@ -262,7 +262,7 @@ nexus_config_intr(device_t dev, int irq, enum intr_trigger trig,
     enum intr_polarity pol)
 {
 
-	return (arm_config_intr(irq, trig, pol));
+	return (riscv_config_intr(irq, trig, pol));
 }
 
 static int
@@ -279,7 +279,7 @@ nexus_setup_intr(device_t dev, device_t child, struct resource *res, int flags,
 	if (error)
 		return (error);
 
-	error = arm_setup_intr(device_get_nameunit(child), filt, intr,
+	error = riscv_setup_intr(device_get_nameunit(child), filt, intr,
 	    arg, rman_get_start(res), flags, cookiep);
 
 	return (error);
@@ -289,7 +289,7 @@ static int
 nexus_teardown_intr(device_t dev, device_t child, struct resource *r, void *ih)
 {
 
-	return (arm_teardown_intr(ih));
+	return (riscv_teardown_intr(ih));
 }
 
 static int
