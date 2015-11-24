@@ -70,7 +70,7 @@ __asm("	.text			\n"
 "	slli	t0, a0, 3	\n" /* mult by 8 */
 "	add	a2, a1, t0	\n" /* env is after argv */
 "	addi	a2, a2, 8	\n" /* argv is null terminated */
-"	la	gp, _gp		\n" /* load global pointer */
+"	lla	gp, _gp		\n" /* load global pointer */
 "	call	 __start  ");
 
 /* The entry function. */
