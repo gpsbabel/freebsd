@@ -34,6 +34,8 @@
 
 struct Struct_Obj_Entry;
 
+uint64_t set_gp(struct Struct_Obj_Entry *obj);
+
 /* Return the address of the .dynamic section in the dynamic linker. */
 #define rtld_dynamic(obj)                                               \
 ({                                                                      \
@@ -53,22 +55,18 @@ Elf_Addr reloc_jmpslot(Elf_Addr *where, Elf_Addr target,
 
 #define call_initfini_pointer(obj, target)				\
 ({									\
-	uint64_t tmp0;							\
-	asm volatile("mv    %0, gp" : "=r"(tmp0));			\
-	set_gp(obj);							\
+	uint64_t old0;							\
+	old0 = set_gp(obj);						\
 	(((InitFunc)(target))());					\
-	asm volatile("mv    gp, %0" :: "r"(tmp0));			\
+	asm volatile("mv    gp, %0" :: "r"(old0));			\
 })
-
-int set_gp(struct Struct_Obj_Entry *obj);
 
 #define call_init_pointer(obj, target)					\
 ({									\
-	uint64_t tmp;							\
-	asm volatile("mv    %0, gp" : "=r"(tmp));			\
-	set_gp(obj);							\
+	uint64_t old1;							\
+	old1 = set_gp(obj);						\
 	(((InitArrFunc)(target))(main_argc, main_argv, environ));	\
-	asm volatile("mv    gp, %0" :: "r"(tmp));			\
+	asm volatile("mv    gp, %0" :: "r"(old1));			\
 })
 
 /*

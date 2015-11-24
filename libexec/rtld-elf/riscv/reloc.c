@@ -52,12 +52,15 @@ struct funcdesc {
 	Elf_Addr env;
 };
 
-int
+uint64_t
 set_gp(Obj_Entry *obj)
 {
+	uint64_t old;
 	SymLook req;
 	uint64_t gp;
 	int res;
+
+	asm volatile("mv    %0, gp" : "=r"(old));
 
 	symlook_init(&req, "_gp");
 	req.ventry = NULL;
@@ -69,7 +72,7 @@ set_gp(Obj_Entry *obj)
 		asm volatile("mv    gp, %0" :: "r"(gp));
 	}
 
-	return (0);
+	return (old);
 }
 
 /*
