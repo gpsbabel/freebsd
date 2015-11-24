@@ -37,6 +37,10 @@
 #include <machine/asm.h>
 __FBSDID("$FreeBSD$");
 
+# this puts _gp into .dynsym, so symlook_obj can now find that (see reloc.c)
+	.weak	_gp
+_gp:
+
 	.section .init,"ax",@progbits
 	.align 4
 	.globl	_init

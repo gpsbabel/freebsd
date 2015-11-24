@@ -51,11 +51,25 @@ Elf_Addr reloc_jmpslot(Elf_Addr *where, Elf_Addr target,
 #define make_function_pointer(def, defobj) \
 	((defobj)->relocbase + (def)->st_value)
 
-#define call_initfini_pointer(obj, target) \
-	(((InitFunc)(target))())
+#define call_initfini_pointer(obj, target)				\
+({									\
+	uint64_t tmp0;							\
+	asm volatile("mv    %0, gp" : "=r"(tmp0));			\
+	set_gp(obj);							\
+	(((InitFunc)(target))());					\
+	asm volatile("mv    gp, %0" :: "r"(tmp0));			\
+})
 
-#define call_init_pointer(obj, target) \
-	(((InitArrFunc)(target))(main_argc, main_argv, environ))
+int set_gp(struct Struct_Obj_Entry *obj);
+
+#define call_init_pointer(obj, target)					\
+({									\
+	uint64_t tmp;							\
+	asm volatile("mv    %0, gp" : "=r"(tmp));			\
+	set_gp(obj);							\
+	(((InitArrFunc)(target))(main_argc, main_argv, environ));	\
+	asm volatile("mv    gp, %0" :: "r"(tmp));			\
+})
 
 /*
  * Lazy binding entry point, called via PLT.
