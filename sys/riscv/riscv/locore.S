@@ -553,11 +553,11 @@ timer_interrupt:
 	li	t1, (SR_IE1 | (MSTATUS_PRV_M << MSTATUS_PRV1_SHIFT))
 	and	t0, t0, t1
 	li	t1, (SR_IE1 | (MSTATUS_PRV_S << MSTATUS_PRV1_SHIFT))
-	bne	t0, t1, .Lexit_no_mepc
+	beq	t0, t1, 1f
+
+	j	.Lexit_no_mepc
 
 1:
-	//j	.Lexit_no_mepc
-
 	/* Clear pending */
 	li      t0, MIP_STIP
 	csrc    mip, t0
