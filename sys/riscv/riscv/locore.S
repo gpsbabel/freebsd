@@ -213,10 +213,6 @@ hardstack:
 	.space  (PAGE_SIZE)
 hardstack_end:
 
-	.globl console_data
-console_data:
-	.space  (64)
-
 	.globl htif_ring2
 htif_ring2:
 	.space  (24 * 1024)
@@ -232,9 +228,6 @@ htif_ring_last:
 	.globl console_intr
 console_intr:
 	.space  (8)
-
-//console_data:
-//	.quad htif_data	/* XXX: Keep page tables VA */
 
 .macro save_registers el
 	addi	sp, sp, -288
@@ -522,7 +515,7 @@ supervisor_trap:
 	li	t1, 0
 	beq	t1, t0, software_interrupt
 	li	t1, 1
-	beq	t1, t0, .Ltimer_interrupt
+	beq	t1, t0, timer_interrupt
 	li	t1, 2
 	beq	t1, t0, htif_interrupt
 
@@ -530,7 +523,13 @@ supervisor_trap:
 1:
 	j	1b
 
-.Ltimer_interrupt:
+software_interrupt:
+	/* Clear supervisor software interrupt */
+	//li	t0, MIP_SSIP
+	//csrc	mip, t0
+	j	.Lexit_mrts
+
+timer_interrupt:
 	/* Disable interrupts */
 	li	t0, MIE_MTIE
 	csrc	mie, t0
@@ -600,12 +599,6 @@ htif_interrupt:
 
 3:
 	j	.Lexit_no_mepc
-
-software_interrupt:
-	/* Clear supervisor software interrupt */
-	//li	t0, MIP_SSIP
-	//csrc	mip, t0
-	j	.Lexit_mrts
 
 .Lhandle_trap_in_machine_mode:
 	/* Save mepc, point to the next instr */
