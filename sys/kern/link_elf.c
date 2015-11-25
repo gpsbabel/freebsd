@@ -397,23 +397,17 @@ link_elf_init(void* arg)
 
 	dp = (Elf_Dyn *)&_DYNAMIC;
 	modname = NULL;
-	//printf("%s: 1\n", __func__);
 	modptr = preload_search_by_type("elf" __XSTRING(__ELF_WORD_SIZE) " kernel");
 	if (modptr == NULL)
 		modptr = preload_search_by_type("elf kernel");
-	//printf("%s: 2\n", __func__);
-	if (modptr != NULL)
-		modname = (char *)preload_search_info(modptr, MODINFO_NAME);
+	modname = (char *)preload_search_info(modptr, MODINFO_NAME);
 	if (modname == NULL)
 		modname = "kernel";
-	//printf("%s: 3\n", __func__);
 	linker_kernel_file = linker_make_file(modname, &link_elf_class);
-	//printf("%s: 3.1\n", __func__);
 	if (linker_kernel_file == NULL)
 		panic("%s: Can't create linker structures for kernel",
 		    __func__);
 
-	//printf("%s: 4\n", __func__);
 	ef = (elf_file_t) linker_kernel_file;
 	ef->preloaded = 1;
 #ifdef __powerpc__

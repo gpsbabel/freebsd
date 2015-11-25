@@ -64,8 +64,6 @@ __FBSDID("$FreeBSD$");
 #include <sys/cpuset.h>
 #include <sys/sbuf.h>
 
-#include <machine/pcb.h>
-
 #ifdef HWPMC_HOOKS
 #include <sys/pmckern.h>
 #endif
@@ -1961,12 +1959,6 @@ sched_switch(struct thread *td, struct thread *newtd, int flags)
 		if (dtrace_vtime_active)
 			(*dtrace_vtime_switch_func)(newtd);
 #endif
-
-		//printf(",");
-		//printf("cpu_switch: old 0x%016lx new 0x%016lx\n", td, newtd);
-		//printf("cpu_switch: old 0x%016lx l1 0x%016lx new 0x%016lx l1 0x%016lx name %s\n",
-		//		td, td->td_pcb->pcb_l1addr, newtd, newtd->td_pcb->pcb_l1addr, newtd->td_name);
-		//printf("%016lx %016lx\n", td, newtd);
 
 		cpu_switch(td, newtd, mtx);
 		/*

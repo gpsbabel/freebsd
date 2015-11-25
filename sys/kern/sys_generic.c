@@ -311,8 +311,6 @@ kern_preadv(td, fd, auio, offset)
 	cap_rights_t rights;
 	int error;
 
-	//printf("kern_preadv fd %d\n", fd);
-
 	error = fget_read(td, fd, cap_rights_init(&rights, CAP_PREAD), &fp);
 	if (error)
 		return (error);
@@ -481,9 +479,6 @@ kern_writev(struct thread *td, int fd, struct uio *auio)
 	struct file *fp;
 	cap_rights_t rights;
 	int error;
-
-	//printf("kern_writev fd %d\n", fd);
-	//return (0);
 
 	error = fget_write(td, fd, cap_rights_init(&rights, CAP_WRITE), &fp);
 	if (error)

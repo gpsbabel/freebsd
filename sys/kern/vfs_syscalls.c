@@ -934,8 +934,6 @@ sys_open(td, uap)
 	} */ *uap;
 {
 
-	//printf("sys_open %s\n", uap->path);
-
 	return (kern_openat(td, AT_FDCWD, uap->path, UIO_USERSPACE,
 	    uap->flags, uap->mode));
 }

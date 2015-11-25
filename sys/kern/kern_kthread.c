@@ -100,7 +100,6 @@ kproc_create(void (*func)(void *), void *arg,
 	/* this is a non-swapped system process */
 	PROC_LOCK(p2);
 	td = FIRST_THREAD_IN_PROC(p2);
-	//printf("%s: 0x%016lx\n", __func__, td);
 	p2->p_flag |= P_SYSTEM | P_KTHREAD;
 	td->td_pflags |= TDP_KTHREAD;
 	mtx_lock(&p2->p_sigacts->ps_mtx);
@@ -442,8 +441,6 @@ kproc_kthread_add(void (*func)(void *), void *arg,
 	char buf[100];
 	struct thread *td;
 
-	//printf("%s\n", __func__);
-
 	if (*procptr == 0) {
 		error = kproc_create(func, arg,
 		    	procptr, flags, pages, "%s", procname);
@@ -461,8 +458,7 @@ kproc_kthread_add(void (*func)(void *), void *arg,
 		return (0); 
 	}
 	va_start(ap, fmt);
-	//RISCVTODO
-	//vsnprintf(buf, sizeof(buf), fmt, ap);
+	vsnprintf(buf, sizeof(buf), fmt, ap);
 	va_end(ap);
 	error = kthread_add(func, arg, *procptr,
 		    tdptr, flags, pages, "%s", buf);

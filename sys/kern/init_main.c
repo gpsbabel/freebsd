@@ -246,13 +246,11 @@ restart:
 #endif
 #endif
 
-	//printf("traverse subsystems\n");
 	/*
 	 * Traverse the (now) ordered list of system initialization tasks.
 	 * Perform each task, and continue on to the next task.
 	 */
 	for (sipp = sysinit; sipp < sysinit_end; sipp++) {
-		//printf("sipp is 0x%016lx\n", (uint64_t)sipp);
 
 		if ((*sipp)->subsystem == SI_SUB_DUMMY)
 			continue;	/* skip dummy task(s)*/
@@ -285,8 +283,6 @@ restart:
 		}
 #endif
 
-		//printf("call %x func %x\n",
-		//	(*sipp)->subsystem, (*sipp)->func);
 		/* Call function */
 		(*((*sipp)->func))((*sipp)->udata);
 
@@ -309,8 +305,6 @@ restart:
 			goto restart;
 		}
 	}
-
-	printf("traverse subsystems finished\n");
 
 	mtx_assert(&Giant, MA_OWNED | MA_NOTRECURSED);
 	mtx_unlock(&Giant);

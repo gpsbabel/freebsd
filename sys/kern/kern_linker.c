@@ -571,23 +571,14 @@ linker_make_file(const char *pathname, linker_class_t lc)
 	linker_file_t lf;
 	const char *filename;
 
-	//printf("%s: 1\n", __func__);
-
 	if (!cold)
 		sx_assert(&kld_sx, SA_XLOCKED);
 	filename = linker_basename(pathname);
 
-	//printf("%s: 2\n", __func__);
-
 	KLD_DPF(FILE, ("linker_make_file: new file, filename='%s' for pathname='%s'\n", filename, pathname));
-	//printf("%s: 2 1\n", __func__);
 	lf = (linker_file_t)kobj_create((kobj_class_t)lc, M_LINKER, M_WAITOK);
-	//printf("%s: 2 2\n", __func__);
 	if (lf == NULL)
 		return (NULL);
-
-	//printf("%s: 3\n", __func__);
-
 	lf->ctors_addr = 0;
 	lf->ctors_size = 0;
 	lf->refs = 1;
