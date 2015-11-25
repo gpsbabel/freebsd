@@ -432,21 +432,6 @@ ENTRY(sigcode)
 	ecall
 
 	j	1b
-
-#if 0
-	mov	x0, sp
-	add	x0, x0, #SF_UC
-
-1:
-	mov	x8, #SYS_sigreturn
-	svc	0
-
-	/* sigreturn failed, exit */
-	mov	x8, #SYS_exit
-	svc	0
-
-	b	1b
-#endif
 END(sigcode)
 	/* This may be copied to the stack, keep it 16-byte aligned */
 	.align	3
