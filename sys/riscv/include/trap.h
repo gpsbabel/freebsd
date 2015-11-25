@@ -48,3 +48,6 @@
 
 #define	SIE_SSIE	(1 << 1)
 #define	SIE_STIE	(1 << 5)
+
+/* Note: sip register is not yet implement in Spike simulator */
+#define	SIP_STIP	(1 << 5)

@@ -530,11 +530,11 @@ software_interrupt:
 	j	.Lexit_mrts
 
 timer_interrupt:
-	/* Disable interrupts */
+	/* Disable machine timer interrupts */
 	li	t0, MIE_MTIE
 	csrc	mie, t0
 
-	/* Clear pending */
+	/* Clear machine pending */
 	li	t0, MIP_MTIP
 	csrc	mip, t0
 
@@ -542,7 +542,7 @@ timer_interrupt:
 	li	t0, MIP_STIP
 	csrs	mip, t0
 
-	/* If PRV1 is user then serve a trap */
+	/* If PRV1 is PRV_U (user) then serve a trap */
 	csrr	t0, mstatus
 	li	t1, (MSTATUS_PRV_M << MSTATUS_PRV1_SHIFT)
 	and	t0, t0, t1
@@ -558,9 +558,7 @@ timer_interrupt:
 	j	.Lexit_no_mepc
 
 1:
-	/* Clear pending */
-	li      t0, MIP_STIP
-	csrc    mip, t0
+	/* Serve a trap in supervisor mode */
 	j	.Lexit_mrts
 
 htif_interrupt:
