@@ -1,9 +1,14 @@
 /*-
- * Copyright (c) 2015 The FreeBSD Foundation
+ * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
  *
- * This software was developed by Andrew Turner under
- * sponsorship from the FreeBSD Foundation.
+ * This software was developed by SRI International and the University of
+ * Cambridge Computer Laboratory under DARPA/AFRL contract FA8750-10-C-0237
+ * ("CTSRD"), as part of the DARPA CRASH research programme.
+ *
+ * This software was developed by the University of Cambridge Computer
+ * Laboratory as part of the CTSRD Project, with support from the UK Higher
+ * Education Innovation Fund (HEIF).
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,10 +41,3 @@ ENTRY(_ctx_start)
 	call	_C_LABEL(ctx_done)
 	call	_C_LABEL(abort)
 END(_ctx_start)
-
-//ENTRY(_ctx_start)
-//	blr	x19		/* Call func from makecontext */
-//	mov	x0, x20		/* Load ucp saved in makecontext */
-//	bl	_C_LABEL(ctx_done)
-//	bl	_C_LABEL(abort)
-//END(_ctx_start)

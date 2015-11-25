@@ -2,6 +2,14 @@
  * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
  *
+ * This software was developed by SRI International and the University of
+ * Cambridge Computer Laboratory under DARPA/AFRL contract FA8750-10-C-0237
+ * ("CTSRD"), as part of the DARPA CRASH research programme.
+ *
+ * This software was developed by the University of Cambridge Computer
+ * Laboratory as part of the CTSRD Project, with support from the UK Higher
+ * Education Innovation Fund (HEIF).
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -32,9 +40,6 @@ __FBSDID("$FreeBSD$");
 ENTRY(sigsetjmp)
 	beqz	a1, _C_LABEL(_setjmp)
 	j	_C_LABEL(setjmp)
-	//cmp	x1, #0
-	//b.eq	_C_LABEL(_setjmp)
-	//b	_C_LABEL(setjmp)
 END(sigsetjmp)
 
 ENTRY(siglongjmp)
@@ -42,16 +47,10 @@ ENTRY(siglongjmp)
 	ld	a2, .Lmagic
 	ld	a3, 0(a0)
 
-	//ldr	x2, .Lmagic
-	//ldr	x3, [x0]
-
 	/* Check the magic */
 	beq	a2, a3, _C_LABEL(_longjmp)
 	j	_C_LABEL(longjmp)
 
-	//cmp	x2, x3
-	//b.eq	_C_LABEL(_longjmp)
-	//b	_C_LABEL(longjmp)
 	.align	3
 .Lmagic:
 	.quad	_JB_MAGIC__SETJMP

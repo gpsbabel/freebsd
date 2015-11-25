@@ -1,9 +1,14 @@
 /*-
- * Copyright (c) 2015 The FreeBSD Foundation
+ * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
  *
- * This software was developed by Andrew Turner under
- * sponsorship from the FreeBSD Foundation.
+ * This software was developed by SRI International and the University of
+ * Cambridge Computer Laboratory under DARPA/AFRL contract FA8750-10-C-0237
+ * ("CTSRD"), as part of the DARPA CRASH research programme.
+ *
+ * This software was developed by the University of Cambridge Computer
+ * Laboratory as part of the CTSRD Project, with support from the UK Higher
+ * Education Innovation Fund (HEIF).
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -83,6 +88,4 @@ __makecontext(ucontext_t *ucp, void (*func)(void), int argc, ...)
 	gp->gp_sepc = (__register_t)_ctx_start;
 	gp->gp_x[8] = (__register_t)func;
 	gp->gp_x[9] = (__register_t)ucp;
-	//gp->gp_x[19] = (__register_t)func;
-	//gp->gp_x[20] = (__register_t)ucp;
 }
