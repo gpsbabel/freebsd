@@ -16,7 +16,7 @@ riscv/riscv/minidump_machdep.c	standard
 riscv/riscv/machdep.c		standard
 riscv/riscv/bcopy.c		standard
 riscv/riscv/copyinout.S		standard
-riscv/riscv/generic_timer.c	standard
+riscv/riscv/timer.c		standard
 riscv/riscv/copystr.c		standard
 riscv/riscv/support.S		standard
 riscv/riscv/bus_space_asm.S	standard
