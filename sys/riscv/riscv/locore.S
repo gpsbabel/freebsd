@@ -476,7 +476,6 @@ user_trap:
 	sd	t3, (8 * 3)(sp)
 	sd	t4, (8 * 4)(sp)
 	sd	t5, (8 * 5)(sp)
-	sd	t6, (8 * 6)(sp)
 	sd	a0, (8 * 7)(sp)
 
 	la	t2, _C_LABEL(cpu_exception_handler_user)
@@ -495,7 +494,6 @@ supervisor_trap:
 	sd	t3, (8 * 3)(sp)
 	sd	t4, (8 * 4)(sp)
 	sd	t5, (8 * 5)(sp)
-	sd	t6, (8 * 6)(sp)
 	sd	a0, (8 * 7)(sp)
 
 	la	t2, _C_LABEL(cpu_exception_handler_sv)
@@ -572,7 +570,7 @@ htif_interrupt:
 	li	t0, 0x101
 	srli	t1, t1, 48
 	bne	t1, t0, 2f
-	/* Update if yes */
+	/* Yes */
 	la	t0, console_intr
 	li	t1, 1
 	sd	t1, 0(t0)
@@ -627,14 +625,14 @@ htif_get_entry:
 	la	t0, htif_ring_last
 	sd	t4, 0(t0)
 1:
-	j	.Lexit_mcall
+	/* Exit. Result is stored in t6 */
+	j	.Lexit
 
 htif_cmd:
 	mv	t0, t6
 1:
 	csrrw	t0, mtohost, t0
 	bnez	t0, 1b
-
 	j	.Lexit
 
 set_mtimecmp:
@@ -656,7 +654,7 @@ clear_pending:
  * Trap exit functions
  */
 .Lexit:
-	/* Exit trap */
+	/* Next instruction is in t1 */
 	csrw    mepc, t1
 .Lexit_no_mepc:
 	/* Restore state */
@@ -666,24 +664,6 @@ clear_pending:
 	ld	t3, (8 * 3)(sp)
 	ld	t4, (8 * 4)(sp)
 	ld	t5, (8 * 5)(sp)
-	ld	t6, (8 * 6)(sp)
-	ld	a0, (8 * 7)(sp)
-	addi	sp, sp, 64
-	csrrw	sp, mscratch, sp
-	eret
-
-.Lexit_mcall:
-	/* Exit trap */
-	csrw    mepc, t1
-
-	/* Restore state */
-	ld	t0, (8 * 0)(sp)
-	ld	t1, (8 * 1)(sp)
-	ld	t2, (8 * 2)(sp)
-	//ld	t3, (8 * 3)(sp)
-	ld	t4, (8 * 4)(sp)
-	ld	t5, (8 * 5)(sp)
-	//ld	t6, (8 * 6)(sp)
 	ld	a0, (8 * 7)(sp)
 	addi	sp, sp, 64
 	csrrw	sp, mscratch, sp
@@ -705,7 +685,6 @@ clear_pending:
 	ld	t3, (8 * 3)(sp)
 	ld	t4, (8 * 4)(sp)
 	ld	t5, (8 * 5)(sp)
-	ld	t6, (8 * 6)(sp)
 	ld	a0, (8 * 7)(sp)
 	addi	sp, sp, 64
 	csrrw	sp, mscratch, sp
