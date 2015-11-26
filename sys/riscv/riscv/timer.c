@@ -36,7 +36,6 @@
  * RISC-V Timer
  */
 
-#include "opt_acpi.h"
 #include "opt_platform.h"
 
 #include <sys/cdefs.h>
@@ -67,25 +66,6 @@ __FBSDID("$FreeBSD$");
 #include <dev/ofw/ofw_bus.h>
 #include <dev/ofw/ofw_bus_subr.h>
 #endif
-
-#ifdef DEV_ACPI
-#include <contrib/dev/acpica/include/acpi.h>
-#include <dev/acpica/acpivar.h>
-#endif
-
-#define	GT_CTRL_ENABLE		(1 << 0)
-#define	GT_CTRL_INT_MASK	(1 << 1)
-#define	GT_CTRL_INT_STAT	(1 << 2)
-#define	GT_REG_CTRL		0
-#define	GT_REG_TVAL		1
-
-#define	GT_CNTKCTL_PL0PTEN	(1 << 9) /* PL0 Physical timer reg access */
-#define	GT_CNTKCTL_PL0VTEN	(1 << 8) /* PL0 Virtual timer reg access */
-#define	GT_CNTKCTL_EVNTI	(0xf << 4) /* Virtual counter event bits */
-#define	GT_CNTKCTL_EVNTDIR	(1 << 3) /* Virtual counter event transition */
-#define	GT_CNTKCTL_EVNTEN	(1 << 2) /* Enables virtual counter events */
-#define	GT_CNTKCTL_PL0VCTEN	(1 << 1) /* PL0 CNTVCT and CNTFRQ access */
-#define	GT_CNTKCTL_PL0PCTEN	(1 << 0) /* PL0 CNTPCT and CNTFRQ access */
 
 struct arm_tmr_softc {
 	struct resource		*res[4];
@@ -151,7 +131,6 @@ get_freq(void)
 {
 
 	return (0);
-	//return (get_el0(cntfrq));
 }
 
 static long
@@ -159,74 +138,14 @@ get_cntxct(bool physical)
 {
 	uint64_t val;
 
-	//__asm __volatile("csrr %0, stime" : "=&r"(val));
 	__asm __volatile("csrr %0, stime" : "=r"(val));
-	//printf("val is %d\n", val);
-
-	//isb();
-	//if (physical)
-	//	val = 0;//get_el0(cntpct);
-	//else
-	//	val = 0;//get_el0(cntvct);
 
 	return (val);
-}
-
-static int
-set_ctrl(uint32_t val, bool physical)
-{
-
-	//if (physical)
-	//	set_el0(cntp_ctl, val);
-	//else
-	//	set_el0(cntv_ctl, val);
-	//isb();
-
-	return (0);
-}
-
-static int
-set_tval(uint32_t val, bool physical)
-{
-
-	//if (physical)
-	//	set_el0(cntp_tval, val);
-	//else
-	//	set_el0(cntv_tval, val);
-	//isb();
-
-	return (0);
-}
-
-static int
-get_ctrl(bool physical)
-{
-	uint32_t val;
-
-	if (physical)
-		val = 0;//get_el0(cntp_ctl);
-	else
-		val = 0;//get_el0(cntv_ctl);
-
-	return (val);
-}
-
-static void
-disable_user_access(void)
-{
-	uint32_t cntkctl;
-
-	cntkctl = 0;//get_el1(cntkctl);
-	cntkctl &= ~(GT_CNTKCTL_PL0PTEN | GT_CNTKCTL_PL0VTEN |
-	    GT_CNTKCTL_EVNTEN | GT_CNTKCTL_PL0VCTEN | GT_CNTKCTL_PL0PCTEN);
-	//set_el1(cntkctl, cntkctl);
-	//isb();
 }
 
 static unsigned
 arm_tmr_get_timecount(struct timecounter *tc)
 {
-	//printf("gettimecount\n");
 
 	return (get_cntxct(arm_tmr_sc->physical));
 }
@@ -235,33 +154,19 @@ static int
 arm_tmr_start(struct eventtimer *et, sbintime_t first, sbintime_t period)
 {
 	struct arm_tmr_softc *sc;
-	int counts, ctrl;
-	struct thread *td;
+	int counts;
 
-	td = curthread;
-
+	//struct thread *td;
+	//td = curthread;
 	//printf("arm_tmr_start first %d period %d sstatus 0x%016lx sc %d d %d\n",
 	//		first, period, csr_read(sstatus), td->td_md.md_spinlock_count, td->td_md.md_saved_daif);
 
 	sc = (struct arm_tmr_softc *)et->et_priv;
 
 	if (first != 0) {
-		//printf(",");
 		counts = ((uint32_t)et->et_frequency * first) >> 32;
-
-		//printf("csr_read(stime) 0x%016lx\n", csr_read(stime));
-		//printf("csr_read(stime) 0x%016lx\n", csr_read(stime));
-		//counts += csr_read(stime);
-
 		set_mtimecmp(counts);
 
-		return (0);
-
-		ctrl = get_ctrl(sc->physical);
-		ctrl &= ~GT_CTRL_INT_MASK;
-		ctrl |= GT_CTRL_ENABLE;
-		set_tval(counts, sc->physical);
-		set_ctrl(ctrl, sc->physical);
 		return (0);
 	}
 
@@ -273,15 +178,15 @@ static int
 arm_tmr_stop(struct eventtimer *et)
 {
 	struct arm_tmr_softc *sc;
-	int ctrl;
+	//int ctrl;
 
 	printf("arm_tmr_stop\n");
 
 	sc = (struct arm_tmr_softc *)et->et_priv;
 
-	ctrl = get_ctrl(sc->physical);
-	ctrl &= GT_CTRL_ENABLE;
-	set_ctrl(ctrl, sc->physical);
+	//ctrl = get_ctrl(sc->physical);
+	//ctrl &= GT_CTRL_ENABLE;
+	//set_ctrl(ctrl, sc->physical);
 
 	return (0);
 }
@@ -290,10 +195,6 @@ static int
 arm_tmr_intr(void *arg)
 {
 	struct arm_tmr_softc *sc;
-	//int ctrl;
-
-	//printf("%s\n", __func__);
-	//printf(".");
 
 	sc = (struct arm_tmr_softc *)arg;
 
@@ -303,16 +204,9 @@ arm_tmr_intr(void *arg)
 
 	clear_pending();
 
-	//ctrl = get_ctrl(sc->physical);
-	//if (ctrl & GT_CTRL_INT_STAT) {
-	//	ctrl |= GT_CTRL_INT_MASK;
-	//	set_ctrl(ctrl, sc->physical);
-	//}
-
 	if (sc->et.et_active)
 		sc->et.et_event_cb(&sc->et, sc->et.et_arg);
 
-	//printf(".");
 	return (FILTER_HANDLED);
 }
 
@@ -332,52 +226,6 @@ arm_tmr_fdt_probe(device_t dev)
 	return (ENXIO);
 }
 #endif
-
-#ifdef DEV_ACPI
-static void
-arm_tmr_acpi_identify(driver_t *driver, device_t parent)
-{
-	ACPI_TABLE_GTDT *gtdt;
-	vm_paddr_t physaddr;
-	device_t dev;
-
-	physaddr = acpi_find_table(ACPI_SIG_GTDT);
-	if (physaddr == 0)
-		return;
-
-	gtdt = acpi_map_table(physaddr, ACPI_SIG_GTDT);
-	if (gtdt == NULL) {
-		device_printf(parent, "gic: Unable to map the GTDT\n");
-		return;
-	}
-
-	dev = BUS_ADD_CHILD(parent, BUS_PASS_TIMER + BUS_PASS_ORDER_MIDDLE,
-	    "generic_timer", -1);
-	if (dev == NULL) {
-		device_printf(parent, "add gic child failed\n");
-		goto out;
-	}
-
-	BUS_SET_RESOURCE(parent, dev, SYS_RES_IRQ, 0,
-	    gtdt->SecureEl1Interrupt, 1);
-	BUS_SET_RESOURCE(parent, dev, SYS_RES_IRQ, 1,
-	    gtdt->NonSecureEl1Interrupt, 1);
-	BUS_SET_RESOURCE(parent, dev, SYS_RES_IRQ, 2,
-	    gtdt->VirtualTimerInterrupt, 1);
-
-out:
-	acpi_unmap_table(gtdt);
-}
-
-static int
-arm_tmr_acpi_probe(device_t dev)
-{
-
-	device_set_desc(dev, "ARM Generic Timer");
-	return (BUS_PROBE_NOWILDCARD);
-}
-#endif
-
 
 static int
 arm_tmr_attach(device_t dev)
@@ -438,8 +286,6 @@ arm_tmr_attach(device_t dev)
 		device_printf(dev, "Unable to alloc int resource.\n");
 		return (ENXIO);
 	}
-
-	disable_user_access();
 
 	arm_tmr_timecount.tc_frequency = sc->clkfreq;
 	tc_init(&arm_tmr_timecount);
@@ -502,26 +348,6 @@ static devclass_t arm_tmr_fdt_devclass;
 EARLY_DRIVER_MODULE(timer, simplebus, arm_tmr_fdt_driver, arm_tmr_fdt_devclass,
     0, 0, BUS_PASS_TIMER + BUS_PASS_ORDER_MIDDLE);
 EARLY_DRIVER_MODULE(timer, ofwbus, arm_tmr_fdt_driver, arm_tmr_fdt_devclass,
-    0, 0, BUS_PASS_TIMER + BUS_PASS_ORDER_MIDDLE);
-#endif
-
-#ifdef DEV_ACPI
-static device_method_t arm_tmr_acpi_methods[] = {
-	DEVMETHOD(device_identify,	arm_tmr_acpi_identify),
-	DEVMETHOD(device_probe,		arm_tmr_acpi_probe),
-	DEVMETHOD(device_attach,	arm_tmr_attach),
-	{ 0, 0 }
-};
-
-static driver_t arm_tmr_acpi_driver = {
-	"timer",
-	arm_tmr_acpi_methods,
-	sizeof(struct arm_tmr_softc),
-};
-
-static devclass_t arm_tmr_acpi_devclass;
-
-EARLY_DRIVER_MODULE(timer, acpi, arm_tmr_acpi_driver, arm_tmr_acpi_devclass,
     0, 0, BUS_PASS_TIMER + BUS_PASS_ORDER_MIDDLE);
 #endif
 
