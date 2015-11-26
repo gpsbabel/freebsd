@@ -251,8 +251,8 @@ arm_tmr_start(struct eventtimer *et, sbintime_t first, sbintime_t period)
 
 		//printf("csr_read(stime) 0x%016lx\n", csr_read(stime));
 		//printf("csr_read(stime) 0x%016lx\n", csr_read(stime));
+		//counts += csr_read(stime);
 
-		counts += csr_read(stime);
 		set_mtimecmp(counts);
 
 		return (0);

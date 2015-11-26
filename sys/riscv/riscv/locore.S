@@ -638,6 +638,8 @@ htif_cmd:
 	j	.Lexit
 
 set_mtimecmp:
+	csrr	t2, stime
+	add	t6, t6, t2
 	csrw	mtimecmp, t6
 
 	/* Enable interrupts */
