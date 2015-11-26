@@ -67,7 +67,7 @@ __FBSDID("$FreeBSD$");
 #include <dev/ofw/ofw_bus_subr.h>
 #endif
 
-struct arm_tmr_softc {
+struct riscv_tmr_softc {
 	struct resource		*res[4];
 	void			*ihl[4];
 	uint32_t		clkfreq;
@@ -75,25 +75,25 @@ struct arm_tmr_softc {
 	bool			physical;
 };
 
-static struct arm_tmr_softc *arm_tmr_sc = NULL;
+static struct riscv_tmr_softc *riscv_tmr_sc = NULL;
 
 static struct resource_spec timer_spec[] = {
 	{ SYS_RES_IRQ,		0,	RF_ACTIVE },
 	{ -1, 0 }
 };
 
-static timecounter_get_t arm_tmr_get_timecount;
+static timecounter_get_t riscv_tmr_get_timecount;
 
-static struct timecounter arm_tmr_timecount = {
+static struct timecounter riscv_tmr_timecount = {
 	.tc_name           = "RISC-V Timecounter",
-	.tc_get_timecount  = arm_tmr_get_timecount,
+	.tc_get_timecount  = riscv_tmr_get_timecount,
 	.tc_poll_pps       = NULL,
 	.tc_counter_mask   = ~0u,
 	.tc_frequency      = 0,
 	.tc_quality        = 1000,
 };
 
-#ifdef __arm__
+#ifdef __riscv__
 #define	get_el0(x)	cp15_## x ##_get()
 #define	get_el1(x)	cp15_## x ##_get()
 #define	set_el0(x, val)	cp15_## x ##_set(val)
@@ -144,24 +144,24 @@ get_cntxct(bool physical)
 }
 
 static unsigned
-arm_tmr_get_timecount(struct timecounter *tc)
+riscv_tmr_get_timecount(struct timecounter *tc)
 {
 
-	return (get_cntxct(arm_tmr_sc->physical));
+	return (get_cntxct(riscv_tmr_sc->physical));
 }
 
 static int
-arm_tmr_start(struct eventtimer *et, sbintime_t first, sbintime_t period)
+riscv_tmr_start(struct eventtimer *et, sbintime_t first, sbintime_t period)
 {
-	struct arm_tmr_softc *sc;
+	struct riscv_tmr_softc *sc;
 	int counts;
 
 	//struct thread *td;
 	//td = curthread;
-	//printf("arm_tmr_start first %d period %d sstatus 0x%016lx sc %d d %d\n",
+	//printf("riscv_tmr_start first %d period %d sstatus 0x%016lx sc %d d %d\n",
 	//		first, period, csr_read(sstatus), td->td_md.md_spinlock_count, td->td_md.md_saved_daif);
 
-	sc = (struct arm_tmr_softc *)et->et_priv;
+	sc = (struct riscv_tmr_softc *)et->et_priv;
 
 	if (first != 0) {
 		counts = ((uint32_t)et->et_frequency * first) >> 32;
@@ -175,14 +175,14 @@ arm_tmr_start(struct eventtimer *et, sbintime_t first, sbintime_t period)
 }
 
 static int
-arm_tmr_stop(struct eventtimer *et)
+riscv_tmr_stop(struct eventtimer *et)
 {
-	struct arm_tmr_softc *sc;
+	struct riscv_tmr_softc *sc;
 	//int ctrl;
 
-	printf("arm_tmr_stop\n");
+	printf("riscv_tmr_stop\n");
 
-	sc = (struct arm_tmr_softc *)et->et_priv;
+	sc = (struct riscv_tmr_softc *)et->et_priv;
 
 	//ctrl = get_ctrl(sc->physical);
 	//ctrl &= GT_CTRL_ENABLE;
@@ -192,11 +192,11 @@ arm_tmr_stop(struct eventtimer *et)
 }
 
 static int
-arm_tmr_intr(void *arg)
+riscv_tmr_intr(void *arg)
 {
-	struct arm_tmr_softc *sc;
+	struct riscv_tmr_softc *sc;
 
-	sc = (struct arm_tmr_softc *)arg;
+	sc = (struct riscv_tmr_softc *)arg;
 
 	/* Clear pending */
 	/* not implemented in spike */
@@ -212,7 +212,7 @@ arm_tmr_intr(void *arg)
 
 #ifdef FDT
 static int
-arm_tmr_fdt_probe(device_t dev)
+riscv_tmr_fdt_probe(device_t dev)
 {
 
 	if (!ofw_bus_status_okay(dev))
@@ -228,9 +228,9 @@ arm_tmr_fdt_probe(device_t dev)
 #endif
 
 static int
-arm_tmr_attach(device_t dev)
+riscv_tmr_attach(device_t dev)
 {
-	struct arm_tmr_softc *sc;
+	struct riscv_tmr_softc *sc;
 
 #ifdef FDT
 	phandle_t node;
@@ -239,7 +239,7 @@ arm_tmr_attach(device_t dev)
 	int error;
 
 	sc = device_get_softc(dev);
-	if (arm_tmr_sc)
+	if (riscv_tmr_sc)
 		return (ENXIO);
 
 #ifdef FDT
@@ -271,24 +271,24 @@ arm_tmr_attach(device_t dev)
 		return (ENXIO);
 	}
 
-#ifdef __arm__
+#ifdef __riscv__
 	sc->physical = true;
 #else /* __aarch64__ */
 	sc->physical = false;
 #endif
 
-	arm_tmr_sc = sc;
+	riscv_tmr_sc = sc;
 
 	/* Setup IRQs handler */
 	error = bus_setup_intr(dev, sc->res[0], INTR_TYPE_CLK,
-	    arm_tmr_intr, NULL, sc, &sc->ihl[0]);
+	    riscv_tmr_intr, NULL, sc, &sc->ihl[0]);
 	if (error) {
 		device_printf(dev, "Unable to alloc int resource.\n");
 		return (ENXIO);
 	}
 
-	arm_tmr_timecount.tc_frequency = sc->clkfreq;
-	tc_init(&arm_tmr_timecount);
+	riscv_tmr_timecount.tc_frequency = sc->clkfreq;
+	tc_init(&riscv_tmr_timecount);
 
 	sc->et.et_name = "RISC-V Eventtimer";
 	sc->et.et_flags = ET_FLAGS_ONESHOT | ET_FLAGS_PERCPU;
@@ -297,8 +297,8 @@ arm_tmr_attach(device_t dev)
 	sc->et.et_frequency = sc->clkfreq;
 	sc->et.et_min_period = (0x00000002LLU << 32) / sc->et.et_frequency;
 	sc->et.et_max_period = (0xfffffffeLLU << 32) / sc->et.et_frequency;
-	sc->et.et_start = arm_tmr_start;
-	sc->et.et_stop = arm_tmr_stop;
+	sc->et.et_start = riscv_tmr_start;
+	sc->et.et_stop = riscv_tmr_stop;
 	sc->et.et_priv = sc;
 	et_register(&sc->et);
 
@@ -331,23 +331,23 @@ arm_tmr_attach(device_t dev)
 }
 
 #ifdef FDT
-static device_method_t arm_tmr_fdt_methods[] = {
-	DEVMETHOD(device_probe,		arm_tmr_fdt_probe),
-	DEVMETHOD(device_attach,	arm_tmr_attach),
+static device_method_t riscv_tmr_fdt_methods[] = {
+	DEVMETHOD(device_probe,		riscv_tmr_fdt_probe),
+	DEVMETHOD(device_attach,	riscv_tmr_attach),
 	{ 0, 0 }
 };
 
-static driver_t arm_tmr_fdt_driver = {
+static driver_t riscv_tmr_fdt_driver = {
 	"timer",
-	arm_tmr_fdt_methods,
-	sizeof(struct arm_tmr_softc),
+	riscv_tmr_fdt_methods,
+	sizeof(struct riscv_tmr_softc),
 };
 
-static devclass_t arm_tmr_fdt_devclass;
+static devclass_t riscv_tmr_fdt_devclass;
 
-EARLY_DRIVER_MODULE(timer, simplebus, arm_tmr_fdt_driver, arm_tmr_fdt_devclass,
+EARLY_DRIVER_MODULE(timer, simplebus, riscv_tmr_fdt_driver, riscv_tmr_fdt_devclass,
     0, 0, BUS_PASS_TIMER + BUS_PASS_ORDER_MIDDLE);
-EARLY_DRIVER_MODULE(timer, ofwbus, arm_tmr_fdt_driver, arm_tmr_fdt_devclass,
+EARLY_DRIVER_MODULE(timer, ofwbus, riscv_tmr_fdt_driver, riscv_tmr_fdt_devclass,
     0, 0, BUS_PASS_TIMER + BUS_PASS_ORDER_MIDDLE);
 #endif
 
@@ -363,7 +363,7 @@ DELAY(int usec)
 	 * Check the timers are setup, if not just
 	 * use a for loop for the meantime
 	 */
-	if (arm_tmr_sc == NULL) {
+	if (riscv_tmr_sc == NULL) {
 		for (; usec > 0; usec--)
 			for (counts = 200; counts > 0; counts--)
 				/*
@@ -375,7 +375,7 @@ DELAY(int usec)
 	}
 
 	/* Get the number of times to count */
-	counts_per_usec = ((arm_tmr_timecount.tc_frequency / 1000000) + 1);
+	counts_per_usec = ((riscv_tmr_timecount.tc_frequency / 1000000) + 1);
 
 	/*
 	 * Clamp the timeout at a maximum value (about 32 seconds with
@@ -388,10 +388,10 @@ DELAY(int usec)
 	else
 		counts = usec * counts_per_usec;
 
-	first = get_cntxct(arm_tmr_sc->physical);
+	first = get_cntxct(riscv_tmr_sc->physical);
 
 	while (counts > 0) {
-		last = get_cntxct(arm_tmr_sc->physical);
+		last = get_cntxct(riscv_tmr_sc->physical);
 		counts -= (int32_t)(last - first);
 		first = last;
 	}
