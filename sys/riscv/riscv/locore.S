@@ -78,7 +78,7 @@ _start:
 	li	s11, KERNBASE
 
 	/* Build ring */
-	la	t0, htif_ring2
+	la	t0, htif_ring
 	li	t1, 0
 	sd	t1, 0(t0)	/* zero data */
 	sd	t1, 8(t0)	/* zero used */
@@ -213,8 +213,8 @@ hardstack:
 	.space  (PAGE_SIZE)
 hardstack_end:
 
-	.globl htif_ring2
-htif_ring2:
+	.globl htif_ring
+htif_ring:
 	.space  (24 * 1024)
 
 	.globl htif_ring_cursor

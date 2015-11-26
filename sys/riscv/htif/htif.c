@@ -59,21 +59,6 @@ __FBSDID("$FreeBSD$");
 #include "htif.h"
 #include "htif_block.h"
 
-extern uint64_t console_data;
-extern uint64_t htif_ring_last;
-extern uint64_t htif_ring_cursor;
-
-struct ring_entry {
-	uint64_t data;
-	uint64_t used;
-	uint64_t pnext;
-	uint64_t *next;
-};
-
-#define	HTIF_RING_SIZE	1024
-
-struct ring_entry htif_ring[HTIF_RING_SIZE];
-
 uint64_t
 htif_command(uint64_t cmd, uint64_t m)
 {
@@ -211,27 +196,6 @@ htif_attach(device_t dev)
 	sc = device_get_softc(dev);
 	sc->dev = dev;
 	mtx_init(&sc->sc_mtx, device_get_nameunit(dev), "htif_command", MTX_DEF);
-
-#if 0
-	int i;
-
-	/* Initialize ring */
-	memset(&htif_ring, 0, sizeof(struct ring_entry) * HTIF_RING_SIZE);
-	for (i = 0; i < HTIF_RING_SIZE; i++) {
-		if (i == (HTIF_RING_SIZE - 1))
-			htif_ring[i].next = (uint64_t *)&htif_ring[0];
-		else
-			htif_ring[i].next = (uint64_t *)&htif_ring[i+1];
-		htif_ring[i].pnext = vtophys(htif_ring[i].next);
-		htif_ring[i].used = 0;
-		htif_ring[i].data = 0;
-	}
-	uint64_t *cc = &htif_ring_cursor;
-	*cc = vtophys((uint64_t)&htif_ring);
-
-	uint64_t *cc1 = &htif_ring_last;
-	*cc1 = vtophys((uint64_t)&htif_ring);
-#endif
 
 	csr_set(sie, SIE_SSIE);
 

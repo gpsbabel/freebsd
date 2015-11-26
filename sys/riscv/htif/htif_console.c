@@ -65,8 +65,6 @@ __FBSDID("$FreeBSD$");
 #define MAMBO_CONSOLE_WRITE	0
 #define MAMBO_CONSOLE_READ	60
 
-extern uint64_t htif_ring_last;
-extern uint64_t htif_ring_cursor;
 extern uint64_t console_intr;
 
 static tsw_outwakeup_t riscvtty_outwakeup;
