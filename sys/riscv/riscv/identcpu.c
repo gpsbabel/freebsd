@@ -118,17 +118,22 @@ void
 identify_cpu(void)
 {
 	const struct cpu_parts *cpu_partsp;
-	uint64_t part_id;
-	uint64_t impl_id;
+	uint32_t part_id;
+	uint32_t impl_id;
+	uint64_t mimpid;
+	uint64_t mcpuid;
 	u_int cpu;
 	size_t i;
 
 	cpu_partsp = NULL;
 
+	mimpid = mcsr_get(ECALL_MIMPID_GET);
+	mcpuid = mcsr_get(ECALL_MCPUID_GET);
+
 	/* SMPTODO: use mhartid ? */
 	cpu = PCPU_GET(cpuid);
 
-	impl_id = mcsr_get(ECALL_MIMPID_GET);
+	impl_id	= CPU_IMPL(mimpid);
 	for (i = 0; i < nitems(cpu_implementers); i++) {
 		if (impl_id == cpu_implementers[i].impl_id ||
 		    cpu_implementers[i].impl_id == 0) {
@@ -139,8 +144,7 @@ identify_cpu(void)
 		}
 	}
 
-	part_id = mcsr_get(ECALL_MCPUID_GET);
-	part_id >>= 62;
+	part_id = CPU_PART(mcpuid);
 	for (i = 0; &cpu_partsp[i] != NULL; i++) {
 		if (part_id == cpu_partsp[i].part_id ||
 		    cpu_partsp[i].part_id == -1) {
