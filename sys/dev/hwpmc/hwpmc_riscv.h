@@ -2,13 +2,8 @@
  * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
  *
- * This software was developed by SRI International and the University of
- * Cambridge Computer Laboratory under DARPA/AFRL contract FA8750-10-C-0237
- * ("CTSRD"), as part of the DARPA CRASH research programme.
- *
  * This software was developed by the University of Cambridge Computer
- * Laboratory as part of the CTSRD Project, with support from the UK Higher
- * Education Innovation Fund (HEIF).
+ * Laboratory with support from ARM Ltd.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,40 +29,23 @@
  * $FreeBSD$
  */
 
-#ifndef _MACHINE_PMC_MDEP_H_
-#define	_MACHINE_PMC_MDEP_H_
+#ifndef _DEV_HWPMC_RISCV_H_
+#define _DEV_HWPMC_RISCV_H_
 
-#define	PMC_MDEP_CLASS_INDEX_ARMV8	1
-/*
- * On the RISC-V platform we don't support any PMCs yet.
- */
-#include <dev/hwpmc/hwpmc_riscv.h>
+#define	RISCV_PMC_CAPS		(PMC_CAP_INTERRUPT | PMC_CAP_USER |	\
+				 PMC_CAP_SYSTEM | PMC_CAP_EDGE |	\
+				 PMC_CAP_THRESHOLD | PMC_CAP_READ |	\
+				 PMC_CAP_WRITE | PMC_CAP_INVERT |	\
+				 PMC_CAP_QUALIFIER)
 
-union pmc_md_op_pmcallocate {
-	uint64_t		__pad[4];
+#define	RISCV_RELOAD_COUNT_TO_PERFCTR_VALUE(R)	(-(R))
+#define	RISCV_PERFCTR_VALUE_TO_RELOAD_COUNT(P)	(-(P))
+#define	EVENT_ID_MASK	0xFF
+
+#ifdef _KERNEL
+/* MD extension for 'struct pmc' */
+struct pmc_md_riscv_pmc {
+	uint32_t	pm_riscv_evsel;
 };
-
-/* Logging */
-#define	PMCLOG_READADDR		PMCLOG_READ64
-#define	PMCLOG_EMITADDR		PMCLOG_EMIT64
-
-#ifdef	_KERNEL
-union pmc_md_pmc {
-	struct pmc_md_riscv_pmc		pm_riscv;
-};
-
-#define	PMC_IN_KERNEL_STACK(S,START,END)		\
-	((S) >= (START) && (S) < (END))
-#define	PMC_IN_KERNEL(va)	INKERNEL((va))
-#define	PMC_IN_USERSPACE(va) ((va) <= VM_MAXUSER_ADDRESS)
-#define	PMC_TRAPFRAME_TO_PC(TF)		((TF)->tf_lr)
-#define	PMC_TRAPFRAME_TO_FP(TF)		((TF)->tf_x[29])
-
-/*
- * Prototypes
- */
-struct pmc_mdep *pmc_riscv_initialize(void);
-void	pmc_riscv_finalize(struct pmc_mdep *_md);
 #endif /* _KERNEL */
-
-#endif /* !_MACHINE_PMC_MDEP_H_ */
+#endif /* _DEV_HWPMC_RISCV_H_ */
