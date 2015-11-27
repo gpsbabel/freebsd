@@ -1,10 +1,14 @@
 /*-
- * Copyright (c) 2014 Andrew Turner
- * Copyright (c) 2014 The FreeBSD Foundation
+ * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
  *
- * Portions of this software were developed by Semihalf
- * under sponsorship of the FreeBSD Foundation.
+ * This software was developed by SRI International and the University of
+ * Cambridge Computer Laboratory under DARPA/AFRL contract FA8750-10-C-0237
+ * ("CTSRD"), as part of the DARPA CRASH research programme.
+ *
+ * This software was developed by the University of Cambridge Computer
+ * Laboratory as part of the CTSRD Project, with support from the UK Higher
+ * Education Innovation Fund (HEIF).
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,7 +30,6 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
  */
 
 #include <sys/cdefs.h>
@@ -39,29 +42,16 @@ __FBSDID("$FreeBSD$");
 
 #include <machine/cpu.h>
 #include <machine/cpufunc.h>
+#include <machine/trap.h>
 
 char machine[] = "riscv";
 
 SYSCTL_STRING(_hw, HW_MACHINE, machine, CTLFLAG_RD, machine, 0,
     "Machine class");
 
-/*
- * Per-CPU affinity as provided in MPIDR_EL1
- * Indexed by CPU number in logical order selected by the system.
- * Relevant fields can be extracted using CPU_AFFn macros,
- * Aff3.Aff2.Aff1.Aff0 construct a unique CPU address in the system.
- *
- * Fields used by us:
- * Aff1 - Cluster number
- * Aff0 - CPU number in Aff1 cluster
- */
-uint64_t __cpu_affinity[MAXCPU];
-
 struct cpu_desc {
 	u_int		cpu_impl;
 	u_int		cpu_part_num;
-	u_int		cpu_variant;
-	u_int		cpu_revision;
 	const char	*cpu_impl_name;
 	const char	*cpu_part_name;
 };
@@ -72,7 +62,7 @@ struct cpu_parts {
 	u_int		part_id;
 	const char	*part_name;
 };
-#define	CPU_PART_NONE	{ 0, "Unknown Processor" }
+#define	CPU_PART_NONE	{ -1, "Unknown Processor" }
 
 struct cpu_implementers {
 	u_int			impl_id;
@@ -85,19 +75,29 @@ struct cpu_implementers {
 };
 #define	CPU_IMPLEMENTER_NONE	{ 0, "Unknown Implementer", cpu_parts_none }
 
+static uint64_t
+mcsr_get(uint64_t cmd)
+{
+	uint64_t res;
+
+	__asm __volatile(
+		"mv	t5, %1\n"
+		"ecall\n"
+		"mv	%0, t6" : "=&r"(res) : "r"(cmd)
+	);
+
+	return (res);
+}
+
 /*
  * Per-implementer table of (PartNum, CPU Name) pairs.
  */
-/* ARM Ltd. */
-static const struct cpu_parts cpu_parts_arm[] = {
-	{ CPU_PART_FOUNDATION, "Foundation-Model" },
-	{ CPU_PART_CORTEX_A53, "Cortex-A53" },
-	{ CPU_PART_CORTEX_A57, "Cortex-A57" },
-	CPU_PART_NONE,
-};
-/* Cavium */
-static const struct cpu_parts cpu_parts_cavium[] = {
-	{ CPU_PART_THUNDER, "Thunder" },
+/* UCB */
+static const struct cpu_parts cpu_parts_ucb[] = {
+	{ CPU_PART_RV32I,	"RV32I" },
+	{ CPU_PART_RV32E,	"RV32E" },
+	{ CPU_PART_RV64I,	"RV64I" },
+	{ CPU_PART_RV128I,	"RV128I" },
 	CPU_PART_NONE,
 };
 
@@ -110,43 +110,25 @@ static const struct cpu_parts cpu_parts_none[] = {
  * Implementers table.
  */
 const struct cpu_implementers cpu_implementers[] = {
-	{ CPU_IMPL_ARM,		"ARM",		cpu_parts_arm },
-	{ CPU_IMPL_BROADCOM,	"Broadcom",	cpu_parts_none },
-	{ CPU_IMPL_CAVIUM,	"Cavium",	cpu_parts_cavium },
-	{ CPU_IMPL_DEC,		"DEC",		cpu_parts_none },
-	{ CPU_IMPL_INFINEON,	"IFX",		cpu_parts_none },
-	{ CPU_IMPL_FREESCALE,	"Freescale",	cpu_parts_none },
-	{ CPU_IMPL_NVIDIA,	"NVIDIA",	cpu_parts_none },
-	{ CPU_IMPL_APM,		"APM",		cpu_parts_none },
-	{ CPU_IMPL_QUALCOMM,	"Qualcomm",	cpu_parts_none },
-	{ CPU_IMPL_MARVELL,	"Marvell",	cpu_parts_none },
-	{ CPU_IMPL_INTEL,	"Intel",	cpu_parts_none },
+	{ CPU_IMPL_UCB_ROCKET,	"UC Berkeley Rocket",	cpu_parts_ucb },
 	CPU_IMPLEMENTER_NONE,
 };
-
-//void identify_cpu(void);
 
 void
 identify_cpu(void)
 {
-	u_int midr;
-	u_int impl_id;
-	u_int part_id;
+	const struct cpu_parts *cpu_partsp;
+	uint64_t part_id;
+	uint64_t impl_id;
 	u_int cpu;
-	uint64_t mpidr;
 	size_t i;
-	const struct cpu_parts *cpu_partsp = NULL;
 
+	cpu_partsp = NULL;
+
+	/* SMPTODO: use mhartid ? */
 	cpu = PCPU_GET(cpuid);
-	midr = get_midr();
 
-	/*
-	 * Store midr to pcpu to allow fast reading
-	 * from EL0, EL1 and assembly code.
-	 */
-	PCPU_SET(midr, midr);
-
-	impl_id = CPU_IMPL(midr);
+	impl_id = mcsr_get(ECALL_MIMPID_GET);
 	for (i = 0; i < nitems(cpu_implementers); i++) {
 		if (impl_id == cpu_implementers[i].impl_id ||
 		    cpu_implementers[i].impl_id == 0) {
@@ -157,33 +139,21 @@ identify_cpu(void)
 		}
 	}
 
-	part_id = CPU_PART(midr);
+	part_id = mcsr_get(ECALL_MCPUID_GET);
+	part_id >>= 62;
 	for (i = 0; &cpu_partsp[i] != NULL; i++) {
 		if (part_id == cpu_partsp[i].part_id ||
-		    cpu_partsp[i].part_id == 0) {
+		    cpu_partsp[i].part_id == -1) {
 			cpu_desc[cpu].cpu_part_num = part_id;
 			cpu_desc[cpu].cpu_part_name = cpu_partsp[i].part_name;
 			break;
 		}
 	}
 
-	cpu_desc[cpu].cpu_revision = CPU_REV(midr);
-	cpu_desc[cpu].cpu_variant = CPU_VAR(midr);
-
-	/* Save affinity for current CPU */
-	mpidr = get_mpidr();
-	CPU_AFFINITY(cpu) = mpidr & CPU_AFF_MASK;
-
 	/* Print details for boot CPU or if we want verbose output */
 	if (cpu == 0 || bootverbose) {
-		printf("CPU(%d): %s %s r%dp%d\n", cpu,
+		printf("CPU(%d): %s %s\n", cpu,
 		    cpu_desc[cpu].cpu_impl_name,
-		    cpu_desc[cpu].cpu_part_name,
-		    cpu_desc[cpu].cpu_variant,
-		    cpu_desc[cpu].cpu_revision);
+		    cpu_desc[cpu].cpu_part_name);
 	}
-
-	if (bootverbose)
-		printf("CPU%u affinity: %u.%u.%u.%u\n", 0, CPU_AFF0(mpidr),
-		    CPU_AFF1(mpidr), CPU_AFF2(mpidr), CPU_AFF3(mpidr));
 }

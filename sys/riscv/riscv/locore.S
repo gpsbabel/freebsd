@@ -346,6 +346,7 @@ console_intr:
 .endm
 
 .macro	do_ast
+	/* TODO: disable interrupts here ? */
 1:
 	la	a1, pcpup
 	ld	a1, 0(a1)
@@ -608,6 +609,18 @@ htif_interrupt:
 	beq	t5, t4, set_mtimecmp
 	li	t4, ECALL_CLEAR_PENDING
 	beq	t5, t4, clear_pending
+	li	t4, ECALL_MCPUID_GET
+	beq	t5, t4, mcpuid_get
+	li	t4, ECALL_MIMPID_GET
+	beq	t5, t4, mimpid_get
+	j	.Lexit
+
+mcpuid_get:
+	csrr	t6, mcpuid
+	j	.Lexit
+
+mimpid_get:
+	csrr	t6, mimpid
 	j	.Lexit
 
 htif_get_entry:

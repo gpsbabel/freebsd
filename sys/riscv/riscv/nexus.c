@@ -29,7 +29,7 @@
  */
 
 /*
- * This code implements a `root nexus' for Arm Architecture
+ * This code implements a `root nexus' for RISC-V Architecture
  * machines.  The function of the root nexus is to serve as an
  * attachment point for both processors and buses, and to manage
  * resources which are common to all of them.  In particular,

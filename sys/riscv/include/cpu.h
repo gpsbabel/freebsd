@@ -1,13 +1,14 @@
 /*-
- * Copyright (c) 1990 The Regents of the University of California.
- * Copyright (c) 2014 The FreeBSD Foundation
+ * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
  *
- * This code is derived from software contributed to Berkeley by
- * William Jolitz.
+ * This software was developed by SRI International and the University of
+ * Cambridge Computer Laboratory under DARPA/AFRL contract FA8750-10-C-0237
+ * ("CTSRD"), as part of the DARPA CRASH research programme.
  *
- * Portions of this software were developed by Andrew Turner
- * under sponsorship from the FreeBSD Foundation
+ * This software was developed by the University of Cambridge Computer
+ * Laboratory as part of the CTSRD Project, with support from the UK Higher
+ * Education Innovation Fund (HEIF).
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -17,14 +18,11 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. Neither the name of the University nor the names of its contributors
- *    may be used to endorse or promote products derived from this software
- *    without specific prior written permission.
  *
- * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
  * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
@@ -33,8 +31,6 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- *	from: @(#)cpu.h 5.4 (Berkeley) 5/9/91
- *	from: FreeBSD: src/sys/i386/include/cpu.h,v 1.62 2001/06/29
  * $FreeBSD$
  */
 
@@ -66,22 +62,23 @@
 
 #ifdef _KERNEL
 
-#define	CPU_IMPL_ARM		0x41
-#define	CPU_IMPL_BROADCOM	0x42
-#define	CPU_IMPL_CAVIUM		0x43
-#define	CPU_IMPL_DEC		0x44
-#define	CPU_IMPL_INFINEON	0x49
-#define	CPU_IMPL_FREESCALE	0x4D
-#define	CPU_IMPL_NVIDIA		0x4E
-#define	CPU_IMPL_APM		0x50
-#define	CPU_IMPL_QUALCOMM	0x51
-#define	CPU_IMPL_MARVELL	0x56
-#define	CPU_IMPL_INTEL		0x69
+/*
+ * 0x0000         CPU ID unimplemented
+ * 0x0001         UC Berkeley Rocket repo
+ * 0x0002­0x7FFE  Reserved for open-source repos
+ * 0x7FFF         Reserved for extension
+ * 0x8000         Reserved for anonymous source
+ * 0x8001­0xFFFE  Reserved for proprietary implementations
+ * 0xFFFF         Reserved for extension
+ */
 
-#define	CPU_PART_THUNDER	0x0A1
-#define	CPU_PART_FOUNDATION	0xD00
-#define	CPU_PART_CORTEX_A53	0xD03
-#define	CPU_PART_CORTEX_A57	0xD07
+#define	CPU_IMPL_UNIMPLEMEN	0x0
+#define	CPU_IMPL_UCB_ROCKET	0x1
+
+#define	CPU_PART_RV32I	0x0
+#define	CPU_PART_RV32E	0x1
+#define	CPU_PART_RV64I	0x2
+#define	CPU_PART_RV128I	0x3
 
 #define	CPU_IMPL(midr)	(((midr) >> 24) & 0xff)
 #define	CPU_PART(midr)	(((midr) >> 4) & 0xfff)

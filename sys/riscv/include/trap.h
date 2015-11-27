@@ -5,6 +5,8 @@
 #define	ECALL_CLEAR_PENDING	4
 #define	ECALL_HTIF_CMD		5
 #define	ECALL_HTIF_GET_ENTRY	6
+#define	ECALL_MCPUID_GET	7
+#define	ECALL_MIMPID_GET	8
 
 #define	MSTATUS_MPRV		(1 << 16)
 #define	MSTATUS_PRV_SHIFT	1
