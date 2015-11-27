@@ -34,7 +34,7 @@
 #define	_MACHINE_PARAM_H_
 
 /*
- * Machine dependent constants for arm64.
+ * Machine dependent constants for RISC-V.
  */
 
 #include <machine/_align.h>
@@ -43,7 +43,7 @@
 #define	STACKALIGN(p)	((uint64_t)(p) & ~STACKALIGNBYTES)
 
 #ifndef MACHINE
-#define	MACHINE		"arm64"
+#define	MACHINE		"riscv"
 #endif
 #ifndef MACHINE_ARCH
 #define	MACHINE_ARCH	"riscv"
@@ -117,8 +117,8 @@
 #define	atop(x)			((unsigned long)(x) >> PAGE_SHIFT)
 #define	ptoa(x)			((unsigned long)(x) << PAGE_SHIFT)
 
-#define	arm64_btop(x)		((unsigned long)(x) >> PAGE_SHIFT)
-#define	arm64_ptob(x)		((unsigned long)(x) << PAGE_SHIFT)
+#define	riscv_btop(x)		((unsigned long)(x) >> PAGE_SHIFT)
+#define	riscv_ptob(x)		((unsigned long)(x) << PAGE_SHIFT)
 
 #define	pgtok(x)		((unsigned long)(x) * (PAGE_SIZE / 1024))
 

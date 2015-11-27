@@ -31,7 +31,7 @@
  */
 
 /*
- * Architecture specific syscalls (arm64)
+ * Architecture specific syscalls (RISC-V)
  */
 #ifndef _MACHINE_SYSARCH_H_
 #define	_MACHINE_SYSARCH_H_

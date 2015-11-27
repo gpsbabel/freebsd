@@ -36,7 +36,7 @@ __FBSDID("$FreeBSD$");
 /*
  * FIXME:
  * Need big.LITTLE awareness at some point.
- * Using arm64_p[id]cache_line_size may not be the best option.
+ * Using riscv_p[id]cache_line_size may not be the best option.
  * Need better SMP awareness.
  */
 	.text
@@ -78,16 +78,16 @@ __FBSDID("$FreeBSD$");
 #endif
 .endm
 
-ENTRY(arm64_nullop)
+ENTRY(riscv_nullop)
 	ret
-END(arm64_nullop)
+END(riscv_nullop)
 
 /*
  * Generic functions to read/modify/write the internal coprocessor registers
  */
 
 #if 1
-ENTRY(arm64_setttb)
+ENTRY(riscv_setttb)
 	fence
 	csrw	sptbr0, a0
 	sfence.vm
@@ -99,10 +99,10 @@ ENTRY(arm64_setttb)
 	isb
 	ret
 #endif
-END(arm64_setttb)
+END(riscv_setttb)
 #endif
 
-ENTRY(arm64_tlb_flushID)
+ENTRY(riscv_tlb_flushID)
 	sfence.vm
 #if 0
 #ifdef SMP
@@ -114,9 +114,9 @@ ENTRY(arm64_tlb_flushID)
 	isb
 	ret
 #endif
-END(arm64_tlb_flushID)
+END(riscv_tlb_flushID)
 
-ENTRY(arm64_tlb_flushID_SE)
+ENTRY(riscv_tlb_flushID_SE)
 	sfence.vm
 #if 0
 	ldr	x1, .Lpage_mask
@@ -130,42 +130,42 @@ ENTRY(arm64_tlb_flushID_SE)
 	isb
 	ret
 #endif
-END(arm64_tlb_flushID_SE)
+END(riscv_tlb_flushID_SE)
 
 /*
- * void arm64_dcache_wb_range(vm_offset_t, vm_size_t)
+ * void riscv_dcache_wb_range(vm_offset_t, vm_size_t)
  */
-ENTRY(arm64_dcache_wb_range)
+ENTRY(riscv_dcache_wb_range)
 	cache_handle_range	dcop = cvac
-END(arm64_dcache_wb_range)
+END(riscv_dcache_wb_range)
 
 /*
- * void arm64_dcache_wbinv_range(vm_offset_t, vm_size_t)
+ * void riscv_dcache_wbinv_range(vm_offset_t, vm_size_t)
  */
-ENTRY(arm64_dcache_wbinv_range)
+ENTRY(riscv_dcache_wbinv_range)
 	cache_handle_range	dcop = civac
-END(arm64_dcache_wbinv_range)
+END(riscv_dcache_wbinv_range)
 
 /*
- * void arm64_dcache_inv_range(vm_offset_t, vm_size_t)
+ * void riscv_dcache_inv_range(vm_offset_t, vm_size_t)
  *
  * Note, we must not invalidate everything.  If the range is too big we
  * must use wb-inv of the entire cache.
  */
-ENTRY(arm64_dcache_inv_range)
+ENTRY(riscv_dcache_inv_range)
 	cache_handle_range	dcop = ivac
-END(arm64_dcache_inv_range)
+END(riscv_dcache_inv_range)
 
 /*
- * void arm64_idcache_wbinv_range(vm_offset_t, vm_size_t)
+ * void riscv_idcache_wbinv_range(vm_offset_t, vm_size_t)
  */
-ENTRY(arm64_idcache_wbinv_range)
+ENTRY(riscv_idcache_wbinv_range)
 	cache_handle_range	dcop = civac, ic = 1, icop = ivau
-END(arm64_idcache_wbinv_range)
+END(riscv_idcache_wbinv_range)
 
 /*
- * void arm64_icache_sync_range(vm_offset_t, vm_size_t)
+ * void riscv_icache_sync_range(vm_offset_t, vm_size_t)
  */
-ENTRY(arm64_icache_sync_range)
+ENTRY(riscv_icache_sync_range)
 	cache_handle_range	dcop = cvac, ic = 1, icop = ivau
-END(arm64_icache_sync_range)
+END(riscv_icache_sync_range)
