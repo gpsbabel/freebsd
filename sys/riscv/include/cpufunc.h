@@ -103,25 +103,17 @@ intr_enable(void)
 }
 
 static __inline register_t
-get_midr(void)
+mcsr_get(uint64_t cmd)
 {
-	uint64_t midr;
+	uint64_t res;
 
-	//RISCVTODO
-	midr = 0;
-	//midr = READ_SPECIALREG(midr_el1);
+	__asm __volatile(
+		"mv	t5, %1\n"
+		"ecall\n"
+		"mv	%0, t6" : "=&r"(res) : "r"(cmd)
+	);
 
-	return (midr);
-}
-
-static __inline register_t
-get_mpidr(void)
-{
-	uint64_t mpidr;
-
-	mpidr = 0; //READ_SPECIALREG(mpidr_el1);
-
-	return (mpidr);
+	return (res);
 }
 
 #define	cpu_nullop()			arm64_nullop()

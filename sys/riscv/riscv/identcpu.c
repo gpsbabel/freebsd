@@ -75,20 +75,6 @@ struct cpu_implementers {
 };
 #define	CPU_IMPLEMENTER_NONE	{ 0, "Unknown Implementer", cpu_parts_none }
 
-static uint64_t
-mcsr_get(uint64_t cmd)
-{
-	uint64_t res;
-
-	__asm __volatile(
-		"mv	t5, %1\n"
-		"ecall\n"
-		"mv	%0, t6" : "=&r"(res) : "r"(cmd)
-	);
-
-	return (res);
-}
-
 /*
  * Per-implementer table of (PartNum, CPU Name) pairs.
  */
