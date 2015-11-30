@@ -1,14 +1,6 @@
 /*-
- * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
+ * Copyright (c) 2014 Andrew Turner
  * All rights reserved.
- *
- * This software was developed by SRI International and the University of
- * Cambridge Computer Laboratory under DARPA/AFRL contract FA8750-10-C-0237
- * ("CTSRD"), as part of the DARPA CRASH research programme.
- *
- * This software was developed by the University of Cambridge Computer
- * Laboratory as part of the CTSRD Project, with support from the UK Higher
- * Education Innovation Fund (HEIF).
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,7 +23,6 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $FreeBSD$
  */
 
 #include <sys/cdefs.h>
@@ -42,14 +33,84 @@ __FBSDID("$FreeBSD$");
 #include <sys/conf.h>
 #include <sys/malloc.h>
 #include <sys/memrange.h>
+#include <sys/uio.h>
 
 #include <machine/memdev.h>
+#include <machine/vmparam.h>
+
+#include <vm/vm.h>
+#include <vm/pmap.h>
+#include <vm/vm_extern.h>
+#include <vm/vm_page.h>
 
 struct mem_range_softc mem_range_softc;
 
 int
 memrw(struct cdev *dev, struct uio *uio, int flags)
 {
+	struct iovec *iov;
+	struct vm_page m;
+	vm_page_t marr;
+	vm_offset_t off, v;
+	u_int cnt;
+	int error;
 
-	panic("memrw: implement me");
+	error = 0;
+
+	while (uio->uio_resid > 0 && error == 0) {
+		iov = uio->uio_iov;
+		if (iov->iov_len == 0) {
+			uio->uio_iov++;
+			uio->uio_iovcnt--;
+			if (uio->uio_iovcnt < 0)
+				panic("memrw");
+			continue;
+		}
+
+		v = uio->uio_offset;
+		off = v & PAGE_MASK;
+		cnt = ulmin(iov->iov_len, PAGE_SIZE - (u_int)off);
+		if (cnt == 0)
+			continue;
+
+		switch(dev2unit(dev)) {
+		case CDEV_MINOR_KMEM:
+			/* If the address is in the DMAP just copy it */
+			if (VIRT_IN_DMAP(v)) {
+				error = uiomove((void *)v, cnt, uio);
+				break;
+			}
+
+			if (!kernacc((void *)v, cnt, uio->uio_rw == UIO_READ ?
+			    VM_PROT_READ : VM_PROT_WRITE)) {
+				error = EFAULT;
+				break;
+			}
+
+			/* Get the physical address to read */
+			v = pmap_extract(kernel_pmap, v);
+			if (v == 0) {
+				error = EFAULT;
+				break;
+			}
+
+			/* FALLTHROUGH */
+		case CDEV_MINOR_MEM:
+			/* If within the DMAP use this to copy from */
+			if (PHYS_IN_DMAP(v)) {
+				v = PHYS_TO_DMAP(v);
+				error = uiomove((void *)v, cnt, uio);
+				break;
+			}
+
+			/* Have uiomove_fromphys handle the data */
+			m.phys_addr = trunc_page(v);
+			marr = &m;
+			uiomove_fromphys(&marr, off, cnt, uio);
+			break;
+		}
+	}
+
+	return (error);
 }
+
