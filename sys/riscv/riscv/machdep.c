@@ -74,7 +74,6 @@ __FBSDID("$FreeBSD$");
 #include <machine/armreg.h>
 #include <machine/cpu.h>
 #include <machine/kdb.h>
-#include <machine/devmap.h>
 #include <machine/machdep.h>
 #include <machine/pcb.h>
 #include <machine/reg.h>

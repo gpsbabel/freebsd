@@ -3,7 +3,7 @@ riscv/riscv/exception.S		standard
 riscv/riscv/in_cksum.c		optional	inet | inet6
 riscv/riscv/locore.S		standard	no-obj
 riscv/riscv/pmap.c		standard
-arm/arm/devmap.c		standard
+riscv/riscv/devmap.c		standard
 riscv/riscv/clock.c		standard
 riscv/riscv/gic.c		standard
 riscv/riscv/gic_fdt.c		standard
