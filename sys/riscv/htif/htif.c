@@ -59,6 +59,9 @@ __FBSDID("$FreeBSD$");
 #include "htif.h"
 #include "htif_block.h"
 
+uint64_t identify_id;
+uint64_t identify_done = 0;
+
 uint64_t
 htif_command(uint64_t cmd, uint64_t m)
 {
@@ -74,29 +77,44 @@ htif_command(uint64_t cmd, uint64_t m)
 	return (res);
 }
 
-void
-htif_intr(void)
+static void
+htif_handle_entry(void)
 {
 	uint64_t entry;
 	uint64_t cmd;
+
+	uint64_t devid;
+	uint64_t devcmd;
 
 	cmd = 0;
 	entry = htif_command(cmd, ECALL_HTIF_GET_ENTRY);
 	while (entry) {
 		//printf("entry 0x%016lx\n", entry);
-		if ((entry >> 48) == 0x100)
-			riscv_console_intr(entry & 0xff);
-		//if ((entry >> 56) == 1)
-		//if (((entry >> 48) && 0xff) == 1)
 
-		if ((entry >> 56) == 0x2) {
+		devid = ((entry >> 56) & 0xff);
+		devcmd = ((entry >> 48) & 0xff);
+
+		if (devcmd == 0 && devid == 1)
+			riscv_console_intr(entry & 0xff);
+
+		if (devcmd == 0xFF && \
+		    devid == identify_id)
+			identify_done = 1;
+
+		if (devid == 0x2 && devcmd != 0xff) {
 			//printf("entry 0x%016lx\n", entry);
 			htif_blk_intr(entry);
 		}
 
 		entry = htif_command(cmd, ECALL_HTIF_GET_ENTRY);
 	}
+}
 
+void
+htif_intr(void)
+{
+
+	htif_handle_entry();
 	csr_clear(sip, SIE_SSIE);
 }
 
@@ -115,30 +133,35 @@ htif_test(struct htif_softc *sc)
 	char id[HTIF_MAX_ID] __aligned(HTIF_ALIGN);
 	struct htif_dev_softc *dev_sc;
 
-	//for (i = 0; i < HTIF_MAX_DEV; i++) {
-	for (i = 0; i < 3; i++) {
+	printf("Enumerating devices\n");
 
-		//cmd = 0x101000000000000;
-
+	for (i = 0; i < HTIF_MAX_DEV; i++) {
 		paddr = pmap_kextract((vm_offset_t)&id);
 		//printf("paddr 0x%016lx\n", paddr);
 		data = (paddr << 8) | 0xff;
+
+		identify_id = i;
+		identify_done = 0;
 
 		cmd = i;
 		cmd <<= 56;
 		cmd |= (HTIF_CMD_IDENTIFY << 48);
 		cmd |= data;
+		//printf("htif_command\n");
 		htif_command(cmd, ECALL_HTIF_CMD);
 
-		DELAY(10000);
+		/* Poll as interrupts are disabled yet */
+		while (identify_done == 0) {
+			htif_handle_entry();
+		}
 
 		len = strnlen(id, sizeof(id));
 		if (len <= 0) {
 			continue;
 		}
+
 		//printf("HTIF enumerate %d\n", i);
 		//printf("len is %d id is %d\n", len, id[0]);
-
 		//htif_tohost(i, HTIF_CMD_IDENTIFY, (__pa(id) << 8) | 0xFF);
 		//htif_fromhost();
 
