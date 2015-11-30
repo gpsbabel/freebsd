@@ -42,14 +42,6 @@ typedef	uint64_t	pd_entry_t;		/* page directory entry */
 typedef	uint64_t	pt_entry_t;		/* page table entry */
 #endif
 
-#ifdef SMP
-#define	ATTR_DEFAULT	(ATTR_AF | ATTR_SH(ATTR_SH_IS))
-#else
-#define	ATTR_DEFAULT	(ATTR_AF)
-#endif
-
-#define	ATTR_DESCR_MASK	3
-
 /* Level 0 table, 512GiB per entry */
 #define	L0_SHIFT	39
 #define	L0_INVAL	0x0 /* An invalid address */
