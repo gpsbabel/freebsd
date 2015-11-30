@@ -3274,8 +3274,6 @@ pmap_page_test_mappings(vm_page_t m, boolean_t accessed, boolean_t modified)
 	int md_gen;
 	boolean_t rv;
 
-	panic("%s\n", __func__);
-
 	rv = FALSE;
 	rw_rlock(&pvh_global_lock);
 	lock = VM_PAGE_TO_PV_LIST_LOCK(m);
@@ -3297,6 +3295,16 @@ restart:
 		mask = 0;
 		value = 0;
 		if (modified) {
+			mask |= ATTR_DIRTY;
+			value |= ATTR_DIRTY;
+		}
+		if (accessed) {
+			mask |= ATTR_REF;
+			value |= ATTR_REF;
+		}
+
+#if 0
+		if (modified) {
 			mask |= ATTR_AP_RW_BIT;
 			value |= ATTR_AP(ATTR_AP_RW);
 		}
@@ -3304,6 +3312,8 @@ restart:
 			mask |= ATTR_AF | ATTR_DESCR_MASK;
 			value |= ATTR_AF | L3_PAGE;
 		}
+#endif
+
 		rv = (pmap_load(l3) & mask) == value;
 		PMAP_UNLOCK(pmap);
 		if (rv)
@@ -3392,6 +3402,7 @@ pmap_remove_write(vm_page_t m)
 	struct rwlock *lock;
 	pv_entry_t pv;
 	pt_entry_t *l3, oldl3;
+	pt_entry_t newl3;
 	int md_gen;
 
 	//printf("%s\n", __func__);
@@ -3427,6 +3438,17 @@ retry_pv_loop:
 		l3 = pmap_l3(pmap, pv->pv_va);
 retry:
 		oldl3 = pmap_load(l3);
+
+		if (pmap_is_write(oldl3)) {
+			newl3 = oldl3 & ~(1 << PTE_TYPE_S);
+			if (!atomic_cmpset_long(l3, oldl3, newl3))
+				goto retry;
+			/* TODO: use pmap_page_dirty(oldl3) ? */
+			if ((oldl3 & ATTR_REF) != 0)
+				vm_page_dirty(m);
+			pmap_invalidate_page(pmap, pv->pv_va);
+		}
+#if 0
 		panic("implement me: %s\n", __func__);
 		if ((oldl3 & ATTR_AP_RW_BIT) == ATTR_AP(ATTR_AP_RW)) {
 			if (!atomic_cmpset_long(l3, oldl3,
@@ -3437,6 +3459,7 @@ retry:
 				vm_page_dirty(m);
 			pmap_invalidate_page(pmap, pv->pv_va);
 		}
+#endif
 		PMAP_UNLOCK(pmap);
 	}
 	rw_wunlock(lock);

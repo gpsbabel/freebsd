@@ -42,31 +42,6 @@ typedef	uint64_t	pd_entry_t;		/* page directory entry */
 typedef	uint64_t	pt_entry_t;		/* page table entry */
 #endif
 
-/* Block and Page attributes */
-/* TODO: Add the upper attributes */
-//#define	ATTR_MASK_H	UINT64_C(0xfff0000000000000)
-//#define	ATTR_MASK_L	UINT64_C(0x0000000000000fff)
-//#define	ATTR_MASK	(ATTR_MASK_H | ATTR_MASK_L)
-/* Bits 58:55 are reserved for software */
-//#define	ATTR_SW_MANAGED	(1UL << 56)
-//#define	ATTR_SW_WIRED	(1UL << 55)
-#define	ATTR_nG		(1 << 11)
-#define	ATTR_AF		(1 << 10)
-#define	ATTR_SH(x)	((x) << 8)
-#define	 ATTR_SH_MASK	ATTR_SH(3)
-#define	 ATTR_SH_NS	0		/* Non-shareable */
-#define	 ATTR_SH_OS	2		/* Outer-shareable */
-#define	 ATTR_SH_IS	3		/* Inner-shareable */
-#define	ATTR_AP_RW_BIT	(1 << 7)
-#define	ATTR_AP(x)	((x) << 6)
-#define	 ATTR_AP_MASK	ATTR_AP(3)
-#define	 ATTR_AP_RW	(0 << 1)
-#define	 ATTR_AP_RO	(1 << 1)
-#define	 ATTR_AP_USER	(1 << 0)
-#define	ATTR_NS		(1 << 5)
-#define	ATTR_IDX(x)	((x) << 2)
-#define	ATTR_IDX_MASK	(7 << 2)
-
 #ifdef SMP
 #define	ATTR_DEFAULT	(ATTR_AF | ATTR_SH(ATTR_SH_IS))
 #else
