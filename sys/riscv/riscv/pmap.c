@@ -996,7 +996,7 @@ pmap_extract(pmap_t pmap, vm_offset_t va)
 	vm_paddr_t pa;
 
 	//printf("%s\n", __func__);
-	panic("pmap_extract\n");
+	//panic("pmap_extract\n");
 
 	pa = 0;
 	PMAP_LOCK(pmap);
@@ -1007,17 +1007,28 @@ pmap_extract(pmap_t pmap, vm_offset_t va)
 	l2p = pmap_l2(pmap, va);
 	if (l2p != NULL) {
 		l2 = pmap_load(l2p);
-		if ((l2 & ATTR_DESCR_MASK) == L2_TABLE) {
+		//if ((l2 & ATTR_DESCR_MASK) == L2_TABLE) {
+		if ((l2 & PTE_TYPE_M) == (PTE_TYPE_PTR << PTE_TYPE_S)) {
 			l3p = pmap_l2_to_l3(l2p, va);
 			if (l3p != NULL) {
 				l3 = pmap_load(l3p);
+				pa = l3 >> PTE_PPN0_S;
+				pa *= PAGE_SIZE;
+				pa |= (va & L3_OFFSET);
 
-				if ((l3 & ATTR_DESCR_MASK) == L3_PAGE)
-					pa = (l3 & ~ATTR_MASK) |
-					    (va & L3_OFFSET);
+				//if ((l3 & ATTR_DESCR_MASK) == L3_PAGE)
+				//	pa = (l3 & ~ATTR_MASK) |
+				//	    (va & L3_OFFSET);
 			}
-		} else if ((l2 & ATTR_DESCR_MASK) == L2_BLOCK)
-			pa = (l2 & ~ATTR_MASK) | (va & L2_OFFSET);
+		} else {
+			/* L2 is superpages */
+			pa = (l2 >> PTE_PPN1_S) << L2_SHIFT;
+			pa |= (va & L2_OFFSET);
+
+			//pa = (l2 & ~ATTR_MASK) | (va & L2_OFFSET);
+		}
+		//} else if ((l2 & ATTR_DESCR_MASK) == L2_BLOCK)
+		//	pa = (l2 & ~ATTR_MASK) | (va & L2_OFFSET);
 	}
 	PMAP_UNLOCK(pmap);
 	//printf("%s: va 0x%016lx pa 0x%016lx\n", __func__, va, pa);
