@@ -49,7 +49,6 @@ __FBSDID("$FreeBSD$");
 #include <sys/module.h>
 
 #include <machine/bus.h>
-#include <machine/htif.h>
 #include <machine/trap.h>
 
 #include "htif.h"
@@ -87,6 +86,7 @@ static cn_ungrab_t	riscv_cnungrab;
 
 CONSOLE_DRIVER(riscv);
 
+#define	MAX_BURST_LEN	1
 #define	QUEUE_SIZE	256
 
 struct queue_entry {
@@ -99,7 +99,7 @@ struct queue_entry cnqueue[QUEUE_SIZE];
 struct queue_entry *entry_last;
 struct queue_entry *entry_served;
 
-static void 
+static void
 htif_early_putc(int c)
 {
 	uint64_t cmd;
@@ -182,7 +182,7 @@ SYSINIT(cndev, SI_SUB_CONFIGURE, SI_ORDER_MIDDLE, cn_drvinit, NULL);
 static void
 riscvtty_outwakeup(struct tty *tp)
 {
-	u_char buf[1];
+	u_char buf[MAX_BURST_LEN];
 	int len;
 	int i;
 
@@ -210,15 +210,6 @@ riscv_timeout(void *v)
 	tty_unlock(tp);
 
 	callout_reset(&riscv_callout, polltime, riscv_timeout, NULL);
-}
-
-void
-riscv_console_intr(uint8_t c)
-{
-
-	entry_last->data = c;
-	entry_last->used = 1;
-	entry_last = entry_last->next;
 }
 
 static void
@@ -314,14 +305,19 @@ static void
 htif_console_intr(void *arg, uint64_t entry)
 {
 	struct htif_console_softc *sc;
-	uint64_t devcmd;
+	uint8_t devcmd;
+	uint64_t data;
 
 	sc = arg;
 
-	devcmd = ((entry >> 48) & 0xff);
+	devcmd = HTIF_DEV_ID(entry);
+	data = HTIF_DEV_DATA(entry);
 
-	if (devcmd == 0)
-		riscv_console_intr(entry & 0xff);
+	if (devcmd == 0) {
+		entry_last->data = data;
+		entry_last->used = 1;
+		entry_last = entry_last->next;
+	}
 }
 
 static int

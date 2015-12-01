@@ -1,3 +1,19 @@
+#define HTIF_DEV_SHIFT      (56)
+#define HTIF_CMD_SHIFT      (48)
+
+#define HTIF_CMD_READ       (0x00UL)
+#define HTIF_CMD_WRITE      (0x01UL)
+#define HTIF_CMD_IDENTIFY   (0xFFUL)
+
+#define HTIF_MAX_DEV        (256)
+#define HTIF_MAX_ID         (64)
+
+#define HTIF_ALIGN          (64)
+
+#define HTIF_DEV_CMD(entry)	((entry >> 48) & 0xff)
+#define HTIF_DEV_ID(entry)	((entry >> 56) & 0xff)
+#define HTIF_DEV_DATA(entry)	(entry & 0xffffffff)
+
 /* bus softc */
 struct htif_softc {
 	struct resource		*res[1];

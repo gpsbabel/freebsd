@@ -65,9 +65,6 @@ __FBSDID("$FreeBSD$");
 #include <machine/resource.h>
 #include <machine/intr.h>
 
-#include <machine/htif.h>
-
-
 #ifdef KDTRACE_HOOKS
 #include <sys/dtrace_bsd.h>
 #endif

@@ -81,7 +81,6 @@ __FBSDID("$FreeBSD$");
 #include <machine/vmparam.h>
 
 #include <machine/asm.h>
-#include <machine/htif.h>
 
 #ifdef VFP
 #include <machine/vfp.h>

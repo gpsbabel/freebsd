@@ -58,7 +58,6 @@ __FBSDID("$FreeBSD$");
 
 #include <machine/md_var.h>
 #include <machine/bus.h>
-#include <machine/htif.h>
 #include <machine/trap.h>
 #include <sys/rman.h>
 
@@ -111,23 +110,14 @@ htif_blk_intr(void *arg, uint64_t entry)
 	uint64_t devcmd;
 	uint64_t data;
 
-	//sc = htif_blk_sc;
 	sc = arg;
 
-	devcmd = ((entry >> 48) & 0xff);
-	if (devcmd == 0xff)
-		return;
-
-	data = (entry & 0xffff);
-
-	//if (sc->cmd_done == 1)
-	//	printf("htif_blk_intr: entry 0x%016lx\n", entry);
+	devcmd = HTIF_DEV_CMD(entry);
+	data = HTIF_DEV_DATA(entry);
 
 	if (sc->curtag == data) {
 		sc->cmd_done = 1;
 		wakeup(&sc->intr_chan);
-		//printf(".");
-		//biodone(sc->bp);
 	}
 }
 

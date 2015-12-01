@@ -57,7 +57,6 @@ __FBSDID("$FreeBSD$");
 #include <machine/intr.h>
 #include <machine/asm.h>
 #include <machine/trap.h>
-#include <machine/htif.h>
 #include <machine/vmparam.h>
 
 #include "htif.h"
@@ -217,7 +216,7 @@ htif_enumerate(struct htif_softc *sc)
 }
 
 static int
-htif_probe(device_t dev) 
+htif_probe(device_t dev)
 {
 
 	if (!ofw_bus_status_okay(dev))
