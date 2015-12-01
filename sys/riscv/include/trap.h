@@ -53,3 +53,9 @@
 
 /* Note: sip register is not yet implement in Spike simulator */
 #define	SIP_STIP	(1 << 5)
+
+#define	EXCP_SHIFT		0
+#define	EXCP_MASK		(0xf << EXCP_SHIFT)
+#define	EXCP_SOFTWARE_INTR	0
+#define	EXCP_TIMER_INTR		1
+#define	EXCP_HTIF_INTR		2

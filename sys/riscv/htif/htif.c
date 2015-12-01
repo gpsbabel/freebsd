@@ -87,10 +87,9 @@ static void
 htif_handle_entry(struct htif_softc *sc)
 {
 	uint64_t entry;
+	uint8_t devcmd;
+	uint8_t devid;
 	uint64_t cmd;
-
-	uint64_t devid;
-	uint64_t devcmd;
 
 	cmd = 0;
 	entry = htif_command(cmd, ECALL_HTIF_GET_ENTRY);

@@ -292,38 +292,14 @@ do_trap(struct trapframe *frame)
 
 	/* Read the esr register to get the exception details */
 	esr = 0;//READ_SPECIALREG(esr_el1);
+
 	exception = (frame->tf_scause & 0xf);
 	if (frame->tf_scause & (1 << 31)) {
-		//printf(".");
-		//printf("intr sstatus 0x%016lx\n", frame->tf_sstatus);
-		//printf("intr %d, curthread 0x%016lx sepc 0x%016lx sstatus 0x%016lx\n",
-		//		exception, curthread,
-		//		frame->tf_sepc, frame->tf_sstatus);
-
-		int excp_code;
-
-#define	EXCP_SHIFT		0
-#define	EXCP_MASK		(0xf << EXCP_SHIFT)
-#define	EXCP_SOFTWARE_INTR	0
-#define	EXCP_TIMER_INTR		1
-#define	EXCP_HTIF_INTR		2
-
-		excp_code = (frame->tf_scause & EXCP_MASK);
-
-		switch (excp_code) {
-		case EXCP_SOFTWARE_INTR:
-			//htif_intr();
-			//break;
-		case EXCP_TIMER_INTR:
-			riscv_cpu_intr(frame);
-			break;
-		case EXCP_HTIF_INTR:
-		default:
-			panic("Can't handle interrupt with type %d\n", excp_code);
-		}
-
+		/* Interrupt */
+		riscv_cpu_intr(frame);
 		return;
 	}
+
 	//printf("trap: scause 0x%016lx sbadaddr 0x%016lx sepc 0x%016lx sstatus 0x%016lx\n",
 	//		exception, frame->tf_sbadaddr, frame->tf_sepc, frame->tf_sstatus);
 	for (i = 0; i < 32; i++) {
@@ -417,28 +393,8 @@ do_trap_user(struct trapframe *frame)
 
 	exception = (frame->tf_scause & 0xf);
 	if (frame->tf_scause & (1 << 31)) {
-		//printf(".");
-		//printf("intr sstatus 0x%016lx\n", frame->tf_sstatus);
-		//printf("intr %d, curthread 0x%016lx sepc 0x%016lx sstatus 0x%016lx\n",
-		//		exception, curthread,
-		//		frame->tf_sepc, frame->tf_sstatus);
-
-		int excp_code;
-		excp_code = (frame->tf_scause & 0xf);
-
-		if (excp_code == 0)
-			//htif_intr();
-			riscv_cpu_intr(frame);
-		else if (excp_code == 1)
-			riscv_cpu_intr(frame);
-		else if (excp_code == 2) {
-			//uint64_t *cc = &console_data;
-			//uint8_t c = *(uint8_t *)cc;
-			//printf("mfromhost %c\n", c);
-			panic("aaa");
-			//riscv_cpu_intr(frame);
-			//htif_intr();
-		}
+		/* Interrupt */
+		riscv_cpu_intr(frame);
 		return;
 	}
 
