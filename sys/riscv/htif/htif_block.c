@@ -153,7 +153,6 @@ static int
 htif_blk_probe(device_t dev)
 {
 
-	printf("htif blk probe\n");
 	return (0);
 }
 
@@ -166,7 +165,6 @@ htif_blk_attach(device_t dev)
 	sc = device_get_softc(dev);
 	sc->dev = dev;
 	sc_dev = device_get_ivars(dev);
-	printf("my index %d\n", sc_dev->index);
 	sc->sc_dev = sc_dev;
 	mtx_init(&sc->htif_io_mtx, device_get_nameunit(dev), "htif_blk", MTX_DEF);
 	HTIF_BLK_LOCK_INIT(sc);

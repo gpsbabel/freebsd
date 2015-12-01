@@ -362,7 +362,6 @@ static int
 htif_console_probe(device_t dev)
 {
 
-	printf("htif console probe\n");
 	return (0);
 }
 
@@ -375,7 +374,6 @@ htif_console_attach(device_t dev)
 	sc = device_get_softc(dev);
 	sc->dev = dev;
 	sc_dev = device_get_ivars(dev);
-	printf("my index %d\n", sc_dev->index);
 	sc->sc_dev = sc_dev;
 
 	htif_setup_intr(sc_dev->index, htif_console_intr, sc);
