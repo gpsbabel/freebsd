@@ -81,7 +81,6 @@ static void htif_blk_task(void *arg);
 static disk_open_t	htif_blk_open;
 static disk_close_t	htif_blk_close;
 static disk_strategy_t	htif_blk_strategy;
-//static dumper_t		htif_blk_dump;
 
 struct htif_blk_softc {
 	device_t	dev;
@@ -169,9 +168,6 @@ htif_blk_attach(device_t dev)
 	sc->disk = disk_alloc();
 	sc->disk->d_drv1 = sc;
 
-	//sc->ld_disk->d_maxsize = min(sc->ld_controller->htif_max_io * secsize,
-	//    (sc->ld_controller->htif_max_sge - 1) * PAGE_SIZE);
-
 	sc->disk->d_maxsize = 4096; /* Max transfer */
 	sc->disk->d_name = "htif_blk";
 	sc->disk->d_open = htif_blk_open;
@@ -195,40 +191,14 @@ htif_blk_attach(device_t dev)
 static int
 htif_blk_open(struct disk *dp)
 {
-	int error;
 
-	//printf("%s\n", __func__);
-
-	error = 0;
-#if 0
-	struct htif_blk *sc;
-
-	sc = dp->d_drv1;
-	mtx_lock(&sc->ld_controller->htif_io_lock);
-	if (sc->ld_flags & MFI_DISK_FLAGS_DISABLED)
-		error = ENXIO;
-	else {
-		sc->ld_flags |= MFI_DISK_FLAGS_OPEN;
-		error = 0;
-	}
-	mtx_unlock(&sc->ld_controller->htif_io_lock);
-#endif
-
-	return (error);
+	return (0);
 }
 
 static int
 htif_blk_close(struct disk *dp)
 {
-#if 0
-	struct htif_blk *sc;
 
-	sc = dp->d_drv1;
-	mtx_lock(&sc->ld_controller->htif_io_lock);
-	sc->ld_flags &= ~MFI_DISK_FLAGS_OPEN;
-	mtx_unlock(&sc->ld_controller->htif_io_lock);
-
-#endif
 	return (0);
 }
 
@@ -306,6 +276,7 @@ htif_blk_task(void *arg)
 					bp->bio_error = EIO;
 					//bp->bio_resid = (end - block) * sz;
 					bp->bio_flags |= BIO_ERROR;
+					disk_err(bp, "hard error", -1, 1);
 
 					break;
 				}
@@ -341,28 +312,6 @@ htif_blk_strategy(struct bio *bp)
 		biofinish(bp, NULL, ENXIO);
 	}
 }
-
-#if 0
-void
-htif_blk_complete(struct bio *bio)
-{
-	struct htif_blk_softc *sc;
-	struct htif_frame_header *hdr;
-
-	sc = bio->bio_disk->d_drv1;
-	hdr = bio->bio_driver1;
-
-	if (bio->bio_flags & BIO_ERROR) {
-		bio->bio_resid = bio->bio_bcount;
-		if (bio->bio_error == 0)
-			bio->bio_error = EIO;
-		disk_err(bio, "hard error", -1, 1);
-	} else {
-		bio->bio_resid = 0;
-	}
-	biodone(bio);
-}
-#endif
 
 static device_method_t htif_blk_methods[] = {
 	DEVMETHOD(device_probe,		htif_blk_probe),
