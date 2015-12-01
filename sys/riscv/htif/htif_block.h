@@ -8,4 +8,4 @@ struct htif_blk_request {
 #define	SECTOR_SIZE_SHIFT	9
 #define	SECTOR_SIZE		(1 << SECTOR_SIZE_SHIFT)
 
-void htif_blk_intr(uint64_t entry);
+//void htif_blk_intr(uint64_t entry);

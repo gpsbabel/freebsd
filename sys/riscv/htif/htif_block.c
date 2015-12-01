@@ -112,7 +112,7 @@ struct htif_blk_softc {
 	struct bio	*bp;
 };
 
-struct htif_blk_softc *htif_blk_sc;
+//struct htif_blk_softc *htif_blk_sc;
 
 static driver_t htif_blk_driver = {
 	"htif_blk",
@@ -122,13 +122,19 @@ static driver_t htif_blk_driver = {
 
 DRIVER_MODULE(htif_blk, htif, htif_blk_driver, htif_blk_devclass, 0, 0);
 
-void
-htif_blk_intr(uint64_t entry)
+static void
+htif_blk_intr(void *arg, uint64_t entry)
 {
 	struct htif_blk_softc *sc;
+	uint64_t devcmd;
 	uint64_t data;
 
-	sc = htif_blk_sc;
+	//sc = htif_blk_sc;
+	sc = arg;
+
+	devcmd = ((entry >> 48) & 0xff);
+	if (devcmd == 0xff)
+		return;
 
 	data = (entry & 0xffff);
 
@@ -165,7 +171,7 @@ htif_blk_attach(device_t dev)
 	mtx_init(&sc->htif_io_mtx, device_get_nameunit(dev), "htif_blk", MTX_DEF);
 	HTIF_BLK_LOCK_INIT(sc);
 
-	htif_blk_sc = sc;
+	//htif_blk_sc = sc;
 
 	char *str;
 	char prefix[] = " size=";
@@ -178,6 +184,8 @@ htif_blk_attach(device_t dev)
 	}
 
 	printf("htif blk attach, size %ld\n", size);
+
+	htif_setup_intr(sc_dev->index, htif_blk_intr, sc);
 
 	//printf("disabled\n");
 	//return (0);

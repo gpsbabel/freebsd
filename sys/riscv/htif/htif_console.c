@@ -46,10 +46,31 @@ __FBSDID("$FreeBSD$");
 #include <sys/consio.h>
 #include <sys/tty.h>
 
+#include <sys/param.h>
+#include <sys/systm.h>
+#include <sys/kernel.h>
+#include <sys/kthread.h>
+#include <sys/selinfo.h>
+#include <sys/module.h>
+#include <sys/lock.h>
+#include <sys/mutex.h>
+#include <sys/malloc.h>
+#include <sys/sysctl.h>
+#include <sys/uio.h>
+
+#include <sys/bio.h>
+#include <sys/bus.h>
+#include <sys/conf.h>
+#include <sys/disk.h>
+
+
 #include <vm/vm.h>
 #include <vm/pmap.h>
 
+#include <machine/bus.h>
 #include <machine/htif.h>
+#include <machine/trap.h>
+#include <sys/rman.h>
 
 #include "htif.h"
 
@@ -311,3 +332,69 @@ riscv_cnputc(struct consdev *cp, int c)
 
 	riscv_putc(c);
 }
+
+/* Bus interface */
+
+struct htif_console_softc {
+	device_t	dev;
+	struct htif_dev_softc *sc_dev;
+	int		running;
+	int		intr_chan;
+	int		cmd_done;
+	int		curtag;
+};
+
+static void
+htif_console_intr(void *arg, uint64_t entry)
+{
+	struct htif_console_softc *sc;
+	uint64_t devcmd;
+
+	sc = arg;
+
+	devcmd = ((entry >> 48) & 0xff);
+
+	if (devcmd == 0)
+		riscv_console_intr(entry & 0xff);
+}
+
+static int
+htif_console_probe(device_t dev)
+{
+
+	printf("htif console probe\n");
+	return (0);
+}
+
+static int
+htif_console_attach(device_t dev)
+{
+	struct htif_console_softc *sc;
+	struct htif_dev_softc *sc_dev;
+
+	sc = device_get_softc(dev);
+	sc->dev = dev;
+	sc_dev = device_get_ivars(dev);
+	printf("my index %d\n", sc_dev->index);
+	sc->sc_dev = sc_dev;
+
+	htif_setup_intr(sc_dev->index, htif_console_intr, sc);
+
+	return (0);
+}
+
+static devclass_t	htif_console_devclass;
+
+static device_method_t htif_console_methods[] = {
+	DEVMETHOD(device_probe,		htif_console_probe),
+	DEVMETHOD(device_attach,	htif_console_attach),
+	{ 0, 0 }
+};
+
+static driver_t htif_console_driver = {
+	"htif_console",
+	htif_console_methods,
+	sizeof(struct htif_console_softc)
+};
+
+DRIVER_MODULE(htif_console, htif, htif_console_driver, htif_console_devclass, 0, 0);

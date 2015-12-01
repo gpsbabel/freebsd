@@ -61,7 +61,6 @@ __FBSDID("$FreeBSD$");
 #include <machine/vmparam.h>
 
 #include "htif.h"
-#include "htif_block.h"
 
 static struct resource_spec htif_spec[] = {
 	{ SYS_RES_IRQ,		0,	RF_ACTIVE },
@@ -83,6 +82,26 @@ htif_command(uint64_t cmd, uint64_t m)
 	return (res);
 }
 
+struct intr_entry {
+	void (*func) (void *, uint64_t);
+	void *arg;
+};
+
+struct intr_entry intrs[HTIF_MAX_DEV];
+
+int
+htif_setup_intr(int id, void *func, void *arg)
+{
+
+	if (id >= HTIF_MAX_DEV)
+		return (-1);
+
+	intrs[id].func = func;
+	intrs[id].arg = arg;
+
+	return (0);
+}
+
 static void
 htif_handle_entry(struct htif_softc *sc)
 {
@@ -95,20 +114,17 @@ htif_handle_entry(struct htif_softc *sc)
 	entry = htif_command(cmd, ECALL_HTIF_GET_ENTRY);
 	while (entry) {
 		//printf("entry 0x%016lx\n", entry);
-
 		devid = ((entry >> 56) & 0xff);
 		devcmd = ((entry >> 48) & 0xff);
 
-		if (devcmd == 0 && devid == 1)
-			riscv_console_intr(entry & 0xff);
-
-		if (devcmd == 0xFF && \
-		    devid == sc->identify_id)
-			sc->identify_done = 1;
-
-		if (devid == 0x2 && devcmd != 0xff) {
-			//printf("entry 0x%016lx\n", entry);
-			htif_blk_intr(entry);
+		if (devcmd == 0xFF) {
+			/* Enumeration interrupts */
+			if (devid == sc->identify_id)
+				sc->identify_done = 1;
+		} else {
+			/* Device interrupt */
+			if (intrs[devid].func != NULL)
+				intrs[devid].func(intrs[devid].arg, entry);
 		}
 
 		entry = htif_command(cmd, ECALL_HTIF_GET_ENTRY);
@@ -222,7 +238,7 @@ htif_attach(device_t dev)
 
 	sc = device_get_softc(dev);
 	sc->dev = dev;
-	mtx_init(&sc->sc_mtx, device_get_nameunit(dev), "htif_command", MTX_DEF);
+	//mtx_init(&sc->sc_mtx, device_get_nameunit(dev), "htif_command", MTX_DEF);
 
 	if (bus_alloc_resources(dev, htif_spec, sc->res)) {
 		device_printf(dev, "could not allocate resources\n");

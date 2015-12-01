@@ -3,7 +3,7 @@ struct htif_softc {
 	struct resource		*res[1];
 	void			*ihl[1];
 	device_t		dev;
-	struct mtx		sc_mtx;
+	//struct mtx		sc_mtx;
 	uint64_t		identify_id;
 	uint64_t		identify_done;
 };
@@ -17,3 +17,5 @@ struct htif_dev_softc {
 };
 
 uint64_t htif_command(uint64_t, uint64_t);
+
+int htif_setup_intr(int id, void *func, void *arg);
