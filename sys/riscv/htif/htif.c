@@ -129,26 +129,41 @@ htif_intr(void *arg)
 	return (FILTER_HANDLED);
 }
 
-int
-htif_test(struct htif_softc *sc);
-
-int
-htif_test(struct htif_softc *sc)
+static int
+htif_add_device(struct htif_softc *sc, int i, char *id, char *name)
 {
-	//char id[HTIF_MAX_ID] __aligned(HTIF_ALIGN);
-	uint64_t data;
-	uint64_t cmd;
-	uint64_t paddr;
-	int i;
-	int len;
-	char id[HTIF_MAX_ID] __aligned(HTIF_ALIGN);
 	struct htif_dev_softc *dev_sc;
 
-	printf("Enumerating devices\n");
+	//device_printf(sc->dev, "%s\n", name);
+
+	dev_sc = malloc(sizeof(struct htif_dev_softc), M_DEVBUF, M_NOWAIT | M_ZERO);
+	dev_sc->sc = sc;
+	dev_sc->index = i;
+	dev_sc->id = malloc(HTIF_MAX_ID, M_DEVBUF, M_NOWAIT | M_ZERO);
+	memcpy(dev_sc->id, id, HTIF_MAX_ID);
+
+	dev_sc->dev = device_add_child(sc->dev, name, -1);
+	device_set_ivars(dev_sc->dev, dev_sc);
+
+	return (0);
+}
+
+static int
+htif_enumerate(struct htif_softc *sc)
+{
+	char id[HTIF_MAX_ID] __aligned(HTIF_ALIGN);
+	uint64_t paddr;
+	uint64_t data;
+	uint64_t cmd;
+	int len;
+	int i;
+
+	device_printf(sc->dev, "Enumerating devices\n");
 
 	for (i = 0; i < HTIF_MAX_DEV; i++) {
 		paddr = pmap_kextract((vm_offset_t)&id);
 		//printf("paddr 0x%016lx\n", paddr);
+
 		data = (paddr << 8) | 0xff;
 
 		sc->identify_id = i;
@@ -158,10 +173,10 @@ htif_test(struct htif_softc *sc)
 		cmd <<= 56;
 		cmd |= (HTIF_CMD_IDENTIFY << 48);
 		cmd |= data;
-		//printf("htif_command\n");
+
 		htif_command(cmd, ECALL_HTIF_CMD);
 
-		/* Poll as interrupts are disabled yet */
+		/* Do poll as interrupts are disabled yet */
 		while (sc->identify_done == 0) {
 			htif_handle_entry(sc);
 		}
@@ -171,40 +186,19 @@ htif_test(struct htif_softc *sc)
 			continue;
 		}
 
-		//printf("HTIF enumerate %d\n", i);
-		//printf("len is %d id is %d\n", len, id[0]);
-		//htif_tohost(i, HTIF_CMD_IDENTIFY, (__pa(id) << 8) | 0xFF);
-		//htif_fromhost();
+		if (bootverbose)
+			printf(" %d %s\n", i, id);
 
-		if (i != 2)
-			continue;
-
-		/* block */
-		//printf("adding block child\n");
-
-		dev_sc = malloc(sizeof(struct htif_dev_softc), M_DEVBUF, M_NOWAIT | M_ZERO);
-		dev_sc->sc = sc;
-		dev_sc->index = i;
-		dev_sc->id = malloc(HTIF_MAX_ID, M_DEVBUF, M_NOWAIT | M_ZERO);
-		memcpy(dev_sc->id, id, HTIF_MAX_ID);
-
-		dev_sc->dev = device_add_child(sc->dev, "htif_blk", -1);
-		device_set_ivars(dev_sc->dev, dev_sc);
+		if (strncmp(id, "disk", 4) == 0)
+			htif_add_device(sc, i, id, "htif_blk");
+		else if (strncmp(id, "bcd", 3) == 0)
+			htif_add_device(sc, i, id, "htif_console");
+		else if (strncmp(id, "syscall_proxy", 13) == 0)
+			htif_add_device(sc, i, id, "htif_syscall_proxy");
 	}
 
 	return (bus_generic_attach(sc->dev));
 }
-
-#if 0
-void
-htif_init(void)
-{
-
-	htif_test();
-}
-
-SYSINIT(htif, SI_SUB_CPU, SI_ORDER_ANY, htif_init, NULL);
-#endif
 
 static int
 htif_probe(device_t dev) 
@@ -216,9 +210,7 @@ htif_probe(device_t dev)
 	if (!ofw_bus_is_compatible(dev, "riscv,htif"))
 		return (ENXIO);
 
-	printf("htif_probe\n");
-
-	device_set_desc(dev, "HTIF bus");
+	device_set_desc(dev, "HTIF bus device");
 	return (BUS_PROBE_DEFAULT);
 }
 
@@ -247,7 +239,7 @@ htif_attach(device_t dev)
 
 	csr_set(sie, SIE_SSIE);
 
-	return (htif_test(sc));
+	return (htif_enumerate(sc));
 }
 
 static device_method_t htif_methods[] = {
