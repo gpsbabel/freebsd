@@ -45,46 +45,18 @@ __FBSDID("$FreeBSD$");
 #include <sys/cons.h>
 #include <sys/consio.h>
 #include <sys/tty.h>
-
-#include <sys/param.h>
-#include <sys/systm.h>
-#include <sys/kernel.h>
-#include <sys/kthread.h>
-#include <sys/selinfo.h>
-#include <sys/module.h>
-#include <sys/lock.h>
-#include <sys/mutex.h>
-#include <sys/malloc.h>
-#include <sys/sysctl.h>
-#include <sys/uio.h>
-
-#include <sys/bio.h>
 #include <sys/bus.h>
-#include <sys/conf.h>
-#include <sys/disk.h>
-
-
-#include <vm/vm.h>
-#include <vm/pmap.h>
+#include <sys/module.h>
 
 #include <machine/bus.h>
 #include <machine/htif.h>
 #include <machine/trap.h>
-#include <sys/rman.h>
 
 #include "htif.h"
 
 #include <dev/ofw/openfirm.h>
 
 #include <ddb/ddb.h>
-
-//#include "riscvcall.h"
-
-//#define MAMBOBURSTLEN	4096	/* max number of bytes to write in one chunk */
-#define MAMBOBURSTLEN	1	/* max number of bytes to write in one chunk */
-
-#define MAMBO_CONSOLE_WRITE	0
-#define MAMBO_CONSOLE_READ	60
 
 extern uint64_t console_intr;
 
@@ -116,6 +88,7 @@ static cn_ungrab_t	riscv_cnungrab;
 CONSOLE_DRIVER(riscv);
 
 #define	QUEUE_SIZE	256
+
 struct queue_entry {
 	uint64_t data;
 	uint64_t used;
@@ -153,12 +126,13 @@ htif_getc(void)
 static void
 riscv_putc(int c)
 {
-	uint64_t *cc = (uint64_t*)&console_intr;
-	//*cc = 0;
+	uint64_t tmp;
+	uint64_t *cc;
+	uint64_t val;
+
+	cc = (uint64_t*)&console_intr;
 	console_intr = 0;
 
-	//uint64_t addr;
-	uint64_t val;
 	val = 0;
 
 	__asm __volatile(
@@ -167,8 +141,6 @@ riscv_putc(int c)
 	);
 
 	htif_early_putc(c);
-
-	uint64_t tmp;
 
 	tmp = 0;
 
@@ -210,25 +182,26 @@ SYSINIT(cndev, SI_SUB_CONFIGURE, SI_ORDER_MIDDLE, cn_drvinit, NULL);
 static void
 riscvtty_outwakeup(struct tty *tp)
 {
+	u_char buf[1];
 	int len;
 	int i;
-	u_char buf[MAMBOBURSTLEN];
 
 	for (;;) {
-		len = ttydisc_getc(tp, buf, sizeof buf);
+		len = ttydisc_getc(tp, buf, sizeof(buf));
 		if (len == 0)
 			break;
-		//riscvcall(MAMBO_CONSOLE_WRITE, buf, (register_t)len, 1UL);
+
+		KASSERT(len == 1, ("tty error"));
+
 		for (i = 0; i < len; i++)
 			riscv_putc(buf[i]);
-			//htif_early_putc(buf[i]);
 	}
 }
 
 static void
 riscv_timeout(void *v)
 {
-	int 	c;
+	int c;
 
 	tty_lock(tp);
 	while ((c = riscv_cngetc(NULL)) != -1)
@@ -251,10 +224,6 @@ riscv_console_intr(uint8_t c)
 static void
 riscv_cnprobe(struct consdev *cp)
 {
-	//if (OF_finddevice("/riscv") == -1) {
-	//	cp->cn_pri = CN_DEAD;
-	//	return;
-	//}
 
 	cp->cn_pri = CN_NORMAL;
 }
@@ -262,11 +231,9 @@ riscv_cnprobe(struct consdev *cp)
 static void
 riscv_cninit(struct consdev *cp)
 {
-
-	/* XXX: This is the alias, but that should be good enough */
-	strcpy(cp->cn_name, "rcons");
-
 	int i;
+
+	strcpy(cp->cn_name, "rcons");
 
 	for (i = 0; i < QUEUE_SIZE; i++) {
 		if (i == (QUEUE_SIZE - 1))
@@ -276,6 +243,7 @@ riscv_cninit(struct consdev *cp)
 		cnqueue[i].data = 0;
 		cnqueue[i].used = 0;
 	}
+
 	entry_last = &cnqueue[0];
 	entry_served = &cnqueue[0];
 }
@@ -283,16 +251,19 @@ riscv_cninit(struct consdev *cp)
 static void
 riscv_cnterm(struct consdev *cp)
 {
+
 }
 
 static void
 riscv_cngrab(struct consdev *cp)
 {
+
 }
 
 static void
 riscv_cnungrab(struct consdev *cp)
 {
+
 }
 
 static int
@@ -307,17 +278,13 @@ riscv_cngetc(struct consdev *cp)
 		data = entry_served->data;
 		entry_served->used = 0;
 		entry_served = entry_served->next;
-		return (data & 0xff);
-	}
-	return (-1);
-
-	//ch = c;
-	if (ch > 0 && ch < 0xff) {
-		//*cc = 0;
+		ch = (data & 0xff);
+		if (ch > 0 && ch < 0xff) {
 #if defined(KDB)
-		kdb_alt_break(ch, &alt_break_state);
+			kdb_alt_break(ch, &alt_break_state);
 #endif
-		//return (ch);
+			return (ch);
+		}
 	}
 
 	return (-1);
@@ -326,14 +293,13 @@ riscv_cngetc(struct consdev *cp)
 static void
 riscv_cnputc(struct consdev *cp, int c)
 {
-	//char cbuf;
-	//cbuf = c;
-	//riscvcall(MAMBO_CONSOLE_WRITE, &cbuf, 1UL, 1UL);
 
 	riscv_putc(c);
 }
 
-/* Bus interface */
+/*
+ * Bus interface.
+ */
 
 struct htif_console_softc {
 	device_t	dev;
@@ -381,8 +347,6 @@ htif_console_attach(device_t dev)
 	return (0);
 }
 
-static devclass_t	htif_console_devclass;
-
 static device_method_t htif_console_methods[] = {
 	DEVMETHOD(device_probe,		htif_console_probe),
 	DEVMETHOD(device_attach,	htif_console_attach),
@@ -395,4 +359,7 @@ static driver_t htif_console_driver = {
 	sizeof(struct htif_console_softc)
 };
 
-DRIVER_MODULE(htif_console, htif, htif_console_driver, htif_console_devclass, 0, 0);
+static devclass_t htif_console_devclass;
+
+DRIVER_MODULE(htif_console, htif, htif_console_driver,
+    htif_console_devclass, 0, 0);
