@@ -62,11 +62,10 @@ __FBSDID("$FreeBSD$");
 #include <machine/trap.h>
 #include <sys/rman.h>
 
-//#include <dev/htif/htifreg.h>
-//#include <dev/htif/htif_ioctl.h>
-//#include <dev/htif/htifvar.h>
 #include "htif.h"
-#include "htif_block.h"
+
+#define	SECTOR_SIZE_SHIFT	9
+#define	SECTOR_SIZE		(1 << SECTOR_SIZE_SHIFT)
 
 #define HTIF_BLK_LOCK(_sc)	mtx_lock(&(_sc)->sc_mtx)
 #define	HTIF_BLK_UNLOCK(_sc)	mtx_unlock(&(_sc)->sc_mtx)
@@ -79,23 +78,10 @@ __FBSDID("$FreeBSD$");
 
 static void htif_blk_task(void *arg);
 
-static int	htif_blk_probe(device_t dev);
-static int	htif_blk_attach(device_t dev);
-static int	htif_blk_detach(device_t dev);
-
 static disk_open_t	htif_blk_open;
 static disk_close_t	htif_blk_close;
 static disk_strategy_t	htif_blk_strategy;
 static dumper_t		htif_blk_dump;
-
-static devclass_t	htif_blk_devclass;
-
-static device_method_t htif_blk_methods[] = {
-	DEVMETHOD(device_probe,		htif_blk_probe),
-	DEVMETHOD(device_attach,	htif_blk_attach),
-	DEVMETHOD(device_detach,	htif_blk_detach),
-	{ 0, 0 }
-};
 
 struct htif_blk_softc {
 	device_t	dev;
@@ -112,15 +98,12 @@ struct htif_blk_softc {
 	struct bio	*bp;
 };
 
-//struct htif_blk_softc *htif_blk_sc;
-
-static driver_t htif_blk_driver = {
-	"htif_blk",
-	htif_blk_methods,
-	sizeof(struct htif_blk_softc)
-};
-
-DRIVER_MODULE(htif_blk, htif, htif_blk_driver, htif_blk_devclass, 0, 0);
+struct htif_blk_request {
+	uint64_t addr;
+	uint64_t offset;	/* offset in bytes */
+	uint64_t size;		/* length in bytes */
+	uint64_t tag;
+} __packed;
 
 static void
 htif_blk_intr(void *arg, uint64_t entry)
@@ -607,3 +590,20 @@ htif_blk_dump(void *arg, void *virt, vm_offset_t phys, off_t offset, size_t len)
 
 	return (0);
 }
+
+static device_method_t htif_blk_methods[] = {
+	DEVMETHOD(device_probe,		htif_blk_probe),
+	DEVMETHOD(device_attach,	htif_blk_attach),
+	DEVMETHOD(device_detach,	htif_blk_detach),
+	{ 0, 0 }
+};
+
+static driver_t htif_blk_driver = {
+	"htif_blk",
+	htif_blk_methods,
+	sizeof(struct htif_blk_softc)
+};
+
+static devclass_t	htif_blk_devclass;
+
+DRIVER_MODULE(htif_blk, htif, htif_blk_driver, htif_blk_devclass, 0, 0);
