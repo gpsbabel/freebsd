@@ -302,8 +302,8 @@ do_trap(struct trapframe *frame)
 
 		int excp_code;
 
-#define	EXCP_SHIRT		0
-#define	EXCP_MASK		(0xf << EXCP_SHIRT)
+#define	EXCP_SHIFT		0
+#define	EXCP_MASK		(0xf << EXCP_SHIFT)
 #define	EXCP_SOFTWARE_INTR	0
 #define	EXCP_TIMER_INTR		1
 #define	EXCP_HTIF_INTR		2
@@ -312,8 +312,8 @@ do_trap(struct trapframe *frame)
 
 		switch (excp_code) {
 		case EXCP_SOFTWARE_INTR:
-			htif_intr();
-			break;
+			//htif_intr();
+			//break;
 		case EXCP_TIMER_INTR:
 			riscv_cpu_intr(frame);
 			break;
@@ -427,16 +427,17 @@ do_trap_user(struct trapframe *frame)
 		excp_code = (frame->tf_scause & 0xf);
 
 		if (excp_code == 0)
-			htif_intr();
+			//htif_intr();
+			riscv_cpu_intr(frame);
 		else if (excp_code == 1)
 			riscv_cpu_intr(frame);
 		else if (excp_code == 2) {
 			//uint64_t *cc = &console_data;
 			//uint8_t c = *(uint8_t *)cc;
 			//printf("mfromhost %c\n", c);
-			//panic("aaa");
-
-			htif_intr();
+			panic("aaa");
+			//riscv_cpu_intr(frame);
+			//htif_intr();
 		}
 		return;
 	}

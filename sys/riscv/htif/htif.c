@@ -40,6 +40,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/bus.h>
 #include <sys/kernel.h>
 #include <sys/module.h>
+#include <sys/rman.h>
 #include <sys/pcpu.h>
 #include <sys/proc.h>
 
@@ -51,16 +52,21 @@ __FBSDID("$FreeBSD$");
 #include <dev/ofw/ofw_bus.h>
 #include <dev/ofw/ofw_bus_subr.h>
 
+#include <machine/bus.h>
+#include <machine/cpu.h>
+#include <machine/intr.h>
 #include <machine/asm.h>
-#include <machine/htif.h>
 #include <machine/trap.h>
+#include <machine/htif.h>
 #include <machine/vmparam.h>
 
 #include "htif.h"
 #include "htif_block.h"
 
-uint64_t identify_id;
-uint64_t identify_done = 0;
+static struct resource_spec htif_spec[] = {
+	{ SYS_RES_IRQ,		0,	RF_ACTIVE },
+	{ -1, 0 }
+};
 
 uint64_t
 htif_command(uint64_t cmd, uint64_t m)
@@ -78,7 +84,7 @@ htif_command(uint64_t cmd, uint64_t m)
 }
 
 static void
-htif_handle_entry(void)
+htif_handle_entry(struct htif_softc *sc)
 {
 	uint64_t entry;
 	uint64_t cmd;
@@ -98,8 +104,8 @@ htif_handle_entry(void)
 			riscv_console_intr(entry & 0xff);
 
 		if (devcmd == 0xFF && \
-		    devid == identify_id)
-			identify_done = 1;
+		    devid == sc->identify_id)
+			sc->identify_done = 1;
 
 		if (devid == 0x2 && devcmd != 0xff) {
 			//printf("entry 0x%016lx\n", entry);
@@ -110,12 +116,18 @@ htif_handle_entry(void)
 	}
 }
 
-void
-htif_intr(void)
+static int
+htif_intr(void *arg)
 {
+	struct htif_softc *sc;
 
-	htif_handle_entry();
+	sc = arg;
+
+	htif_handle_entry(sc);
+
 	csr_clear(sip, SIE_SSIE);
+
+	return (FILTER_HANDLED);
 }
 
 int
@@ -140,8 +152,8 @@ htif_test(struct htif_softc *sc)
 		//printf("paddr 0x%016lx\n", paddr);
 		data = (paddr << 8) | 0xff;
 
-		identify_id = i;
-		identify_done = 0;
+		sc->identify_id = i;
+		sc->identify_done = 0;
 
 		cmd = i;
 		cmd <<= 56;
@@ -151,8 +163,8 @@ htif_test(struct htif_softc *sc)
 		htif_command(cmd, ECALL_HTIF_CMD);
 
 		/* Poll as interrupts are disabled yet */
-		while (identify_done == 0) {
-			htif_handle_entry();
+		while (sc->identify_done == 0) {
+			htif_handle_entry(sc);
 		}
 
 		len = strnlen(id, sizeof(id));
@@ -215,10 +227,24 @@ static int
 htif_attach(device_t dev)
 {
 	struct htif_softc *sc;
+	int error;
 
 	sc = device_get_softc(dev);
 	sc->dev = dev;
 	mtx_init(&sc->sc_mtx, device_get_nameunit(dev), "htif_command", MTX_DEF);
+
+	if (bus_alloc_resources(dev, htif_spec, sc->res)) {
+		device_printf(dev, "could not allocate resources\n");
+		return (ENXIO);
+	}
+
+	/* Setup IRQs handler */
+	error = bus_setup_intr(dev, sc->res[0], INTR_TYPE_CLK,
+	    htif_intr, NULL, sc, &sc->ihl[0]);
+	if (error) {
+		device_printf(dev, "Unable to alloc int resource.\n");
+		return (ENXIO);
+	}
 
 	csr_set(sie, SIE_SSIE);
 

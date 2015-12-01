@@ -48,4 +48,4 @@ static inline unsigned long htif_fromhost(void)
 #endif
 
 void riscv_console_intr(uint8_t);
-void htif_intr(void);
+//void htif_intr(void);

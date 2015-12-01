@@ -1,7 +1,11 @@
 /* bus softc */
 struct htif_softc {
-	device_t	dev;
-	struct mtx	sc_mtx;
+	struct resource		*res[1];
+	void			*ihl[1];
+	device_t		dev;
+	struct mtx		sc_mtx;
+	uint64_t		identify_id;
+	uint64_t		identify_done;
 };
 
 /* device private data */
