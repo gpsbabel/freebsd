@@ -242,11 +242,11 @@ htif_blk_task(void *arg)
 
 			//printf("index %d addr 0x%016lx\n", sc_dev->index, req.addr);
 			cmd = sc_dev->index;
-			cmd <<= 56;
+			cmd <<= HTIF_DEV_ID_SHIFT;
 			if (bp->bio_cmd == BIO_READ)
-				cmd |= (HTIF_CMD_READ << 48);
+				cmd |= (HTIF_CMD_READ << HTIF_CMD_SHIFT);
 			else
-				cmd |= (HTIF_CMD_WRITE << 48);
+				cmd |= (HTIF_CMD_WRITE << HTIF_CMD_SHIFT);
 			paddr = vtophys(&req);
 			KASSERT(paddr != 0, ("paddr is 0"));
 			cmd |= paddr;

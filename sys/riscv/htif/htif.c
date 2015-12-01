@@ -113,8 +113,8 @@ htif_handle_entry(struct htif_softc *sc)
 	entry = htif_command(cmd, ECALL_HTIF_GET_ENTRY);
 	while (entry) {
 		//printf("entry 0x%016lx\n", entry);
-		devid = ((entry >> 56) & 0xff);
-		devcmd = ((entry >> 48) & 0xff);
+		devid = HTIF_DEV_ID(entry);
+		devcmd = HTIF_DEV_CMD(entry);
 
 		if (devcmd == 0xFF) {
 			/* Enumeration interrupts */
@@ -185,8 +185,8 @@ htif_enumerate(struct htif_softc *sc)
 		sc->identify_done = 0;
 
 		cmd = i;
-		cmd <<= 56;
-		cmd |= (HTIF_CMD_IDENTIFY << 48);
+		cmd <<= HTIF_DEV_ID_SHIFT;
+		cmd |= (HTIF_CMD_IDENTIFY << HTIF_CMD_SHIFT);
 		cmd |= data;
 
 		htif_command(cmd, ECALL_HTIF_CMD);

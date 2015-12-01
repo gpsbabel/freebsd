@@ -310,7 +310,7 @@ htif_console_intr(void *arg, uint64_t entry)
 
 	sc = arg;
 
-	devcmd = HTIF_DEV_ID(entry);
+	devcmd = HTIF_DEV_CMD(entry);
 	data = HTIF_DEV_DATA(entry);
 
 	if (devcmd == 0) {
