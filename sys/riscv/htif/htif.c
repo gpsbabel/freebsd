@@ -86,13 +86,13 @@ struct intr_entry {
 	void *arg;
 };
 
-struct intr_entry intrs[HTIF_MAX_DEV];
+struct intr_entry intrs[HTIF_NDEV];
 
 int
 htif_setup_intr(int id, void *func, void *arg)
 {
 
-	if (id >= HTIF_MAX_DEV)
+	if (id >= HTIF_NDEV)
 		return (-1);
 
 	intrs[id].func = func;
@@ -154,8 +154,8 @@ htif_add_device(struct htif_softc *sc, int i, char *id, char *name)
 	dev_sc = malloc(sizeof(struct htif_dev_softc), M_DEVBUF, M_NOWAIT | M_ZERO);
 	dev_sc->sc = sc;
 	dev_sc->index = i;
-	dev_sc->id = malloc(HTIF_MAX_ID, M_DEVBUF, M_NOWAIT | M_ZERO);
-	memcpy(dev_sc->id, id, HTIF_MAX_ID);
+	dev_sc->id = malloc(HTIF_ID_LEN, M_DEVBUF, M_NOWAIT | M_ZERO);
+	memcpy(dev_sc->id, id, HTIF_ID_LEN);
 
 	dev_sc->dev = device_add_child(sc->dev, name, -1);
 	device_set_ivars(dev_sc->dev, dev_sc);
@@ -166,7 +166,7 @@ htif_add_device(struct htif_softc *sc, int i, char *id, char *name)
 static int
 htif_enumerate(struct htif_softc *sc)
 {
-	char id[HTIF_MAX_ID] __aligned(HTIF_ALIGN);
+	char id[HTIF_ID_LEN] __aligned(HTIF_ALIGN);
 	uint64_t paddr;
 	uint64_t data;
 	uint64_t cmd;
@@ -175,7 +175,7 @@ htif_enumerate(struct htif_softc *sc)
 
 	device_printf(sc->dev, "Enumerating devices\n");
 
-	for (i = 0; i < HTIF_MAX_DEV; i++) {
+	for (i = 0; i < HTIF_NDEV; i++) {
 		paddr = pmap_kextract((vm_offset_t)&id);
 		//printf("paddr 0x%016lx\n", paddr);
 

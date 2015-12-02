@@ -41,14 +41,14 @@
 #define	HTIF_DATA_SHIFT		(0)
 #define	HTIF_DATA_MASK		(0xffffffff << HTIF_DATA_SHIFT)
 
-#define	HTIF_CMD_READ       (0x00ul)
-#define	HTIF_CMD_WRITE      (0x01ul)
-#define	HTIF_CMD_IDENTIFY   (0xfful)
+#define	HTIF_CMD_READ		(0x00ul)
+#define	HTIF_CMD_WRITE		(0x01ul)
+#define	HTIF_CMD_IDENTIFY	(0xfful)
 
-#define	HTIF_MAX_DEV        (256)
-#define	HTIF_MAX_ID         (64)
+#define	HTIF_NDEV		(256)
+#define	HTIF_ID_LEN		(64)
 
-#define	HTIF_ALIGN          (64)
+#define	HTIF_ALIGN		(64)
 
 #define	HTIF_DEV_CMD(entry)	((entry & HTIF_CMD_MASK) >> HTIF_CMD_SHIFT)
 #define	HTIF_DEV_ID(entry)	((entry & HTIF_DEV_ID_MASK) >> HTIF_DEV_ID_SHIFT)
