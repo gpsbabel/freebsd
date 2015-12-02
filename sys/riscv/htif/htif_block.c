@@ -63,7 +63,7 @@ __FBSDID("$FreeBSD$");
 
 #include "htif.h"
 
-#define	SECTOR_SIZE_SHIFT	9
+#define	SECTOR_SIZE_SHIFT	(9)
 #define	SECTOR_SIZE		(1 << SECTOR_SIZE_SHIFT)
 
 #define HTIF_BLK_LOCK(_sc)	mtx_lock(&(_sc)->sc_mtx)
@@ -92,7 +92,7 @@ struct htif_blk_softc {
 	int		running;
 	int		intr_chan;
 	int		cmd_done;
-	int		curtag;
+	uint16_t	curtag;
 	struct bio	*bp;
 };
 
@@ -236,8 +236,8 @@ htif_blk_task(void *arg)
 			KASSERT(paddr != 0, ("paddr is 0"));
 			req.addr = paddr;
 
-			if (sc->curtag++ >= 65535)
-				sc->curtag = 0;
+			//if (sc->curtag++ >= 0xffff)
+			//	sc->curtag = 0;
 			req.tag = sc->curtag;
 
 			//printf("index %d addr 0x%016lx\n", sc_dev->index, req.addr);
