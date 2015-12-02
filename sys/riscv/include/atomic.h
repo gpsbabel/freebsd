@@ -37,34 +37,25 @@
 #ifndef	_MACHINE_ATOMIC_H_
 #define	_MACHINE_ATOMIC_H_
 
-#define	isb()		__asm __volatile("isb" : : : "memory")
+#define	fence()	__asm __volatile("fence" ::: "memory");
+#define	mb()	fence()
+#define	rmb()	fence()
+#define	wmb()	fence()
 
-/*
- * Options for DMB and DSB:
- *	oshld	Outer Shareable, load
- *	oshst	Outer Shareable, store
- *	osh	Outer Shareable, all
- *	nshld	Non-shareable, load
- *	nshst	Non-shareable, store
- *	nsh	Non-shareable, all
- *	ishld	Inner Shareable, load
- *	ishst	Inner Shareable, store
- *	ish	Inner Shareable, all
- *	ld	Full system, load
- *	st	Full system, store
- *	sy	Full system, all
- */
-//#define	dsb(opt)	__asm __volatile("dsb " __STRING(opt) : : : "memory")
-//#define	dmb(opt)	__asm __volatile("dmb " __STRING(opt) : : : "memory")
-
-//#define	dsb(opt)	__asm __volatile("")
-//#define	dmb(opt)	__asm __volatile("")
-
-//#define	mb()	dmb(sy)	/* Full system memory barrier all */
-//#define	wmb()	dmb(st)	/* Full system memory barrier store */
-//#define	rmb()	dmb(ld)	/* Full system memory barrier load */
-
-#define	rmb()	__asm __volatile("fence" : : : "memory");
+#define	ATOMIC_ACQ_REL(NAME, WIDTH)					\
+static __inline  void							\
+atomic_##NAME##_acq_##WIDTH(__volatile uint##WIDTH##_t *p, uint##WIDTH##_t v)\
+{									\
+	atomic_##NAME##_##WIDTH(p, v);					\
+	fence(); 							\
+}									\
+									\
+static __inline  void							\
+atomic_##NAME##_rel_##WIDTH(__volatile uint##WIDTH##_t *p, uint##WIDTH##_t v)\
+{									\
+	fence();							\
+	atomic_##NAME##_##WIDTH(p, v);					\
+}
 
 static __inline void
 atomic_add_32(volatile uint32_t *p, uint32_t val)
@@ -73,37 +64,33 @@ atomic_add_32(volatile uint32_t *p, uint32_t val)
 	__asm __volatile("amoadd.w zero, %1, %0"
 			: "+A" (*p)
 			: "r" (val));
+}
 
-#if 0
-	__asm __volatile(
-	    "1: ldxr	%w0, [%2]      \n"
-	    "   add	%w0, %w0, %w3  \n"
-	    "   stxr	%w1, %w0, [%2] \n"
-            "   cbnz	%w1, 1b        \n"
-	    : "=&r"(tmp), "=&r"(res), "+r" (p), "+r" (val) : : "cc"
-	);
-#endif
+static __inline void
+atomic_subtract_32(volatile uint32_t *p, uint32_t val)
+{
+
+	__asm __volatile("amoadd.w zero, %1, %0"
+			: "+A" (*p)
+			: "r" (-val));
+}
+
+static __inline void
+atomic_set_32(volatile uint32_t *p, uint32_t val)
+{
+
+	__asm __volatile("amoor.w zero, %1, %0"
+			: "+A" (*p)
+			: "r" (val));
 }
 
 static __inline void
 atomic_clear_32(volatile uint32_t *p, uint32_t val)
 {
-	//uint32_t tmp;
-	//int res;
 
 	__asm __volatile("amoand.w zero, %1, %0"
 		: "+A" (*p)
 		: "r" (~val));
-
-#if 0
-	__asm __volatile(
-	    "1: ldxr	%w0, [%2]      \n"
-	    "   bic	%w0, %w0, %w3  \n"
-	    "   stxr	%w1, %w0, [%2] \n"
-            "   cbnz	%w1, 1b        \n"
-	    : "=&r"(tmp), "=&r"(res), "+r" (p), "+r" (val) : : "cc"
-	);
-#endif
 }
 
 static __inline int
@@ -125,20 +112,6 @@ atomic_cmpset_32(volatile uint32_t *p, uint32_t cmpval, uint32_t newval)
 			: "=&r" (tmp), "=&r" (res), "+A" (*p)
 			: "rJ" (cmpval), "rJ" (newval));
 
-#if 0
-	__asm __volatile(
-	    "1: mov	%w1, #1        \n"
-	    "   ldxr	%w0, [%2]      \n"
-	    "   cmp	%w0, %w3       \n"
-	    "   b.ne	2f             \n"
-	    "   stxr	%w1, %w4, [%2] \n"
-            "   cbnz	%w1, 1b        \n"
-	    "2:"
-	    : "=&r"(tmp), "=&r"(res), "+r" (p), "+r" (cmpval), "+r" (newval)
-	    : : "cc"
-	);
-#endif
-
 	return (!res);
 }
 
@@ -151,16 +124,6 @@ atomic_fetchadd_32(volatile uint32_t *p, uint32_t val)
 			: "=&r" (ret), "+A" (*p)
 			: "r" (val));
 
-#if 0
-	__asm __volatile(
-	    "1: ldxr	%w4, [%2]      \n"
-	    "   add22	%w0, %w4, %w3  \n"
-	    "   stxr	%w1, %w0, [%2] \n"
-            "   cbnz	%w1, 1b        \n"
-	    : "=&r"(tmp), "=&r"(res), "+r" (p), "+r" (val), "=&r"(ret) : : "cc"
-	);
-#endif
-
 	return (ret);
 }
 
@@ -168,72 +131,16 @@ static __inline uint32_t
 atomic_readandclear_32(volatile uint32_t *p)
 {
 	uint32_t ret;
-	//uint32_t tmp, ret;
 	uint32_t val;
-	//int res;
 
-	ret = 0;
 	val = 0;
 
-	__asm __volatile(
-	    "amoswap.w %0, %2, %1"
-	    : "=&r"(ret), "+A" (*p)
-	    : "r" (val)
+	__asm __volatile("amoswap.w %0, %2, %1"
+			: "=&r"(ret), "+A" (*p)
+			: "r" (val)
 	);
-
-#if 0
-	__asm __volatile(
-	    "   mov	%w0, #0        \n"
-	    "1: ldxr	%w3, [%2]      \n"
-	    "   stxr	%w1, %w0, [%2] \n"
-            "   cbnz	%w1, 1b        \n"
-	    : "=&r"(tmp), "=&r"(res), "+r" (p), "=&r"(ret) : : "cc"
-	);
-#endif
 
 	return (ret);
-}
-
-static __inline void
-atomic_set_32(volatile uint32_t *p, uint32_t val)
-{
-	//uint32_t tmp;
-	//int res;
-
-	__asm __volatile("amoor.w zero, %1, %0"
-		: "+A" (*p)
-		: "r" (val));
-
-#if 0
-	__asm __volatile(
-	    "1: ldxr	%w0, [%2]      \n"
-	    "   orr	%w0, %w0, %w3  \n"
-	    "   stxr2	%w1, %w0, [%2] \n"
-            "   cbnz	%w1, 1b        \n"
-	    : "=&r"(tmp), "=&r"(res), "+r" (p), "+r" (val) : : "cc"
-	);
-#endif
-}
-
-static __inline void
-atomic_subtract_32(volatile uint32_t *p, uint32_t val)
-{
-	//uint32_t tmp;
-	//int res;
-
-	__asm __volatile("amoadd.w zero, %1, %0"
-			: "+A" (*p)
-			: "r" (-val));
-
-#if 0
-	__asm __volatile(
-	    "1: ldxr	%w0, [%2]      \n"
-	    "   sub	%w0, %w0, %w3  \n"
-	    "   stxr	%w1, %w0, [%2] \n"
-            "   cbnz	%w1, 1b        \n"
-	    : "=&r"(tmp), "=&r"(res), "+r" (p), "+r" (val) : : "cc"
-	);
-#endif
 }
 
 #define	atomic_add_int		atomic_add_32
@@ -244,77 +151,30 @@ atomic_subtract_32(volatile uint32_t *p, uint32_t val)
 #define	atomic_set_int		atomic_set_32
 #define	atomic_subtract_int	atomic_subtract_32
 
-static __inline void
-atomic_add_acq_32(volatile uint32_t *p, uint32_t val)
-{
-	//uint32_t tmp;
-	//int res;
-
-	__asm __volatile("amoadd.w.aq zero, %1, %0"
-			: "+A" (*p)
-			: "r" (val));
-
-#if 0
-	__asm __volatile(
-	    "1: ldaxr	%w0, [%2]      \n"
-	    "   add	%w0, %w0, %w3  \n"
-	    "   stxr	%w1, %w0, [%2] \n"
-            "   cbnz	%w1, 1b        \n"
-	    "2:"
-	    : "=&r"(tmp), "=&r"(res), "+r" (p), "+r" (val) : : "cc", "memory"
-	);
-#endif
-}
-
-static __inline void
-atomic_clear_acq_32(volatile uint32_t *p, uint32_t val)
-{
-	uint32_t tmp;
-	int res;
-
-	__asm __volatile(
-	    "1: ldaxr33333333	%w0, [%2]      \n"
-	    "   bic	%w0, %w0, %w3  \n"
-	    "   stxr	%w1, %w0, [%2] \n"
-            "   cbnz	%w1, 1b        \n"
-	    : "=&r"(tmp), "=&r"(res), "+r" (p), "+r" (val) : : "cc", "memory"
-	);
-}
+ATOMIC_ACQ_REL(set, 32)
+ATOMIC_ACQ_REL(clear, 32)
+ATOMIC_ACQ_REL(add, 32)
+ATOMIC_ACQ_REL(subtract, 32)
 
 static __inline int
 atomic_cmpset_acq_32(volatile uint32_t *p, uint32_t cmpval, uint32_t newval)
 {
-	uint32_t tmp;
 	int res;
 
-	res = 0;
+	res = atomic_cmpset_32(p, cmpval, newval);
 
-	__asm __volatile(
-		"0:"
-			"li   %1, 1\n" /* Preset to fail */
-			"lr.w %0, %2\n"
-			"bne  %0, %z3, 1f\n"
-			"sc.w %1, %z4, %2\n"
-			"bnez %1, 0b\n"
-		"1:"
-			: "=&r" (tmp), "=&r" (res), "+A" (*p)
-			: "rJ" (cmpval), "rJ" (newval));
+	fence();
 
-#if 0
-	__asm __volatile(
-	    "1: mov	%w1, #1        \n"
-	    "   ldaxr	%w0, [%2]      \n"
-	    "   cmp	%w0, %w3       \n"
-	    "   b.ne	2f             \n"
-	    "   stxr	%w1, %w4, [%2] \n"
-            "   cbnz	%w1, 1b        \n"
-	    "2:"
-	    : "=&r"(tmp), "=&r"(res), "+r" (p), "+r" (cmpval), "+r" (newval)
-	    : : "cc", "memory"
-	);
-#endif
+	return (res);
+}
 
-	return (!res);
+static __inline int
+atomic_cmpset_rel_32(volatile uint32_t *p, uint32_t cmpval, uint32_t newval)
+{
+
+	fence();
+
+	return (atomic_cmpset_32(p, cmpval, newval));
 }
 
 static __inline uint32_t
@@ -322,58 +182,20 @@ atomic_load_acq_32(volatile uint32_t *p)
 {
 	uint32_t ret;
 
-	ret = 0;
-#if 0
-	__asm __volatile(
-	    "ldar	%w0, [%1] \n"
-	    : "=&r" (ret) : "r" (p) : "memory");
-#endif
-
-	//__asm __volatile(
-	//    "amoswap.w.aq %0, %0, (%1)\n"
-	//    : "=&r" (ret) : "+A" (*p) : "memory");
-
-	//int tmp = 1;
-	//__asm__ __volatile__ (
-	//	"amoswap.w.aq %0, %2, %1"
-	//	: "=&r" (ret), "+A" (*p)
-	//	: "r" (tmp)
-	//	: "memory");
-
 	ret = *p;
-	__asm __volatile("fence" : : : "memory");
+
+	fence();
 
 	return (ret);
 }
 
 static __inline void
-atomic_set_acq_32(volatile uint32_t *p, uint32_t val)
+atomic_store_rel_32(volatile uint32_t *p, uint32_t val)
 {
-	uint32_t tmp;
-	int res;
 
-	__asm __volatile(
-	    "1: ldaxr111111111111	%w0, [%2]      \n"
-	    "   orr	%w0, %w0, %w3  \n"
-	    "   stxr	%w1, %w0, [%2] \n"
-            "   cbnz	%w1, 1b        \n"
-	    : "=&r"(tmp), "=&r"(res), "+r" (p), "+r" (val) : : "cc", "memory"
-	);
-}
+	fence();
 
-static __inline void
-atomic_subtract_acq_32(volatile uint32_t *p, uint32_t val)
-{
-	uint32_t tmp;
-	int res;
-
-	__asm __volatile(
-	    "1: ldaxr22222222222	%w0, [%2]      \n"
-	    "   sub	%w0, %w0, %w3  \n"
-	    "   stxr	%w1, %w0, [%2] \n"
-            "   cbnz	%w1, 1b        \n"
-	    : "=&r"(tmp), "=&r"(res), "+r" (p), "+r" (val) : : "cc", "memory"
-	);
+	*p = val;
 }
 
 #define	atomic_add_acq_int	atomic_add_acq_32
@@ -383,139 +205,12 @@ atomic_subtract_acq_32(volatile uint32_t *p, uint32_t val)
 #define	atomic_set_acq_int	atomic_set_acq_32
 #define	atomic_subtract_acq_int	atomic_subtract_acq_32
 
-/* The atomic functions currently are both acq and rel, we should fix this. */
-
-static __inline void
-atomic_add_rel_32(volatile uint32_t *p, uint32_t val)
-{
-	//uint32_t tmp;
-	//int res;
-
-	__asm __volatile("amoadd.w zero, %1, %0"
-			: "+A" (*p)
-			: "r" (val));
-
-#if 0
-	__asm __volatile(
-	    "1: ldxr	%w0, [%2]      \n"
-	    "   add	%w0, %w0, %w3  \n"
-	    "   stlxr	%w1, %w0, [%2] \n"
-            "   cbnz	%w1, 1b        \n"
-	    "2:"
-	    : "=&r"(tmp), "=&r"(res), "+r" (p), "+r" (val) : : "cc", "memory"
-	);
-#endif
-}
-
-static __inline void
-atomic_clear_rel_32(volatile uint32_t *p, uint32_t val)
-{
-	uint32_t tmp;
-	int res;
-
-	__asm __volatile(
-	    "1: ldxr7777777777	%w0, [%2]      \n"
-	    "   bic	%w0, %w0, %w3  \n"
-	    "   stlxr	%w1, %w0, [%2] \n"
-            "   cbnz	%w1, 1b        \n"
-	    : "=&r"(tmp), "=&r"(res), "+r" (p), "+r" (val) : : "cc", "memory"
-	);
-}
-
-static __inline int
-atomic_cmpset_rel_32(volatile uint32_t *p, uint32_t cmpval, uint32_t newval)
-{
-	uint32_t tmp;
-	int res;
-
-	res = 0;
-
-	__asm __volatile(
-		"0:"
-			"li   %1, 1\n" /* Preset to fail */
-			"lr.w %0, %2\n"
-			"bne  %0, %z3, 1f\n"
-			"sc.w %1, %z4, %2\n"
-			"bnez %1, 0b\n"
-		"1:"
-			: "=&r" (tmp), "=&r" (res), "+A" (*p)
-			: "rJ" (cmpval), "rJ" (newval));
-
-#if 0
-	__asm __volatile(
-	    "1: mov	%w1, #1        \n"
-	    "   ldxr	%w0, [%2]      \n"
-	    "   cmp	%w0, %w3       \n"
-	    "   b.ne	2f             \n"
-	    "   stlxr	%w1, %w4, [%2] \n"
-            "   cbnz	%w1, 1b        \n"
-	    "2:"
-	    : "=&r"(tmp), "=&r"(res), "+r" (p), "+r" (cmpval), "+r" (newval)
-	    : : "cc", "memory"
-	);
-#endif
-
-	return (!res);
-}
-
-static __inline void
-atomic_set_rel_32(volatile uint32_t *p, uint32_t val)
-{
-	uint32_t tmp;
-	int res;
-
-	__asm __volatile(
-	    "1: ldxr	%w0, [%2]      \n"
-	    "   orr	%w0, %w0, %w3  \n"
-	    "   stlxr	%w1, %w0, [%2] \n"
-            "   cbnz	%w1, 1b        \n"
-	    : "=&r"(tmp), "=&r"(res), "+r" (p), "+r" (val) : : "cc", "memory"
-	);
-}
-
-static __inline void
-atomic_store_rel_32(volatile uint32_t *p, uint32_t val)
-{
-
-	__asm __volatile("fence" : : : "memory");
-	*p = val;
-
-#if 0
-	__asm __volatile(
-	    "stlr	%w0, [%1] \n"
-	    : : "r" (val), "r" (p) : "memory");
-#endif
-}
-
-static __inline void
-atomic_subtract_rel_32(volatile uint32_t *p, uint32_t val)
-{
-	//uint32_t tmp;
-	//int res;
-
-	__asm __volatile("amoadd.w zero, %1, %0"
-			: "+A" (*p)
-			: "r" (-val));
-
-#if 0
-	__asm __volatile(
-	    "1: ldxr	%w0, [%2]      \n"
-	    "   sub	%w0, %w0, %w3  \n"
-	    "   stlxr	%w1, %w0, [%2] \n"
-            "   cbnz	%w1, 1b        \n"
-	    : "=&r"(tmp), "=&r"(res), "+r" (p), "+r" (val) : : "cc", "memory"
-	);
-#endif
-
-}
-
 #define	atomic_add_rel_int	atomic_add_rel_32
 #define	atomic_clear_rel_int	atomic_add_rel_32
 #define	atomic_cmpset_rel_int	atomic_cmpset_rel_32
 #define	atomic_set_rel_int	atomic_set_rel_32
 #define	atomic_subtract_rel_int	atomic_subtract_rel_32
 #define	atomic_store_rel_int	atomic_store_rel_32
-
 
 static __inline void
 atomic_add_64(volatile uint64_t *p, uint64_t val)
@@ -524,37 +219,33 @@ atomic_add_64(volatile uint64_t *p, uint64_t val)
 	__asm __volatile("amoadd.d zero, %1, %0"
 			: "+A" (*p)
 			: "r" (val));
+}
 
-#if 0
-	__asm __volatile(
-	    "1: ldxr	%0, [%2]      \n"
-	    "   add4	%0, %0, %3    \n"
-	    "   stxr	%w1, %0, [%2] \n"
-            "   cbnz	%w1, 1b       \n"
-	    : "=&r" (tmp), "=&r" (res), "+r" (p), "+r" (val) : : "cc"
-	);
-#endif
+static __inline void
+atomic_subtract_64(volatile uint64_t *p, uint64_t val)
+{
+
+	__asm __volatile("amoadd.d zero, %1, %0"
+			: "+A" (*p)
+			: "r" (-val));
+}
+
+static __inline void
+atomic_set_64(volatile uint64_t *p, uint64_t val)
+{
+
+	__asm __volatile("amoor.d zero, %1, %0"
+		: "+A" (*p)
+		: "r" (val));
 }
 
 static __inline void
 atomic_clear_64(volatile uint64_t *p, uint64_t val)
 {
-	//uint64_t tmp;
-	//int res;
 
 	__asm __volatile("amoand.d zero, %1, %0"
 		: "+A" (*p)
 		: "r" (~val));
-
-#if 0
-	__asm __volatile(
-	    "1: ldxr	%0, [%2]      \n"
-	    "   bic	%0, %0, %3    \n"
-	    "   stxr	%w1, %0, [%2] \n"
-            "   cbnz	%w1, 1b       \n"
-	    : "=&r"(tmp), "=&r"(res), "+r" (p), "+r" (val) : : "cc"
-	);
-#endif
 }
 
 static __inline int
@@ -577,56 +268,16 @@ atomic_cmpset_64(volatile uint64_t *p, uint64_t cmpval, uint64_t newval)
 			: "rJ" (cmpval), "rJ" (newval));
 
 	return (!res);
-
-	__asm __volatile(
-		"1: li      %1, 1          \n"
-		"   lr.d    %0, (%2)       \n"
-		"   bne     %0, %3, 2f     \n"
-		"   sc.w.aq %1, %4, (%2)   \n"
-		"   bnez    %1, 1b         \n"
-		"2:"
-		: "=&r"(tmp), "=&r"(res), "+r" (p), "+r" (cmpval), "+r" (newval)
-		: : "cc", "memory"
-	);
-
-#if 0
-	__asm __volatile(
-	    "1: mov	%w1, #1       \n"
-	    "   ldxr	%0, [%2]      \n"
-	    "   cmp	%0, %3        \n"
-	    "   b.ne	2f            \n"
-	    "   stxr	%w1, %4, [%2] \n"
-            "   cbnz	%w1, 1b       \n"
-	    "2:"
-	    : "=&r" (tmp), "=&r"(res), "+r" (p), "+r" (cmpval), "+r" (newval)
-	    : : "cc", "memory"
-	);
-#endif
-
-	return (!res);
 }
 
 static __inline uint64_t
 atomic_fetchadd_64(volatile uint64_t *p, uint64_t val)
 {
-	//uint64_t tmp, ret;
-	//int res;
-
 	uint64_t ret;
 
 	__asm __volatile("amoadd.d %0, %2, %1"
 			: "=&r" (ret), "+A" (*p)
 			: "r" (val));
-
-#if 0
-	__asm __volatile(
-	    "1: ldxr	%4, [%2]      \n"
-	    "   add	%0, %4, %3    \n"
-	    "   stxr	%w1, %0, [%2] \n"
-            "   cbnz	%w1, 1b       \n"
-	    : "=&r"(tmp), "=&r"(res), "+r" (p), "+r" (val), "=&r"(ret) : : "cc"
-	);
-#endif
 
 	return (ret);
 }
@@ -634,85 +285,28 @@ atomic_fetchadd_64(volatile uint64_t *p, uint64_t val)
 static __inline uint64_t
 atomic_readandclear_64(volatile uint64_t *p)
 {
-	uint64_t tmp, ret;
-	int res;
+	uint64_t ret;
+	uint64_t val;
 
-	__asm __volatile(
-	    "   mov	%0, #0        \n"
-	    "1: ldxr	%3, [%2]      \n"
-	    "   stxr	%w1, %0, [%2] \n"
-            "   cbnz	%w1, 1b       \n"
-	    : "=&r"(tmp), "=&r"(res), "+r" (p), "=&r"(ret) : : "cc"
+	val = 0;
+
+	__asm __volatile("amoswap.d %0, %2, %1"
+			: "=&r"(ret), "+A" (*p)
+			: "r" (val)
 	);
 
 	return (ret);
-}
-
-static __inline void
-atomic_set_64(volatile uint64_t *p, uint64_t val)
-{
-	//uint64_t tmp;
-	//int res;
-
-	__asm __volatile("amoor.d zero, %1, %0"
-		: "+A" (*p)
-		: "r" (val));
-
-#if 0
-	__asm __volatile(
-	    "1: ldxr	%0, [%2]      \n"
-	    "   orr5	%0, %0, %3    \n"
-	    "   stxr	%w1, %0, [%2] \n"
-            "   cbnz	%w1, 1b       \n"
-	    : "=&r"(tmp), "=&r"(res), "+r" (p), "+r" (val) : : "cc"
-	);
-#endif
-}
-
-static __inline void
-atomic_subtract_64(volatile uint64_t *p, uint64_t val)
-{
-	//uint64_t tmp;
-	//int res;
-
-	__asm __volatile("amoadd.d zero, %1, %0"
-			: "+A" (*p)
-			: "r" (-val));
-
-#if 0
-	__asm __volatile(
-	    "1: ldxr	%0, [%2]      \n"
-	    "   sub9	%0, %0, %3    \n"
-	    "   stxr	%w1, %0, [%2] \n"
-            "   cbnz	%w1, 1b       \n"
-	    : "=&r"(tmp), "=&r"(res), "+r" (p), "+r" (val) : : "cc"
-	);
-#endif
-
 }
 
 static __inline uint64_t
 atomic_swap_64(volatile uint64_t *p, uint64_t val)
 {
 	uint64_t old;
-	//int res;
 
-	old = 0;
-
-	__asm __volatile(
-	    "amoswap.d %0, %2, %1"
-	    : "=&r"(old), "+A" (*p)
-	    : "r" (val)
+	__asm __volatile("amoswap.d %0, %2, %1"
+			: "=&r"(old), "+A" (*p)
+			: "r" (val)
 	);
-
-#if 0
-	__asm __volatile(
-	    "1: ldxr	%0, [%2]      \n"
-	    "   stxr	%w1, %3, [%2] \n"
-	    "   cbnz	%w1, 1b       \n"
-	    : "=&r"(old), "=&r"(res), "+r" (p), "+r" (val) : : "cc", "memory"
-	);
-#endif
 
 	return (old);
 }
@@ -733,77 +327,30 @@ atomic_swap_64(volatile uint64_t *p, uint64_t val)
 #define	atomic_set_ptr			atomic_set_64
 #define	atomic_subtract_ptr		atomic_subtract_64
 
-static __inline void
-atomic_add_acq_64(volatile uint64_t *p, uint64_t val)
-{
-	//uint64_t tmp;
-	//int res;
-
-	__asm __volatile("amoadd.d.aq zero, %1, %0"
-			: "+A" (*p)
-			: "r" (val));
-
-#if 0
-	__asm __volatile(
-	    "1: ldaxr	%0, [%2]      \n"
-	    "   add	%0, %0, %3    \n"
-	    "   stxr	%w1, %0, [%2] \n"
-            "   cbnz	%w1, 1b       \n"
-	    "2:"
-	    : "=&r"(tmp), "=&r"(res), "+r" (p), "+r" (val) : : "cc", "memory"
-	);
-#endif
-}
-
-static __inline void
-atomic_clear_acq_64(volatile uint64_t *p, uint64_t val)
-{
-	uint64_t tmp;
-	int res;
-
-	__asm __volatile(
-	    "1: ldaxr	%0, [%2]      \n"
-	    "   bic	%0, %0, %3    \n"
-	    "   stxr	%w1, %0, [%2] \n"
-            "   cbnz	%w1, 1b       \n"
-	    : "=&r"(tmp), "=&r"(res), "+r" (p), "+r" (val) : : "cc", "memory"
-	);
-}
+ATOMIC_ACQ_REL(set, 64)
+ATOMIC_ACQ_REL(clear, 64)
+ATOMIC_ACQ_REL(add, 64)
+ATOMIC_ACQ_REL(subtract, 64)
 
 static __inline int
 atomic_cmpset_acq_64(volatile uint64_t *p, uint64_t cmpval, uint64_t newval)
 {
-	uint64_t tmp;
 	int res;
 
-	res = 0;
+	res = atomic_cmpset_64(p, cmpval, newval);
 
-	__asm __volatile(
-		"0:"
-			"li   %1, 1\n" /* Preset to fail */
-			"lr.d %0, %2\n"
-			"bne  %0, %z3, 1f\n"
-			"sc.d %1, %z4, %2\n"
-			"bnez %1, 0b\n"
-		"1:"
-			: "=&r" (tmp), "=&r" (res), "+A" (*p)
-			: "rJ" (cmpval), "rJ" (newval));
+	fence();
 
-#if 0
-	__asm __volatile(
-	    "1: mov	%w1, #1       \n"
-	    "   ldaxr	%0, [%2]      \n"
-	    "   cmp	%0, %3        \n"
-	    "   b.ne	2f            \n"
-	    "   stxr	%w1, %4, [%2] \n"
-            "   cbnz	%w1, 1b       \n"
-	    "2:"
-	    : "=&r" (tmp), "=&r" (res), "+r" (p), "+r" (cmpval), "+r" (newval)
-	    : : "cc", "memory"
-	);
-#endif
+	return (res);
+}
 
-	return (!res);
+static __inline int
+atomic_cmpset_rel_64(volatile uint64_t *p, uint64_t cmpval, uint64_t newval)
+{
+
+	fence();
+
+	return (atomic_cmpset_64(p, cmpval, newval));
 }
 
 static __inline uint64_t
@@ -812,46 +359,24 @@ atomic_load_acq_64(volatile uint64_t *p)
 	uint64_t ret;
 
 	ret = *p;
-	__asm __volatile("fence" : : : "memory");
 
-#if 0
-	__asm __volatile(
-	    "ldar	%0, [%1] \n"
-	    : "=&r" (ret) : "r" (p) : "memory");
-#endif
+	fence();
 
 	return (ret);
 }
 
 static __inline void
-atomic_set_acq_64(volatile uint64_t *p, uint64_t val)
+atomic_store_rel_64(volatile uint64_t *p, uint64_t val)
 {
-	uint64_t tmp;
-	int res;
 
-	__asm __volatile(
-	    "1: ldaxr	%0, [%2]      \n"
-	    "   orr	%0, %0, %3    \n"
-	    "   stxr	%w1, %0, [%2] \n"
-            "   cbnz	%w1, 1b       \n"
-	    : "=&r"(tmp), "=&r"(res), "+r" (p), "+r" (val) : : "cc", "memory"
-	);
+	fence();
+
+	*p = val;
 }
 
-static __inline void
-atomic_subtract_acq_64(volatile uint64_t *p, uint64_t val)
-{
-	uint64_t tmp;
-	int res;
-
-	__asm __volatile(
-	    "1: ldaxr	%0, [%2]      \n"
-	    "   sub	%0, %0, %3    \n"
-	    "   stxr	%w1, %0, [%2] \n"
-            "   cbnz	%w1, 1b       \n"
-	    : "=&r"(tmp), "=&r"(res), "+r" (p), "+r" (val) : : "cc", "memory"
-	);
-}
+#define	atomic_add_acq_int	atomic_add_acq_32
+#define	atomic_clear_acq_int	atomic_clear_acq_32
+#define	atomic_cmpset_acq_int	atomic_cmpset_acq_32
 
 #define	atomic_add_acq_long		atomic_add_acq_64
 #define	atomic_clear_acq_long		atomic_add_acq_64
@@ -867,158 +392,32 @@ atomic_subtract_acq_64(volatile uint64_t *p, uint64_t val)
 #define	atomic_set_acq_ptr		atomic_set_acq_64
 #define	atomic_subtract_acq_ptr		atomic_subtract_acq_64
 
-/*
- * TODO: The atomic functions currently are both acq and rel, we should fix
- * this.
- */
-
-static __inline void
-atomic_add_rel_64(volatile uint64_t *p, uint64_t val)
-{
-	uint64_t tmp;
-	int res;
-
-	__asm __volatile(
-	    "1: ldxr	%0, [%2]      \n"
-	    "   add	%0, %0, %3    \n"
-	    "   stlxr	%w1, %0, [%2] \n"
-            "   cbnz	%w1, 1b       \n"
-	    "2:"
-	    : "=&r"(tmp), "=&r"(res), "+r" (p), "+r" (val) : : "cc", "memory"
-	);
-}
-
-static __inline void
-atomic_clear_rel_64(volatile uint64_t *p, uint64_t val)
-{
-	uint64_t tmp;
-	int res;
-
-	__asm __volatile(
-	    "1: ldxr	%0, [%2]      \n"
-	    "   bic	%0, %0, %3    \n"
-	    "   stlxr	%w1, %0, [%2] \n"
-            "   cbnz	%w1, 1b       \n"
-	    : "=&r"(tmp), "=&r"(res), "+r" (p), "+r" (val) : : "cc", "memory"
-	);
-}
-
-static __inline int
-atomic_cmpset_rel_64(volatile uint64_t *p, uint64_t cmpval, uint64_t newval)
-{
-	uint64_t tmp;
-	int res;
-
-	res = 0;
-
-	__asm __volatile(
-		"0:"
-			"li   %1, 1\n" /* Preset to fail */
-			"lr.d %0, %2\n"
-			"bne  %0, %z3, 1f\n"
-			"sc.d %1, %z4, %2\n"
-			"bnez %1, 0b\n"
-		"1:"
-			: "=&r" (tmp), "=&r" (res), "+A" (*p)
-			: "rJ" (cmpval), "rJ" (newval));
-
-#if 0
-	__asm __volatile(
-	    "1: mov	%w1, #1       \n"
-	    "   ldxr	%0, [%2]      \n"
-	    "   cmp	%0, %3        \n"
-	    "   b.ne	2f            \n"
-	    "   stlxr	%w1, %4, [%2] \n"
-            "   cbnz	%w1, 1b       \n"
-	    "2:"
-	    : "=&r" (tmp), "=&r" (res), "+r" (p), "+r" (cmpval), "+r" (newval)
-	    : : "cc", "memory"
-	);
-#endif
-
-	return (!res);
-}
-
-static __inline void
-atomic_set_rel_64(volatile uint64_t *p, uint64_t val)
-{
-	uint64_t tmp;
-	int res;
-
-	__asm __volatile(
-	    "1: ldxr	%0, [%2]      \n"
-	    "   orr	%0, %0, %3    \n"
-	    "   stlxr	%w1, %0, [%2] \n"
-            "   cbnz	%w1, 1b       \n"
-	    : "=&r"(tmp), "=&r"(res), "+r" (p), "+r" (val) : : "cc", "memory"
-	);
-}
-
-static __inline void
-atomic_store_rel_64(volatile uint64_t *p, uint64_t val)
-{
-
-	__asm __volatile("fence" : : : "memory");
-	*p = val;
-
-#if 0
-	__asm __volatile(
-	    "stlr	%0, [%1] \n"
-	    : : "r" (val), "r" (p) : "memory");
-#endif
-}
-
-static __inline void
-atomic_subtract_rel_64(volatile uint64_t *p, uint64_t val)
-{
-	//uint64_t tmp;
-	//int res;
-
-	__asm __volatile("amoadd.d zero, %1, %0"
-			: "+A" (*p)
-			: "r" (-val));
-
-#if 0
-	__asm __volatile(
-	    "1: ldxr	%0, [%2]      \n"
-	    "   sub	%0, %0, %3    \n"
-	    "   stlxr	%w1, %0, [%2] \n"
-            "   cbnz	%w1, 1b       \n"
-	    : "=&r"(tmp), "=&r"(res), "+r" (p), "+r" (val) : : "cc", "memory"
-	);
-#endif
-}
-
 static __inline void
 atomic_thread_fence_acq(void)
 {
 
-	__asm __volatile("fence" : : : "memory");
-	//dmb(ld);
+	fence();
 }
 
 static __inline void
 atomic_thread_fence_rel(void)
 {
 
-	__asm __volatile("fence" : : : "memory");
-	//dmb(sy);
+	fence();
 }
 
 static __inline void
 atomic_thread_fence_acq_rel(void)
 {
 
-	__asm __volatile("fence" : : : "memory");
-	//dmb(sy);
+	fence();
 }
 
 static __inline void
 atomic_thread_fence_seq_cst(void)
 {
 
-	__asm __volatile("fence" : : : "memory");
-	//dmb(sy);
+	fence();
 }
 
 #define	atomic_add_rel_long		atomic_add_rel_64
@@ -1039,4 +438,3 @@ atomic_thread_fence_seq_cst(void)
 #define	atomic_store_rel_ptr		atomic_store_rel_64
 
 #endif /* _MACHINE_ATOMIC_H_ */
-
