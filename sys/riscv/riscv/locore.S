@@ -453,16 +453,16 @@ init_pt_va:
  */
 
 #define	HANDLE_SUPERVISOR_TRAP_IN_MACHINE_MODE 0 \
-  | (0 << (31 - 0)) /* IF misaligned */           \
-  | (0 << (31 - 1)) /* IF fault */                \
-  | (1 << (31 - 2)) /* illegal instruction */     \
-  | (0 << (31 - 3)) /* breakpoint */              \
-  | (1 << (31 - 4)) /* load misaligned */         \
-  | (0 << (31 - 5)) /* load fault */              \
-  | (1 << (31 - 6)) /* store misaligned */        \
-  | (0 << (31 - 7)) /* store fault */             \
-  | (0 << (31 - 8)) /* user environment call */   \
-  | (1 << (31 - 9)) /* super environment call */  \
+    | (0 << (31 - 0)) /* IF misaligned */           \
+    | (0 << (31 - 1)) /* IF fault */                \
+    | (1 << (31 - 2)) /* illegal instruction */     \
+    | (0 << (31 - 3)) /* breakpoint */              \
+    | (1 << (31 - 4)) /* load misaligned */         \
+    | (0 << (31 - 5)) /* load fault */              \
+    | (1 << (31 - 6)) /* store misaligned */        \
+    | (0 << (31 - 7)) /* store fault */             \
+    | (0 << (31 - 8)) /* user environment call */   \
+    | (1 << (31 - 9)) /* super environment call */
 
 	.text
 bad_trap:
