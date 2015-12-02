@@ -20,8 +20,6 @@ SRCS= ${SHSRCS} ${GENSRCS} ${GENHDRS}
 
 LIBADD=	edit
 
-NO_SHARED?=     YES
-
 CFLAGS+=-DSHELL -I. -I${.CURDIR}
 # for debug:
 # DEBUG_FLAGS+= -g -DDEBUG=2 -fno-inline
