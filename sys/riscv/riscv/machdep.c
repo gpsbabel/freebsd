@@ -425,27 +425,29 @@ struct sigreturn_args {
 int
 sys_sigreturn(struct thread *td, struct sigreturn_args *uap)
 {
-	ucontext_t uc;
 #if 0
-	uint32_t spsr;
+	uint64_t sstatus;
 #endif
+	ucontext_t uc;
 
 	if (uap == NULL)
 		return (EFAULT);
 	if (copyin(uap->sigcntxp, &uc, sizeof(uc)))
 		return (EFAULT);
 
-#if 0
-	/* RISCVTODO */
+	/* RISCVTODO: check this */
 
 	/*
 	 * Make sure the processor mode has not been tampered with and
 	 * interrupts have not been disabled.
 	 */
-	spsr = uc.uc_mcontext.mc_gpregs.gp_spsr;
-	if ((spsr & PSR_M_MASK) != PSR_M_EL0t ||
-	    (spsr & (PSR_F | PSR_I | PSR_A | PSR_D)) != 0)
-		return (EINVAL); 
+#if 0
+	/* RISCVTODO */
+
+	sstatus = uc.uc_mcontext.mc_gpregs.gp_sstatus;
+	if ((sstatus & (1 << 4)) != 0 ||
+	    (sstatus & (1 << 3)) == 0)
+		return (EINVAL);
 #endif
 
 	set_mcontext(td, &uc.uc_mcontext);
@@ -760,21 +762,8 @@ try_load_dtb(caddr_t kmdp)
 static void
 cache_setup(void)
 {
-	int dcache_line_shift, icache_line_shift;
-	uint32_t ctr_el0;
 
-	ctr_el0 = 0; //READ_SPECIALREG(ctr_el0);
-
-	/* Read the log2 words in each D cache line */
-	dcache_line_shift = CTR_DLINE_SIZE(ctr_el0);
-	/* Get the D cache line size */
-	dcache_line_size = sizeof(int) << dcache_line_shift;
-
-	/* And the same for the I cache */
-	icache_line_shift = CTR_ILINE_SIZE(ctr_el0);
-	icache_line_size = sizeof(int) << icache_line_shift;
-
-	idcache_line_size = MIN(dcache_line_size, icache_line_size);
+	/* TODO */
 }
 
 /*
@@ -922,10 +911,7 @@ initriscv(struct riscv_bootparams *rvbp)
 	printf("rvbp->kern_delta 0x%016lx\n", rvbp->kern_delta);
 	printf("lastaddr 0x%016lx KERNBASE 0x%016lx\n", lastaddr, KERNBASE);
 
-	printf("cache_setup\n");
 	cache_setup();
-
-	//while (1);
 
 	// pmap_bootstrap(vm_offset_t l1pt, vm_paddr_t kernstart, vm_size_t kernlen)
 

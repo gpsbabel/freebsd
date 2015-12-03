@@ -311,7 +311,6 @@ CFLAGS += -mfloat-abi=softfp
 .endif
 
 .if ${MACHINE_CPUARCH} == "riscv"
-# Try use hardfloat for riscv yet
 MACHINE_CPU += softfp
 CFLAGS += -msoft-float
 .endif

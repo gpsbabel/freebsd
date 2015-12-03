@@ -1,4 +1,4 @@
-# $FreeBSD: head/share/mk/bsd.endian.mk 280259 2015-03-19 13:53:47Z andrew $
+# $FreeBSD$
 
 .if ${MACHINE_ARCH} == "aarch64" || \
     ${MACHINE_ARCH} == "amd64" || \

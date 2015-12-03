@@ -85,8 +85,6 @@ static void
 configure_final(void *dummy)
 {
 
-	printf("%s\n", __func__);
-
 	riscv_enable_intr();
 	cninit_finish(); 
 
