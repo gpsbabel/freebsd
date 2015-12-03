@@ -118,14 +118,6 @@ extern int *initstack_end;
 
 struct pcpu *pcpup;
 
-/*
-void __attribute__((noreturn)) bad_trap(void);
-void __attribute__((noreturn)) bad_trap(void)
-{
-	while (1);
-}
-*/
-
 uintptr_t mcall_trap(uintptr_t mcause, uintptr_t* regs);
 
 uintptr_t
@@ -195,11 +187,6 @@ fill_regs(struct thread *td, struct reg *regs)
 	regs->sepc = frame->tf_sepc;
 	regs->sstatus = frame->tf_sstatus;
 
-	//regs->sp = frame->tf_sp;
-	//regs->lr = frame->tf_lr;
-	//regs->elr = frame->tf_elr;
-	//regs->spsr = frame->tf_spsr;
-
 	memcpy(regs->x, frame->tf_x, sizeof(regs->x));
 
 	return (0);
@@ -208,17 +195,13 @@ fill_regs(struct thread *td, struct reg *regs)
 int
 set_regs(struct thread *td, struct reg *regs)
 {
-	//struct trapframe *frame;
+	struct trapframe *frame;
 
-	panic("%s", __func__);
+	frame = td->td_frame;
+	frame->tf_sepc = regs->sepc;
+	frame->tf_sstatus = regs->sstatus;
 
-	//frame = td->td_frame;
-	//frame->tf_sp = regs->sp;
-	//frame->tf_lr = regs->lr;
-	//frame->tf_elr = regs->elr;
-	//frame->tf_spsr = regs->spsr;
-
-	//memcpy(frame->tf_x, regs->x, sizeof(frame->tf_x));
+	memcpy(frame->tf_x, regs->x, sizeof(frame->tf_x));
 
 	return (0);
 }
@@ -332,11 +315,9 @@ get_mcontext(struct thread *td, mcontext_t *mcp, int clear_ret)
 
 	if (clear_ret & GET_MC_CLEAR_RET) {
 		mcp->mc_gpregs.gp_x[10] = 0;
-		mcp->mc_gpregs.gp_x[5] = 0; /* syscall error == 0 */
-		//mcp->mc_gpregs.gp_spsr = tf->tf_spsr & ~PSR_C;
+		mcp->mc_gpregs.gp_x[5] = 0; /* clear syscall error */
 	} else {
 		mcp->mc_gpregs.gp_x[10] = tf->tf_x[10];
-		//mcp->mc_gpregs.gp_spsr = tf->tf_spsr;
 	}
 
 	mcp->mc_gpregs.gp_x[2] = tf->tf_x[2]; /* sp */
@@ -358,11 +339,6 @@ set_mcontext(struct thread *td, mcontext_t *mcp)
 
 	tf->tf_sepc = mcp->mc_gpregs.gp_sepc;
 	tf->tf_sstatus = mcp->mc_gpregs.gp_sstatus;
-
-	//tf->tf_sp = mcp->mc_gpregs.gp_sp;
-	//tf->tf_lr = mcp->mc_gpregs.gp_lr;
-	//tf->tf_elr = mcp->mc_gpregs.gp_elr;
-	//tf->tf_spsr = mcp->mc_gpregs.gp_spsr;
 
 	return (0);
 }
@@ -435,11 +411,6 @@ cpu_idle(int busy)
 		__asm __volatile(
 		    "fence \n"
 		    "wfi   \n");
-#if 0
-		__asm __volatile(
-		    "dsb sy \n"
-		    "wfi    \n");
-#endif
 	if (!busy)
 		cpu_activeclock();
 	spinlock_exit();
@@ -559,19 +530,10 @@ sys_sigreturn(struct thread *td, struct sigreturn_args *uap)
 void
 makectx(struct trapframe *tf, struct pcb *pcb)
 {
-	int i;
 
-	panic("%s: implement me\n", __func__);
-
-	for (i = 0; i < PCB_RA; i++)
-		pcb->pcb_x[i] = tf->tf_x[i];
-
-	//pcb->pcb_x[PCB_RA] = tf->tf_lr;
-	//pcb->pcb_pc = tf->tf_elr;
-	//pcb->pcb_sp = tf->tf_sp;
+	memcpy(pcb->pcb_x, tf->tf_x, sizeof(tf->tf_x));
 
 	pcb->pcb_sepc = tf->tf_sepc;
-	pcb->pcb_x[2] = tf->tf_x[2];
 }
 
 void
@@ -583,8 +545,6 @@ sendsig(sig_t catcher, ksiginfo_t *ksi, sigset_t *mask)
 	struct sigframe *fp, frame;
 	struct sigacts *psp;
 	int code, onstack, sig;
-
-	//panic("%s: implement me\n", __func__);
 
 	td = curthread;
 	p = td->td_proc;
@@ -657,9 +617,6 @@ init_proc0(vm_offset_t kstack)
 	pcpup = &__pcpu[0];
 
 	proc_linkup0(&proc0, &thread0);
-	//printf("thread0 is 0x%016lx\n", thread0);
-	//printf("proc0 is 0x%016lx\n", (uint64_t)&proc0);
-
 	thread0.td_kstack = kstack;
 	thread0.td_pcb = (struct pcb *)(thread0.td_kstack) - 1;
 	thread0.td_pcb->pcb_fpflags = 0;
