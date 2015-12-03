@@ -70,8 +70,6 @@ cpu_fork(struct thread *td1, struct proc *p2, struct thread *td2, int flags)
 	struct trapframe *tf;
 	uint64_t val;
 
-	//panic("cpu_fork");
-
 	if ((flags & RFPROC) == 0)
 		return;
 
@@ -84,8 +82,6 @@ cpu_fork(struct thread *td1, struct proc *p2, struct thread *td2, int flags)
 
 		__asm __volatile("mv	%0, tp" : "=&r"(val));
 		td1->td_pcb->pcb_x[4] = val;
-
-		//td1->td_pcb->pcb_tpidr_el0 = 0; //READ_SPECIALREG(tpidr_el0);
 #ifdef VFP
 		if ((td1->td_pcb->pcb_fpflags & PCB_FP_STARTED) != 0)
 			vfp_save_state(td1);
@@ -101,29 +97,24 @@ cpu_fork(struct thread *td1, struct proc *p2, struct thread *td2, int flags)
 	td2->td_pcb->pcb_l1addr =
 	    vtophys(vmspace_pmap(td2->td_proc->p_vmspace)->pm_l1);
 
-	//printf("%s: td 0x%016lx pcb_l1addr 0x%016lx\n", __func__,
-	//		td2, td2->td_pcb->pcb_l1addr);
-
 	tf = (struct trapframe *)STACKALIGN((struct trapframe *)pcb2 - 1);
 	bcopy(td1->td_frame, tf, sizeof(*tf));
 
 	/* Carry bit clear */
 	tf->tf_x[5] = 0;
 
-	/* Arguments child has */
+	/* Arguments for child */
 	tf->tf_x[10] = 0;
 	tf->tf_x[11] = 0;
-	//tf->tf_spsr = 0;
+	/* TODO: tf->tf_sstatus = ? */
 
 	td2->td_frame = tf;
-	//printf("%s: td2 sp 0x%016lx\n", __func__, (uintptr_t)td2->td_frame);
 
 	/* Set the return value registers for fork() */
 	td2->td_pcb->pcb_x[5] = (uintptr_t)fork_return;
 	td2->td_pcb->pcb_x[6] = (uintptr_t)td2;
 	td2->td_pcb->pcb_x[PCB_RA] = (uintptr_t)fork_trampoline;
 	td2->td_pcb->pcb_x[2] = (uintptr_t)td2->td_frame;
-	//td2->td_pcb->pcb_sp = (uintptr_t)td2->td_frame;
 	td2->td_pcb->pcb_vfpcpu = UINT_MAX;
 
 	/* Setup to release spin count in fork_exit(). */
@@ -155,31 +146,22 @@ cpu_set_syscall_retval(struct thread *td, int error)
 {
 	struct trapframe *frame;
 
-	//printf("%s: error %d, retval[0-1] 0x%016lx 0x%016lx\n",
-	//		__func__, error, td->td_retval[0], td->td_retval[1]);
-	//panic("%s: implement me\n", __func__);
-
 	frame = td->td_frame;
 
 	switch (error) {
 	case 0:
 		frame->tf_x[10] = td->td_retval[0];
 		frame->tf_x[11] = td->td_retval[1];
-
-		frame->tf_x[5] = 0;
-		//frame->tf_spsr &= ~PSR_C;	/* carry bit */
+		frame->tf_x[5] = 0;		/* syscall succeeded */
 		break;
 	case ERESTART:
-		//frame->tf_elr -= 4;
 		frame->tf_sepc -= 4;
 		break;
 	case EJUSTRETURN:
 		break;
 	default:
-		frame->tf_x[5] = 1; /* syscall error */
-		//frame->tf_spsr |= PSR_C;	/* carry bit */
-
 		frame->tf_x[10] = error;
+		frame->tf_x[5] = 1;		/* syscall error */
 		break;
 	}
 }
@@ -195,20 +177,13 @@ void
 cpu_set_upcall(struct thread *td, struct thread *td0)
 {
 
-	//panic("cpu_set_upcall");
-
 	bcopy(td0->td_frame, td->td_frame, sizeof(struct trapframe));
 	bcopy(td0->td_pcb, td->td_pcb, sizeof(struct pcb));
 
 	td->td_pcb->pcb_x[5] = (uintptr_t)fork_return;
 	td->td_pcb->pcb_x[6] = (uintptr_t)td;
 	td->td_pcb->pcb_x[PCB_RA] = (uintptr_t)fork_trampoline;
-
-	//td->td_pcb->pcb_sp = (uintptr_t)td->td_frame;
 	td->td_pcb->pcb_x[2] = (uintptr_t)td->td_frame;
-
-	//printf("upcall td 0x%016lx sp 0x%016lx\n", td, (uintptr_t)td->td_frame);
-
 	td->td_pcb->pcb_vfpcpu = UINT_MAX;
 
 	/* Setup to release spin count in fork_exit(). */
@@ -227,11 +202,9 @@ cpu_set_upcall_kse(struct thread *td, void (*entry)(void *), void *arg,
 {
 	struct trapframe *tf = td->td_frame;
 
-	panic("cpu_set_upcall_kse");
-
-	//tf->tf_sp = STACKALIGN(stack->ss_sp + stack->ss_size);
-	//tf->tf_elr = (register_t)entry;
-	tf->tf_x[0] = (register_t)arg;
+	tf->tf_x[2] = STACKALIGN(stack->ss_sp + stack->ss_size);
+	tf->tf_sepc = (register_t)entry;
+	tf->tf_x[10] = (register_t)arg;
 }
 
 int
@@ -243,8 +216,6 @@ cpu_set_user_tls(struct thread *td, void *tls_base)
 		return (EINVAL);
 
 	pcb = td->td_pcb;
-	//pcb->pcb_tpidr_el0 = (register_t)tls_base;
-	//TODO: set to tp ?
 	pcb->pcb_x[4] = (register_t)tls_base;
 
 	return (0);
@@ -288,16 +259,8 @@ cpu_set_fork_handler(struct thread *td, void (*func)(void *), void *arg)
 	td->td_pcb->pcb_x[5] = (uintptr_t)func;
 	td->td_pcb->pcb_x[6] = (uintptr_t)arg;
 	td->td_pcb->pcb_x[PCB_RA] = (uintptr_t)fork_trampoline;
-	//td->td_pcb->pcb_sp = (uintptr_t)td->td_frame;
 	td->td_pcb->pcb_x[2] = (uintptr_t)td->td_frame;
 	td->td_pcb->pcb_vfpcpu = UINT_MAX;
-
-	//panic("cpu_set_fork_handler");
-	//td->td_pcb->pcb_x[8] = (uintptr_t)func;
-	//td->td_pcb->pcb_x[9] = (uintptr_t)arg;
-	//td->td_pcb->pcb_x[PCB_RA] = (uintptr_t)fork_trampoline;
-	//td->td_pcb->pcb_sp = (uintptr_t)td->td_frame;
-	//td->td_pcb->pcb_vfpcpu = UINT_MAX;
 }
 
 void
