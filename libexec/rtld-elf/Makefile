@@ -13,9 +13,6 @@ SRCS=		rtld_start.S \
 		malloc.c xmalloc.c debug.c libmap.c
 MAN=		rtld.1
 CSTD?=		gnu99
-.if ${MACHINE_CPUARCH} == "riscv"
-CFLAGS+=	-ffreestanding
-.endif
 CFLAGS+=	-Wall -DFREEBSD_ELF -DIN_RTLD -fno-builtin
 CFLAGS+=	-I${SRCTOP}/lib/csu/common
 .if exists(${.CURDIR}/${MACHINE_ARCH})
