@@ -1003,7 +1003,7 @@ pmap_kenter_device(vm_offset_t sva, vm_size_t size, vm_paddr_t pa)
 	pt_entry_t *l3;
 	vm_offset_t va;
 
-	panic("%s\n", __func__);
+	panic("%s: implement me\n", __func__);
 
 	KASSERT((pa & L3_OFFSET) == 0,
 	   ("pmap_kenter_device: Invalid physical address"));
@@ -1220,14 +1220,12 @@ _pmap_unwire_l3(pmap_t pmap, vm_offset_t va, vm_page_t m, struct spglist *free)
 		/* PD page */
 		pd_entry_t *l1;
 		l1 = pmap_l1(pmap, va);
-		//printf("%s: l1 0x%016lx\n", __func__, l1);
 		pmap_load_clear(l1);
 		PTE_SYNC(l1);
 	} else {
 		/* PTE page */
 		pd_entry_t *l2;
 		l2 = pmap_l2(pmap, va);
-		//printf("%s: l2 0x%016lx\n", __func__, l2);
 		pmap_load_clear(l2);
 		PTE_SYNC(l2);
 	}
@@ -1530,7 +1528,9 @@ pmap_growkernel(vm_offset_t addr)
 			paddr = VM_PAGE_TO_PHYS(nkpg);
 
 			panic("%s: implement grow l1\n", __func__);
+#if 0
 			pmap_load_store(l1, paddr | L1_TABLE);
+#endif
 			PTE_SYNC(l1);
 			continue; /* try again */
 		}
@@ -1797,10 +1797,7 @@ pmap_pvh_free(struct md_page *pvh, pmap_t pmap, vm_offset_t va)
 {
 	pv_entry_t pv;
 
-
 	pv = pmap_pvh_remove(pvh, pmap, va);
-
-	//printf("%s: 0x%016lx\n", __func__, pv);
 
 	KASSERT(pv != NULL, ("pmap_pvh_free: pv not found"));
 	free_pv_entry(pmap, pv);
@@ -1999,10 +1996,9 @@ pmap_remove_all(vm_page_t m)
 		KASSERT(l2 != NULL, ("pmap_remove_all: no l2 table found"));
 		tl2 = pmap_load(l2);
 
-		/* implement kassert */
-		//KASSERT((*l2 & ATTR_DESCR_MASK) == L2_TABLE,
-		//    ("pmap_remove_all: found a table when expecting "
-		//     "a block in %p's pv list", m));
+		KASSERT((pmap_load(l2) & PTE_TYPE_M) == (PTE_TYPE_PTR << PTE_TYPE_S),
+		    ("pmap_remove_all: found a table when expecting "
+		    "a block in %p's pv list", m));
 
 		l3 = pmap_l2_to_l3(l2, pv->pv_va);
 		if (pmap_is_current(pmap) &&
