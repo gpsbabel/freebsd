@@ -1079,5 +1079,4 @@ initriscv(struct riscv_bootparams *rvbp)
 	early_boot = 0;
 
 	printf("initriscv done\n");
-	//while (1);
 }
