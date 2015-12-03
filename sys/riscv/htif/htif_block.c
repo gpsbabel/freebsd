@@ -93,7 +93,6 @@ struct htif_blk_softc {
 	int		intr_chan;
 	int		cmd_done;
 	uint16_t	curtag;
-	struct bio	*bp;
 };
 
 struct htif_blk_request {
@@ -151,7 +150,7 @@ htif_blk_attach(device_t dev)
 		return (ENXIO);
 	}
 
-	printf("htif blk attach, size %ld\n", size);
+	//printf("htif blk attach, size %ld\n", size);
 
 	htif_setup_intr(sc_dev->index, htif_blk_intr, sc);
 
@@ -212,35 +211,20 @@ htif_blk_task(void *arg)
 	while (1) {
 		HTIF_BLK_LOCK(sc);
 		do {
-			//if (sc->running == 0)
-			//	goto out;
 			bp = bioq_takefirst(&sc->bio_queue);
 			if (bp == NULL)
 				msleep(sc, &sc->sc_mtx, PRIBIO, "jobqueue", 0);
 		} while (bp == NULL);
 		HTIF_BLK_UNLOCK(sc);
 
-		//mtx_lock(&sc->htif_io_mtx);
-		rmb();
-
 		if (bp->bio_cmd == BIO_READ || bp->bio_cmd == BIO_WRITE) {
-			//block = bp->bio_pblkno;
-			//bcount = bp->bio_bcount;
-			//printf(".");
-			//printf("%d block %d count %d\n", bp->bio_cmd, block, bcount);
-
-			rmb();
 			req.offset = (bp->bio_pblkno * sc->disk->d_sectorsize);
 			req.size = bp->bio_bcount;
 			paddr = vtophys(bp->bio_data);
 			KASSERT(paddr != 0, ("paddr is 0"));
 			req.addr = paddr;
-
-			//if (sc->curtag++ >= 0xffff)
-			//	sc->curtag = 0;
 			req.tag = sc->curtag;
 
-			//printf("index %d addr 0x%016lx\n", sc_dev->index, req.addr);
 			cmd = sc_dev->index;
 			cmd <<= HTIF_DEV_ID_SHIFT;
 			if (bp->bio_cmd == BIO_READ)
@@ -264,7 +248,6 @@ htif_blk_task(void *arg)
 					printf("Err %d\n", i);
 
 					bp->bio_error = EIO;
-					//bp->bio_resid = (end - block) * sz;
 					bp->bio_flags |= BIO_ERROR;
 					disk_err(bp, "hard error", -1, 1);
 
@@ -273,15 +256,10 @@ htif_blk_task(void *arg)
 			}
 			HTIF_BLK_UNLOCK(sc);
 
-			//printf(".");
-
 			biodone(bp);
-			//biofinish(bp, NULL, ENXIO);
 		} else {
 			printf("unknown op %d\n", bp->bio_cmd);
 		}
-
-		//mtx_unlock(&sc->htif_io_mtx);
 	}
 }
 
