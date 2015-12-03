@@ -209,37 +209,19 @@ set_regs(struct thread *td, struct reg *regs)
 int
 fill_fpregs(struct thread *td, struct fpreg *regs)
 {
-#ifdef VFP
-	struct pcb *pcb;
 
-	pcb = td->td_pcb;
-	if ((pcb->pcb_fpflags & PCB_FP_STARTED) != 0) {
-		/*
-		 * If we have just been running VFP instructions we will
-		 * need to save the state to memcpy it below.
-		 */
-		vfp_save_state(td);
+	/* TODO */
 
-		memcpy(regs->fp_q, pcb->pcb_vfp, sizeof(regs->fp_q));
-		regs->fp_cr = pcb->pcb_fpcr;
-		regs->fp_sr = pcb->pcb_fpsr;
-	} else
-#endif
-		memset(regs->fp_q, 0, sizeof(regs->fp_q));
+	bzero(regs, sizeof(*regs));
 	return (0);
 }
 
 int
 set_fpregs(struct thread *td, struct fpreg *regs)
 {
-#ifdef VFP
-	struct pcb *pcb;
 
-	pcb = td->td_pcb;
-	memcpy(pcb->pcb_vfp, regs->fp_q, sizeof(regs->fp_q));
-	pcb->pcb_fpcr = regs->fp_cr;
-	pcb->pcb_fpsr = regs->fp_sr;
-#endif
+	/* TODO */
+
 	return (0);
 }
 
@@ -346,58 +328,13 @@ set_mcontext(struct thread *td, mcontext_t *mcp)
 static void
 get_fpcontext(struct thread *td, mcontext_t *mcp)
 {
-#ifdef VFP
-	struct pcb *curpcb;
-
-	critical_enter();
-
-	curpcb = curthread->td_pcb;
-
-	if ((curpcb->pcb_fpflags & PCB_FP_STARTED) != 0) {
-		/*
-		 * If we have just been running VFP instructions we will
-		 * need to save the state to memcpy it below.
-		 */
-		vfp_save_state(td);
-
-		memcpy(mcp->mc_fpregs.fp_q, curpcb->pcb_vfp,
-		    sizeof(mcp->mc_fpregs));
-		mcp->mc_fpregs.fp_cr = curpcb->pcb_fpcr;
-		mcp->mc_fpregs.fp_sr = curpcb->pcb_fpsr;
-		mcp->mc_fpregs.fp_flags = curpcb->pcb_fpflags;
-		mcp->mc_flags |= _MC_FP_VALID;
-	}
-
-	critical_exit();
-#endif
+	/* TODO */
 }
 
 static void
 set_fpcontext(struct thread *td, mcontext_t *mcp)
 {
-#ifdef VFP
-	struct pcb *curpcb;
-
-	critical_enter();
-
-	if ((mcp->mc_flags & _MC_FP_VALID) != 0) {
-		curpcb = curthread->td_pcb;
-
-		/*
-		 * Discard any vfp state for the current thread, we
-		 * are about to override it.
-		 */
-		vfp_discard(td);
-
-		memcpy(curpcb->pcb_vfp, mcp->mc_fpregs.fp_q,
-		    sizeof(mcp->mc_fpregs));
-		curpcb->pcb_fpcr = mcp->mc_fpregs.fp_cr;
-		curpcb->pcb_fpsr = mcp->mc_fpregs.fp_sr;
-		curpcb->pcb_fpflags = mcp->mc_fpregs.fp_flags;
-	}
-
-	critical_exit();
-#endif
+	/* TODO */
 }
 
 void
