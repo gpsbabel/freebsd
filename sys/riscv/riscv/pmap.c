@@ -532,18 +532,16 @@ pmap_bootstrap(vm_offset_t l1pt, vm_paddr_t kernstart, vm_size_t kernlen)
 	pt_entry_t *l2;
 	vm_offset_t va, freemempos;
 	vm_offset_t dpcpu, msgbufpv;
-	vm_paddr_t pa;
+	vm_paddr_t pa, min_pa;
 	vm_offset_t l2pt;
+	int i;
 
 	kern_delta = KERNBASE - kernstart;
 	physmem = 0;
 
-	l2pt = l1pt + PAGE_SIZE;
-
-	//printf("pmap_bootstrap %lx %lx %lx\n", l1pt, kernstart, kernlen);
-	//printf("l1pt: %lx\n", l1pt);
-	//printf("l2pt: %lx\n", l2pt);
-	//printf("%lx\n", (KERNBASE >> L1_SHIFT) & Ln_ADDR_MASK);
+	printf("pmap_bootstrap %lx %lx %lx\n", l1pt, kernstart, kernlen);
+	printf("%lx\n", l1pt);
+	printf("%lx\n", (KERNBASE >> L1_SHIFT) & Ln_ADDR_MASK);
 
 	/* Set this early so we can use the pagetable walking functions */
 	kernel_pmap_store.pm_l1 = (pd_entry_t *)l1pt;
@@ -554,30 +552,36 @@ pmap_bootstrap(vm_offset_t l1pt, vm_paddr_t kernstart, vm_size_t kernlen)
 	 */
 	rw_init(&pvh_global_lock, "pmap pv global");
 
+	/* Assume the address we were loaded to is a valid physical address */
+	min_pa = KERNBASE - kern_delta;
+
+	/*
+	 * Find the minimum physical address. physmap is sorted,
+	 * but may contain empty ranges.
+	 */
+	for (i = 0; i < (physmap_idx * 2); i += 2) {
+		if (physmap[i] == physmap[i + 1])
+			continue;
+		if (physmap[i] <= min_pa)
+			min_pa = physmap[i];
+		break;
+	}
+
 	/* Create a direct map region early so we can use it for pa -> va */
+	l2pt = (l1pt + PAGE_SIZE);
 	pmap_bootstrap_dmap(l2pt);
 
 	va = KERNBASE;
 	pa = KERNBASE - kern_delta;
 
 	/*
-	 * Start to initialise phys_avail by copying from physmap
+	 * Start to initialize phys_avail by copying from physmap
 	 * up to the physical address KERNBASE points at.
 	 */
 	map_slot = avail_slot = 0;
 	for (; map_slot < (physmap_idx * 2); map_slot += 2) {
-		//printf("map_slot %d\n", map_slot);
-		//printf("va 0x%016lx pa 0x%016lx\n", va, pa);
-		//printf("physmap[map_slot] == 0x%016lx\n", physmap[map_slot]);
-		//printf("physmap[map_slot + 1] == 0x%016lx\n", physmap[map_slot + 1]);
-		//printf("physmap[map_slot + 1] == 0x%016lx\n", physmap[map_slot + 1]);
-
 		if (physmap[map_slot] == physmap[map_slot + 1])
 			continue;
-
-		//if (physmap[map_slot] <= pa &&
-		//    physmap[map_slot + 1] > pa)
-		//	break;
 
 		phys_avail[avail_slot] = physmap[map_slot];
 		phys_avail[avail_slot + 1] = physmap[map_slot + 1];
@@ -585,10 +589,6 @@ pmap_bootstrap(vm_offset_t l1pt, vm_paddr_t kernstart, vm_size_t kernlen)
 		    phys_avail[avail_slot]) >> PAGE_SHIFT;
 		avail_slot += 2;
 	}
-
-	//printf("physmem is 0x%016lx\n", physmem);
-
-	//printf("Add the memory before the kernel\n");
 
 	/* Add the memory before the kernel */
 	if (physmap[avail_slot] < pa) {
@@ -606,9 +606,6 @@ pmap_bootstrap(vm_offset_t l1pt, vm_paddr_t kernstart, vm_size_t kernlen)
 	 * using a single L1 entry.
 	 */
 	l2 = pmap_early_page_idx(l1pt, KERNBASE, &l1_slot, &l2_slot);
-
-	//printf("l2 is 0x%016lx l1_slot %d l2_slot %d va 0x%016lx\n",
-	//	l2, l1_slot, l2_slot, va);
 
 	/* Sanity check the index, KERNBASE should be the first VA */
 	KASSERT(l2_slot == 0, ("The L2 index is non-zero"));
@@ -628,14 +625,10 @@ pmap_bootstrap(vm_offset_t l1pt, vm_paddr_t kernstart, vm_size_t kernlen)
 		pa += L2_SIZE;
 	}
 
-	//printf("va 0x%016lx pa 0x%016lx\n", va, pa);
-	//va = roundup2(va, L1_SIZE);
 	va = roundup2(va, L2_SIZE);
-	//printf("va 0x%016lx pa 0x%016lx\n", va, pa);
 
 	freemempos = KERNBASE + kernlen;
 	freemempos = roundup2(freemempos, PAGE_SIZE);
-	//printf("freemempos1 0x%016lx\n", freemempos);
 
 	cpu_tlb_flushID();
 
@@ -648,21 +641,15 @@ pmap_bootstrap(vm_offset_t l1pt, vm_paddr_t kernstart, vm_size_t kernlen)
 	alloc_pages(dpcpu, DPCPU_SIZE / PAGE_SIZE);
 	dpcpu_init((void *)dpcpu, 0);
 
-	//printf("freemempos4 0x%016lx\n", freemempos);
 	/* Allocate memory for the msgbuf, e.g. for /sbin/dmesg */
 	alloc_pages(msgbufpv, round_page(msgbufsize) / PAGE_SIZE);
 	msgbufp = (void *)msgbufpv;
-	//printf("freemempos5 0x%016lx\n", freemempos);
 
 	virtual_avail = roundup2(freemempos, L2_SIZE);
 	virtual_end = VM_MAX_KERNEL_ADDRESS - L2_SIZE;
-	//printf("virtual_avail 0x%016lx virtual_end 0x%016lx\n",
-	//		virtual_avail, virtual_end);
 	kernel_vm_end = virtual_avail;
 	
 	pa = pmap_early_vtophys(l1pt, freemempos);
-	//printf("%s: pa (freemempos) 0x%016lx freemempos 0x%016lx\n",
-	//		__func__, pa, freemempos);
 
 	/* Finish initialising physmap */
 	map_slot = used_map_slot;
@@ -1876,7 +1863,7 @@ pmap_remove_all(vm_page_t m)
 		KASSERT(l2 != NULL, ("pmap_remove_all: no l2 table found"));
 		tl2 = pmap_load(l2);
 
-		KASSERT((pmap_load(l2) & PTE_TYPE_M) == (PTE_TYPE_PTR << PTE_TYPE_S),
+		KASSERT((tl2 & PTE_TYPE_M) == (PTE_TYPE_PTR << PTE_TYPE_S),
 		    ("pmap_remove_all: found a table when expecting "
 		    "a block in %p's pv list", m));
 
@@ -2756,13 +2743,7 @@ pmap_remove_pages(pmap_t pmap)
 				/*
 				 * Update the vm_page_t clean/reference bits.
 				 */
-				//printf("%s: implement me 1\n", __func__);
-				//if ((tl3 & ATTR_AP_RW_BIT) ==
-				//    ATTR_AP(ATTR_AP_RW))
-				//	vm_page_dirty(m);
-				//if (pmap_is_write(tl3))
-				//XXX try set if W bit
-				if (tl3 & ATTR_DIRTY)
+				if (pmap_page_dirty(tl3))
 					vm_page_dirty(m);
 
 				CHANGE_PV_LIST_LOCK_TO_VM_PAGE(&lock, m);
