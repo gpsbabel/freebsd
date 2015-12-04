@@ -615,11 +615,9 @@ pmap_bootstrap(vm_offset_t l1pt, vm_paddr_t kernstart, vm_size_t kernlen)
 		if ((l2[l2_slot] & PTE_VALID) == 0)
 			break;
 
-		/* Check locore used L2 blocks */
-		//KASSERT((l2[l2_slot] & ATTR_DESCR_MASK) == L2_BLOCK,
-		//    ("Invalid bootstrap L2 table"));
-		//KASSERT((l2[l2_slot] & ~ATTR_MASK) == pa,
-		//    ("Incorrect PA in L2 table"));
+		/* Check locore used L2 superpages */
+		KASSERT((l2[l2_slot] & PTE_TYPE_M) != (PTE_TYPE_PTR << PTE_TYPE_S),
+		    ("Invalid bootstrap L2 table"));
 
 		va += L2_SIZE;
 		pa += L2_SIZE;
@@ -1502,7 +1500,7 @@ static vm_page_t
 reclaim_pv_chunk(pmap_t locked_pmap, struct rwlock **lockp)
 {
 
-	panic("ARM64TODO: reclaim_pv_chunk");
+	panic("RISCVTODO: reclaim_pv_chunk");
 }
 
 /*
@@ -1994,26 +1992,17 @@ pmap_enter(pmap_t pmap, vm_offset_t va, vm_page_t m, vm_prot_t prot,
 	pa = VM_PAGE_TO_PHYS(m);
 	pn = (pa / PAGE_SIZE);
 
-	//new_l3 = (pt_entry_t)(pa | ATTR_DEFAULT | ATTR_IDX(m->md.pv_memattr) |
-	//   L3_PAGE);
-	//if ((prot & VM_PROT_WRITE) == 0)
-	//	new_l3 |= ATTR_AP(ATTR_AP_RO);
-	//if ((flags & PMAP_ENTER_WIRED) != 0)
-	//	new_l3 |= ATTR_SW_WIRED;
-	//if ((va >> 63) == 0)
-	//	new_l3 |= ATTR_AP(ATTR_AP_USER);
-
 	new_l3 = PTE_VALID;
 
 	if ((prot & VM_PROT_WRITE) == 0) { /* Read-only */
 		if ((va >> 63) == 0) /* USER */
 			new_l3 |= (PTE_TYPE_SURX << PTE_TYPE_S);
-		else
+		else /* KERNEL */
 			new_l3 |= (PTE_TYPE_SRX << PTE_TYPE_S);
 	} else {
 		if ((va >> 63) == 0) /* USER */
 			new_l3 |= (PTE_TYPE_SURWX << PTE_TYPE_S);
-		else
+		else /* KERNEL */
 			new_l3 |= (PTE_TYPE_SRWX << PTE_TYPE_S);
 	}
 
@@ -2359,13 +2348,9 @@ pmap_enter_quick_locked(pmap_t pmap, vm_offset_t va, vm_page_t m,
 	pa = VM_PAGE_TO_PHYS(m);
 	pn = (pa / PAGE_SIZE);
 
-	/* TODO: check perm */
-	//entry = (PTE_VALID | (PTE_TYPE_SURWX << PTE_TYPE_S));
+	/* RISCVTODO: check permissions */
 	entry = (PTE_VALID | (PTE_TYPE_SRWX << PTE_TYPE_S));
 	entry |= (pn << PTE_PPN0_S);
-	
-	//pa = VM_PAGE_TO_PHYS(m) | ATTR_DEFAULT | ATTR_IDX(m->md.pv_memattr) |
-	//    ATTR_AP(ATTR_AP_RW) | L3_PAGE;
 
 	/*
 	 * Now validate mapping with RO protection
@@ -2373,10 +2358,6 @@ pmap_enter_quick_locked(pmap_t pmap, vm_offset_t va, vm_page_t m,
 	if ((m->oflags & VPO_UNMANAGED) == 0)
 		entry |= ATTR_SW_MANAGED;
 	pmap_load_store(l3, entry);
-
-	//if ((m->oflags & VPO_UNMANAGED) == 0)
-	//	pa |= ATTR_SW_MANAGED;
-	//pmap_load_store(l3, pa);
 
 	PTE_SYNC(l3);
 	pmap_invalidate_page(pmap, va);
@@ -3036,7 +3017,7 @@ retry:
 				 * at all. We need to be able to set it in
 				 * the exception handler.
 				 */
-				panic("ARM64TODO: safe_to_clear_referenced\n");
+				panic("RISCVTODO: safe_to_clear_referenced\n");
 			} else if ((pmap_load(l3) & ATTR_SW_WIRED) == 0) {
 				/*
 				 * Wired pages cannot be paged out so
@@ -3104,7 +3085,7 @@ pmap_clear_modify(vm_page_t m)
 	if ((m->aflags & PGA_WRITEABLE) == 0)
 		return;
 
-	/* ARM64TODO: We lack support for tracking if a page is modified */
+	/* RISCVTODO: We lack support for tracking if a page is modified */
 }
 
 void *
@@ -3129,14 +3110,14 @@ pmap_page_set_memattr(vm_page_t m, vm_memattr_t ma)
 	m->md.pv_memattr = ma;
 
 	/*
-	 * ARM64TODO: Implement the below (from the amd64 pmap)
+	 * RISCVTODO: Implement the below (from the amd64 pmap)
 	 * If "m" is a normal page, update its direct mapping.  This update
 	 * can be relied upon to perform any cache operations that are
 	 * required for data coherence.
 	 */
 	if ((m->flags & PG_FICTITIOUS) == 0 &&
 	    PHYS_IN_DMAP(VM_PAGE_TO_PHYS(m)))
-		panic("ARM64TODO: pmap_page_set_memattr");
+		panic("RISCVTODO: pmap_page_set_memattr");
 }
 
 /*
@@ -3146,7 +3127,7 @@ int
 pmap_mincore(pmap_t pmap, vm_offset_t addr, vm_paddr_t *locked_pa)
 {
 
-	panic("ARM64TODO: pmap_mincore");
+	panic("RISCVTODO: pmap_mincore");
 }
 
 void
@@ -3168,7 +3149,7 @@ void
 pmap_sync_icache(pmap_t pm, vm_offset_t va, vm_size_t sz)
 {
 
-	panic("ARM64TODO: pmap_sync_icache");
+	panic("RISCVTODO: pmap_sync_icache");
 }
 
 /*
@@ -3252,7 +3233,7 @@ pmap_unmap_io_transient(vm_page_t page[], vm_offset_t vaddr[], int count,
 	for (i = 0; i < count; i++) {
 		paddr = VM_PAGE_TO_PHYS(page[i]);
 		if (paddr >= DMAP_MAX_PHYSADDR) {
-			panic("ARM64TODO: pmap_unmap_io_transient: Unmap data");
+			panic("RISCVTODO: pmap_unmap_io_transient: Unmap data");
 		}
 	}
 }
