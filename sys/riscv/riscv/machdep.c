@@ -127,27 +127,6 @@ mcall_trap(uintptr_t mcause, uintptr_t* regs)
 	return (0);
 }
 
-#ifdef	EARLY_PRINTF
-static void 
-spike_early_putc(int c)
-{
-
-	//__asm __volatile("ecall");
-
-	__asm __volatile(
-		"mv	t5, %0\n"
-		"ecall" :: "r"(ECALL_LOW_PRINTC)
-	);
-
-	//__asm __volatile(
-	//	"mv	t5, %1\n"
-	//	"mv	t6, %0\n"
-	//	"ecall" :: "r"(c), "r"(ECALL_LOW_PRINTC)
-	//);
-}
-early_putc_t *early_putc = spike_early_putc;
-#endif
-
 static void
 cpu_startup(void *dummy)
 {
@@ -211,7 +190,6 @@ fill_fpregs(struct thread *td, struct fpreg *regs)
 {
 
 	/* TODO */
-
 	bzero(regs, sizeof(*regs));
 	return (0);
 }
@@ -221,7 +199,6 @@ set_fpregs(struct thread *td, struct fpreg *regs)
 {
 
 	/* TODO */
-
 	return (0);
 }
 

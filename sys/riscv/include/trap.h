@@ -1,5 +1,6 @@
 /* $FreeBSD$ */
 
+#define	ECALL_LOW_PRINTC	1
 #define	ECALL_MTIMECMP		2
 #define	ECALL_MTIMECMP2		3
 #define	ECALL_CLEAR_PENDING	4

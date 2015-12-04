@@ -35,7 +35,7 @@ options 	PREEMPTION
 options 	FREEBSD_BOOT_LOADER
 #options 	VFP			# vfp/neon
 
-#options 	EARLY_PRINTF
+options 	EARLY_PRINTF
 
 # Debugging
 makeoptions	DEBUG=-g		# Build kernel with gdb(1) debug symbols
