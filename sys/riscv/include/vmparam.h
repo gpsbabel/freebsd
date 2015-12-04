@@ -208,7 +208,6 @@
 #define	VM_KMEM_SIZE_MIN	(12 * 1024 * 1024)
 #endif
 
-#define	VM_KMEM_SIZE_MAX	(16 * 1024 * 1024)
 /*
  * Optional ceiling (in bytes) on the size of the kmem arena: 60% of the
  * kernel map.
@@ -225,7 +224,10 @@
 #define	VM_INITIAL_PAGEIN	16
 #endif
 
-//#define	UMA_MD_SMALL_ALLOC
+/*
+ * RISCVTODO
+ * #define	UMA_MD_SMALL_ALLOC
+ */
 
 extern u_int tsb_kernel_ldd_phys;
 extern vm_offset_t vm_max_kernel_address;
