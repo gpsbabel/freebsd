@@ -32,25 +32,32 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/param.h>
-#include <sys/mman.h>
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
 
-#include <errno.h>
-#include <stdio.h>
+#include <sys/types.h>
+
 #include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <machine/cpu.h>
-#include <machine/md_var.h>
 
 #include "debug.h"
 #include "rtld.h"
+#include "rtld_printf.h"
 
-struct funcdesc {
-	Elf_Addr addr;
-	Elf_Addr toc;
-	Elf_Addr env;
-};
+/*
+ * It is possible for the compiler to emit relocations for unaligned data.
+ * We handle this situation with these inlines.
+ */
+#define	RELOC_ALIGNED_P(x) \
+	(((uintptr_t)(x) & (sizeof(void *) - 1)) == 0)
+
+/*
+ * This is not the correct prototype, but we only need it for
+ * a function pointer to a simple asm function.
+ */
+void *_rtld_tlsdesc(void *);
+void *_rtld_tlsdesc_dynamic(void *);
+
+void _exit(int);
 
 uint64_t
 set_gp(Obj_Entry *obj)
@@ -75,46 +82,52 @@ set_gp(Obj_Entry *obj)
 	return (old);
 }
 
-/*
- * Process the R_RISCV_COPY relocations
- */
+void
+init_pltgot(Obj_Entry *obj)
+{
+
+	if (obj->pltgot != NULL) {
+		obj->pltgot[0] = (Elf_Addr) &_rtld_bind_start;
+		obj->pltgot[1] = (Elf_Addr) obj;
+	}
+}
+
 int
 do_copy_relocations(Obj_Entry *dstobj)
 {
+	const Obj_Entry *srcobj, *defobj;
 	const Elf_Rela *relalim;
 	const Elf_Rela *rela;
+	const Elf_Sym *srcsym;
+	const Elf_Sym *dstsym;
+	const void *srcaddr;
+	const char *name;
+	void *dstaddr;
+	SymLook req;
+	size_t size;
+	int res;
 
 	/*
 	 * COPY relocs are invalid outside of the main program
 	 */
 	assert(dstobj->mainprog);
 
-	relalim = (const Elf_Rela *) ((caddr_t) dstobj->rela +
+	relalim = (const Elf_Rela *)((char *)dstobj->rela +
 	    dstobj->relasize);
-	for (rela = dstobj->rela;  rela < relalim;  rela++) {
-		void *dstaddr;
-		const Elf_Sym *dstsym;
-		const char *name;
-		size_t size;
-		const void *srcaddr;
-		const Elf_Sym *srcsym = NULL;
-		const Obj_Entry *srcobj, *defobj;
-		SymLook req;
-		int res;
-
-		if (ELF_R_TYPE(rela->r_info) != R_RISCV_COPY) {
+	for (rela = dstobj->rela; rela < relalim; rela++) {
+		if (ELF_R_TYPE(rela->r_info) != R_RISCV_COPY)
 			continue;
-		}
 
-		dstaddr = (void *) (dstobj->relocbase + rela->r_offset);
+		dstaddr = (void *)(dstobj->relocbase + rela->r_offset);
 		dstsym = dstobj->symtab + ELF_R_SYM(rela->r_info);
 		name = dstobj->strtab + dstsym->st_name;
 		size = dstsym->st_size;
+
 		symlook_init(&req, name);
 		req.ventry = fetch_ventry(dstobj, ELF_R_SYM(rela->r_info));
 		req.flags = SYMLOOK_EARLY;
 
-		for (srcobj = dstobj->next;  srcobj != NULL;
+		for (srcobj = dstobj->next; srcobj != NULL;
 		     srcobj = srcobj->next) {
 			res = symlook_obj(&req, srcobj);
 			if (res == 0) {
@@ -123,201 +136,18 @@ do_copy_relocations(Obj_Entry *dstobj)
 				break;
 			}
 		}
-
 		if (srcobj == NULL) {
-			_rtld_error("Undefined symbol \"%s\" "
-				    " referenced from COPY"
-				    " relocation in %s", name, dstobj->path);
+			_rtld_error(
+"Undefined symbol \"%s\" referenced from COPY relocation in %s",
+			    name, dstobj->path);
 			return (-1);
 		}
 
-		srcaddr = (const void *) (defobj->relocbase+srcsym->st_value);
+		srcaddr = (const void *)(defobj->relocbase + srcsym->st_value);
 		memcpy(dstaddr, srcaddr, size);
-		dbg("copy_reloc: src=%p,dst=%p,size=%zd\n",srcaddr,dstaddr,size);
-
-		//uint64_t *addr = (uint64_t *)(dstobj->relocbase + rela->r_offset);
-		//if (size == 8)
-		//	dbg("val 0x%016lx\n", *addr);
 	}
 
 	return (0);
-}
-
-/*
- * Relocate a non-PLT object with addend.
- */
-static int
-reloc_nonplt_object(Obj_Entry *obj_rtld, Obj_Entry *obj, const Elf_Rela *rela,
-    SymCache *cache, int flags, RtldLockState *lockstate)
-{
-	Elf_Addr        *where = (Elf_Addr *)(obj->relocbase + rela->r_offset);
-	const Elf_Sym   *def;
-	const Obj_Entry *defobj;
-	Elf_Addr         tmp;
-
-	switch (ELF_R_TYPE(rela->r_info)) {
-
-	case R_RISCV_NONE:
-		break;
-
-        case R_RISCV_64:
-		def = find_symdef(ELF_R_SYM(rela->r_info), obj, &defobj,
-		    flags, cache, lockstate);
-		if (def == NULL) {
-			return (-1);
-		}
-
-                tmp = (Elf_Addr)(defobj->relocbase + def->st_value +
-                    rela->r_addend);
-
-		/* Don't issue write if unnecessary; avoid COW page fault */
-                if (*where != tmp) {
-                        *where = tmp;
-		}
-                break;
-
-        case R_RISCV_RELATIVE:  /* doubleword64 B + A */
-		tmp = (Elf_Addr)(obj->relocbase + rela->r_addend);
-
-		/* As above, don't issue write unnecessarily */
-		if (*where != tmp) {
-			*where = tmp;
-		}
-		break;
-
-	case R_RISCV_COPY:
-		/*
-		 * These are deferred until all other relocations
-		 * have been done.  All we do here is make sure
-		 * that the COPY relocation is not in a shared
-		 * library.  They are allowed only in executable
-		 * files.
-		 */
-		if (!obj->mainprog) {
-			_rtld_error("%s: Unexpected R_COPY "
-				    " relocation in shared library",
-				    obj->path);
-			return (-1);
-		}
-		break;
-
-	case R_RISCV_JUMP_SLOT:
-		/*
-		 * These will be handled by the plt/jmpslot routines
-		 */
-		break;
-
-	case R_RISCV_TLS_DTPMOD64:
-		def = find_symdef(ELF_R_SYM(rela->r_info), obj, &defobj,
-		    flags, cache, lockstate);
-
-		if (def == NULL)
-			return (-1);
-
-		*where = (Elf_Addr) defobj->tlsindex;
-
-		break;
-
-	case R_RISCV_TLS_TPREL64:
-		def = find_symdef(ELF_R_SYM(rela->r_info), obj, &defobj,
-		    flags, cache, lockstate);
-
-		if (def == NULL)
-			return (-1);
-
-		/*
-		 * We lazily allocate offsets for static TLS as we
-		 * see the first relocation that references the
-		 * TLS block. This allows us to support (small
-		 * amounts of) static TLS in dynamically loaded
-		 * modules. If we run out of space, we generate an
-		 * error.
-		 */
-		if (!defobj->tls_done) {
-			if (!allocate_tls_offset((Obj_Entry*) defobj)) {
-				_rtld_error("%s: No space available for static "
-				    "Thread Local Storage", obj->path);
-				return (-1);
-			}
-		}
-
-		*(Elf_Addr **)where = *where * sizeof(Elf_Addr)
-		    + (Elf_Addr *)(def->st_value + rela->r_addend
-		    + defobj->tlsoffset - TLS_TP_OFFSET);
-
-		break;
-
-	case R_RISCV_TLS_DTPREL64:
-		def = find_symdef(ELF_R_SYM(rela->r_info), obj, &defobj,
-		    flags, cache, lockstate);
-
-		if (def == NULL)
-			return (-1);
-
-		*where += (Elf_Addr)(def->st_value + rela->r_addend
-		    - TLS_DTV_OFFSET);
-
-		break;
-
-	default:
-		_rtld_error("%s: Unsupported relocation type %ld"
-			    " in non-PLT relocations\n", obj->path,
-			    ELF_R_TYPE(rela->r_info));
-		return (-1);
-        }
-	return (0);
-}
-
-
-/*
- * Process non-PLT relocations
- */
-int
-reloc_non_plt(Obj_Entry *obj, Obj_Entry *obj_rtld, int flags,
-    RtldLockState *lockstate)
-{
-	const Elf_Rela *relalim;
-	const Elf_Rela *rela;
-	SymCache *cache;
-	int bytes = obj->dynsymcount * sizeof(SymCache);
-	int r = -1;
-
-	if ((flags & SYMLOOK_IFUNC) != 0)
-		/* XXX not implemented */
-		return (0);
-
-	/*
-	 * The dynamic loader may be called from a thread, we have
-	 * limited amounts of stack available so we cannot use alloca().
-	 */
-	if (obj != obj_rtld) {
-		cache = mmap(NULL, bytes, PROT_READ|PROT_WRITE, MAP_ANON,
-		    -1, 0);
-		if (cache == MAP_FAILED)
-			cache = NULL;
-	} else
-		cache = NULL;
-
-	/*
-	 * From the SVR4 PPC ABI:
-	 * "The PowerPC family uses only the Elf32_Rela relocation
-	 *  entries with explicit addends."
-	 */
-	relalim = (const Elf_Rela *)((caddr_t)obj->rela + obj->relasize);
-	for (rela = obj->rela; rela < relalim; rela++) {
-		if (reloc_nonplt_object(obj_rtld, obj, rela, cache, flags,
-		    lockstate) < 0)
-			goto done;
-	}
-	r = 0;
-done:
-	if (cache)
-		munmap(cache, bytes);
-
-	/* Synchronize icache for text seg in case we made any changes */
-	//__syncicache(obj->mapbase, obj->textsize);
-
-	return (r);
 }
 
 /*
@@ -328,22 +158,19 @@ reloc_plt(Obj_Entry *obj)
 {
 	const Elf_Rela *relalim;
 	const Elf_Rela *rela;
-	Elf_Addr *where;
 
-	if (obj->pltrelasize != 0) {
-		relalim = (const Elf_Rela *)((char *)obj->pltrela +
-		    obj->pltrelasize);
-		for (rela = obj->pltrela;  rela < relalim;  rela++) {
-			assert(ELF_R_TYPE(rela->r_info) == R_RISCV_JUMP_SLOT);
+	relalim = (const Elf_Rela *)((char *)obj->pltrela + obj->pltrelasize);
+	for (rela = obj->pltrela; rela < relalim; rela++) {
+		Elf_Addr *where;
 
-			where = (Elf_Addr *)(obj->relocbase + rela->r_offset);
-			*where += (Elf_Addr)obj->relocbase;
-		}
+		assert(ELF_R_TYPE(rela->r_info) == R_RISCV_JUMP_SLOT);
+
+		where = (Elf_Addr *)(obj->relocbase + rela->r_offset);
+		*where += (Elf_Addr)obj->relocbase;
 	}
 
 	return (0);
 }
-
 
 /*
  * LD_BIND_NOW was set - force relocation for all jump slots
@@ -355,67 +182,31 @@ reloc_jmpslots(Obj_Entry *obj, int flags, RtldLockState *lockstate)
 	const Elf_Rela *relalim;
 	const Elf_Rela *rela;
 	const Elf_Sym *def;
-	Elf_Addr *where;
-	Elf_Addr target;
 
 	relalim = (const Elf_Rela *)((char *)obj->pltrela + obj->pltrelasize);
 	for (rela = obj->pltrela; rela < relalim; rela++) {
-		assert(ELF_R_TYPE(rela->r_info) == R_RISCV_JUMP_SLOT);
+		Elf_Addr *where;
+
 		where = (Elf_Addr *)(obj->relocbase + rela->r_offset);
-		def = find_symdef(ELF_R_SYM(rela->r_info), obj, &defobj,
-		    SYMLOOK_IN_PLT | flags, NULL, lockstate);
-		if (def == NULL) {
-			dbg("reloc_jmpslots: sym not found");
+		switch(ELF_R_TYPE(rela->r_info)) {
+		case R_RISCV_JUMP_SLOT:
+			def = find_symdef(ELF_R_SYM(rela->r_info), obj,
+			    &defobj, SYMLOOK_IN_PLT | flags, NULL, lockstate);
+			if (def == NULL) {
+				dbg("reloc_jmpslots: sym not found");
+				return (-1);
+			}
+
+			*where = (Elf_Addr)(defobj->relocbase + def->st_value);
+			break;
+		default:
+			_rtld_error("Unknown relocation type %x in jmpslot",
+			    (unsigned int)ELF_R_TYPE(rela->r_info));
 			return (-1);
-		}
-
-		target = (Elf_Addr)(defobj->relocbase + def->st_value);
-
-		//*where = target;
-		//continue;
-
-#if 0
-		/* PG XXX */
-		dbg("\"%s\" in \"%s\" --> %p in \"%s\"",
-		    defobj->strtab + def->st_name, basename(obj->path),
-		    (void *)target, basename(defobj->path));
-#endif
-
-		if (def == &sym_zero) {
-			/* Zero undefined weak symbols */
-			bzero(where, sizeof(struct funcdesc));
-		} else {
-			reloc_jmpslot(where, target, defobj, obj,
-			    (const Elf_Rel *) rela);
 		}
 	}
 
-	obj->jmpslots_done = true;
-
 	return (0);
-}
-
-
-/*
- * Update the value of a PLT jump slot.
- */
-Elf_Addr
-reloc_jmpslot(Elf_Addr *wherep, Elf_Addr target, const Obj_Entry *defobj,
-	      const Obj_Entry *obj, const Elf_Rel *rel)
-{
-
-#if 0
-	dbg(" reloc_jmpslot: where=%p, target=%p (%#lx + %#lx)",
-	    (void *)wherep, (void *)target, *(Elf_Addr *)target,
-	    (Elf_Addr)defobj->relocbase);
-#endif
-
-	if (*wherep != target)
-                *wherep = target;
-
-	//__asm __volatile("dcbst 0,%0; sync" :: "r"(wherep) : "memory");
-
-	return (target);
 }
 
 int
@@ -428,27 +219,162 @@ reloc_iresolve(Obj_Entry *obj, struct Struct_RtldLockState *lockstate)
 
 int
 reloc_gnu_ifunc(Obj_Entry *obj, int flags,
-    struct Struct_RtldLockState *lockstate)
+   struct Struct_RtldLockState *lockstate)
 {
 
 	/* XXX not implemented */
 	return (0);
 }
 
-void
-init_pltgot(Obj_Entry *obj)
+Elf_Addr
+reloc_jmpslot(Elf_Addr *where, Elf_Addr target, const Obj_Entry *defobj,
+    const Obj_Entry *obj, const Elf_Rel *rel)
 {
 
-	dbg("pltgot relocbase 0x%016lx obj->pltgot 0x%016lx",
-			(uint64_t)obj->relocbase, (uint64_t)obj->pltgot);
-	if (obj->pltgot != NULL) {
-		obj->pltgot[0] = (Elf_Addr) &_rtld_bind_start;
-		obj->pltgot[1] = (Elf_Addr) obj;
+	assert(ELF_R_TYPE(rel->r_info) == R_RISCV_JUMP_SLOT);
+
+	if (*where != target)
+		*where = target;
+
+	return target;
+}
+
+/*
+ * Process non-PLT relocations
+ */
+int
+reloc_non_plt(Obj_Entry *obj, Obj_Entry *obj_rtld, int flags,
+    RtldLockState *lockstate)
+{
+	const Obj_Entry *defobj;
+	const Elf_Rela *relalim;
+	const Elf_Rela *rela;
+	const Elf_Sym *def;
+	SymCache *cache;
+	Elf_Addr *where;
+	unsigned long symnum;
+
+	if ((flags & SYMLOOK_IFUNC) != 0)
+		/* XXX not implemented */
+		return (0);
+
+	/*
+	 * The dynamic loader may be called from a thread, we have
+	 * limited amounts of stack available so we cannot use alloca().
+	 */
+	if (obj == obj_rtld)
+		cache = NULL;
+	else
+		cache = calloc(obj->dynsymcount, sizeof(SymCache));
+		/* No need to check for NULL here */
+
+	relalim = (const Elf_Rela *)((caddr_t)obj->rela + obj->relasize);
+	for (rela = obj->rela; rela < relalim; rela++) {
+		where = (Elf_Addr *)(obj->relocbase + rela->r_offset);
+		symnum = ELF_R_SYM(rela->r_info);
+
+		switch (ELF_R_TYPE(rela->r_info)) {
+		case R_RISCV_JUMP_SLOT:
+			/* This will be handled by the plt/jmpslot routines */
+			break;
+		case R_RISCV_NONE:
+			break;
+		case R_RISCV_64:
+			def = find_symdef(symnum, obj, &defobj, flags, cache,
+			    lockstate);
+			if (def == NULL)
+				return (-1);
+
+			*where = (Elf_Addr)(defobj->relocbase + def->st_value +
+			    rela->r_addend);
+			break;
+		case R_RISCV_TLS_DTPMOD64:
+			def = find_symdef(symnum, obj, &defobj, flags, cache,
+			    lockstate);
+			if (def == NULL)
+				return -1;
+
+			*where += (Elf_Addr)defobj->tlsindex;
+			break;
+		case R_RISCV_COPY:
+			/*
+			 * These are deferred until all other relocations have
+			 * been done. All we do here is make sure that the
+			 * COPY relocation is not in a shared library. They
+			 * are allowed only in executable files.
+			 */
+			if (!obj->mainprog) {
+				_rtld_error("%s: Unexpected R_RISCV_COPY "
+				    "relocation in shared library", obj->path);
+				return (-1);
+			}
+			break;
+		case R_RISCV_TLS_DTPREL64:
+			def = find_symdef(symnum, obj, &defobj, flags, cache,
+			    lockstate);
+			if (def == NULL)
+				return (-1);
+			/*
+			 * We lazily allocate offsets for static TLS as we
+			 * see the first relocation that references the
+			 * TLS block. This allows us to support (small
+			 * amounts of) static TLS in dynamically loaded
+			 * modules. If we run out of space, we generate an
+			 * error.
+			 */
+			if (!defobj->tls_done) {
+				if (!allocate_tls_offset((Obj_Entry*) defobj)) {
+					_rtld_error(
+					    "%s: No space available for static "
+					    "Thread Local Storage", obj->path);
+					return (-1);
+				}
+			}
+
+			*where += (Elf_Addr)(def->st_value + rela->r_addend
+			    - TLS_DTV_OFFSET);
+			break;
+		case R_RISCV_TLS_TPREL64:
+			def = find_symdef(symnum, obj, &defobj, flags, cache,
+			    lockstate);
+			if (def == NULL)
+				return (-1);
+
+			/*
+			 * We lazily allocate offsets for static TLS as we
+			 * see the first relocation that references the
+			 * TLS block. This allows us to support (small
+			 * amounts of) static TLS in dynamically loaded
+			 * modules. If we run out of space, we generate an
+			 * error.
+			 */
+			if (!defobj->tls_done) {
+				if (!allocate_tls_offset((Obj_Entry*) defobj)) {
+					_rtld_error(
+					    "%s: No space available for static "
+					    "Thread Local Storage", obj->path);
+					return (-1);
+				}
+			}
+
+			*where = (def->st_value + rela->r_addend +
+			    defobj->tlsoffset - TLS_TP_OFFSET);
+			break;
+		case R_RISCV_RELATIVE:
+			*where = (Elf_Addr)(obj->relocbase + rela->r_addend);
+			break;
+		default:
+			rtld_printf("%s: Unhandled relocation %lu\n",
+			    obj->path, ELF_R_TYPE(rela->r_info));
+			return (-1);
+		}
 	}
+
+	return (0);
 }
 
 void
-allocate_initial_tls(Obj_Entry *list)
+allocate_initial_tls(Obj_Entry *objs)
 {
 	Elf_Addr **tp;
 
@@ -457,24 +383,24 @@ allocate_initial_tls(Obj_Entry *list)
 	* offset allocated so far and adding a bit for dynamic modules to
 	* use.
 	*/
+	tls_static_space = tls_last_offset + tls_last_size +
+	    RTLD_STATIC_TLS_EXTRA;
 
-	tls_static_space = tls_last_offset + tls_last_size + RTLD_STATIC_TLS_EXTRA;
-
-	tp = (Elf_Addr **) ((char *)allocate_tls(list, NULL, TLS_TCB_SIZE, 16) 
+	tp = (Elf_Addr **) ((char *)allocate_tls(objs, NULL, TLS_TCB_SIZE, 16)
 	    + TLS_TP_OFFSET + TLS_TCB_SIZE);
 
-	__asm __volatile("mv tp, %0" :: "r"(tp));
+	asm volatile("mv  tp, %0" :: "r"(tp));
 }
 
-void*
+void *
 __tls_get_addr(tls_index* ti)
 {
-	Elf_Addr **tp;
-	char *p;
+	char *_tp;
+	void *p;
 
-	__asm __volatile("mv %0, tp" : "=r"(tp));
+	__asm __volatile("mv %0, tp" : "=r" (_tp));
 
-	p = tls_get_addr_common((Elf_Addr**)((Elf_Addr)tp - TLS_TP_OFFSET 
+	p = tls_get_addr_common((Elf_Addr**)((Elf_Addr)_tp - TLS_TP_OFFSET
 	    - TLS_TCB_SIZE), ti->ti_module, ti->ti_offset);
 
 	return (p + TLS_DTV_OFFSET);
