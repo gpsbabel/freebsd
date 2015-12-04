@@ -1,9 +1,14 @@
 /*-
- * Copyright (c) 2014 The FreeBSD Foundation
+ * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
  *
- * This software was developed by Andrew Turner under
- * sponsorship from the FreeBSD Foundation.
+ * This software was developed by SRI International and the University of
+ * Cambridge Computer Laboratory under DARPA/AFRL contract FA8750-10-C-0237
+ * ("CTSRD"), as part of the DARPA CRASH research programme.
+ *
+ * This software was developed by the University of Cambridge Computer
+ * Laboratory as part of the CTSRD Project, with support from the UK Higher
+ * Education Innovation Fund (HEIF).
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -199,21 +204,3 @@ ENTRY(_rtld_bind_start)
 	br	x16
 #endif
 END(_rtld_bind_start)
-
-/*
- * uint64_t _rtld_tlsdesc(struct tlsdesc *);
- *
- * struct tlsdesc {
- *  uint64_t ptr;
- *  uint64_t data;
- * };
- *
- * Returns the data.
- */
-ENTRY(_rtld_tlsdesc)
-	ld	a0, 8(a0)
-#if 0
-	ldr	x0, [x0, #8]
-#endif
-	ret
-END(_rtld_tlsdesc)

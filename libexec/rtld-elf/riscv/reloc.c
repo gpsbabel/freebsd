@@ -50,13 +50,6 @@ __FBSDID("$FreeBSD$");
 #define	RELOC_ALIGNED_P(x) \
 	(((uintptr_t)(x) & (sizeof(void *) - 1)) == 0)
 
-/*
- * This is not the correct prototype, but we only need it for
- * a function pointer to a simple asm function.
- */
-void *_rtld_tlsdesc(void *);
-void *_rtld_tlsdesc_dynamic(void *);
-
 void _exit(int);
 
 uint64_t
