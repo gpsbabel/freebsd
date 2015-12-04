@@ -601,8 +601,6 @@ htif_interrupt:
 	/* Save mepc, point to the next instr */
 	csrr	t1, mepc
 	addi	t1, t1, 4		/* Next instruction */
-	li	t4, ECALL_LOW_PRINTC
-	beq	t5, t4, low_printc
 	li	t4, ECALL_HTIF_CMD
 	beq	t5, t4, htif_cmd
 	li	t4, ECALL_HTIF_GET_ENTRY
@@ -648,18 +646,6 @@ htif_cmd:
 1:
 	csrrw	t0, mtohost, t0
 	bnez	t0, 1b
-	j	.Lexit
-
-low_printc:
-	mv	t0, t6
-1:
-	csrrw	t0, mtohost, t0
-	bnez	t0, 1b
-
-	csrr	t6, mfromhost
-	li	t0, 0
-	csrw	mfromhost, t0
-
 	j	.Lexit
 
 set_mtimecmp:

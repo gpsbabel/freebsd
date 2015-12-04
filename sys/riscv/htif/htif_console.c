@@ -99,24 +99,6 @@ struct queue_entry cnqueue[QUEUE_SIZE];
 struct queue_entry *entry_last;
 struct queue_entry *entry_served;
 
-#ifdef EARLY_PRINTF
-static void
-htif_early_putc(int c)
-{
-	uint64_t cmd;
-
-	cmd = 0x101000000000000;
-	cmd |= c;
-
-	__asm __volatile(
-		"mv	t5, %1\n"
-		"mv	t6, %0\n"
-		"ecall" :: "r"(cmd), "r"(ECALL_LOW_PRINTC)
-	);
-}
-early_putc_t *early_putc = htif_early_putc;
-#endif
-
 static void
 htif_putc(int c)
 {
@@ -175,9 +157,9 @@ riscv_putc(int c)
 	);
 }
 
-//#ifdef EARLY_PRINTF
-//early_putc_t *early_putc = riscv_putc;
-//#endif
+#ifdef EARLY_PRINTF
+early_putc_t *early_putc = riscv_putc;
+#endif
 
 static void
 cn_drvinit(void *unused)
