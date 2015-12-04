@@ -43,7 +43,6 @@ __FBSDID("$FreeBSD$");
 #include <sys/bus.h>
 #include <sys/cons.h>
 #include <sys/cpu.h>
-#include <sys/efi.h>
 #include <sys/exec.h>
 #include <sys/imgact.h>
 #include <sys/kdb.h> 
@@ -403,6 +402,7 @@ int
 sys_sigreturn(struct thread *td, struct sigreturn_args *uap)
 {
 #if 0
+	/* RISCVTODO */
 	uint64_t sstatus;
 #endif
 	ucontext_t uc;
@@ -420,7 +420,6 @@ sys_sigreturn(struct thread *td, struct sigreturn_args *uap)
 	 */
 #if 0
 	/* RISCVTODO */
-
 	sstatus = uc.uc_mcontext.mc_gpregs.gp_sstatus;
 	if ((sstatus & (1 << 4)) != 0 ||
 	    (sstatus & (1 << 3)) == 0)
@@ -549,7 +548,6 @@ typedef struct {
 	uint64_t attr;
 } EFI_MEMORY_DESCRIPTOR;
 
-#if 1
 static int
 add_physmap_entry(uint64_t base, uint64_t length, vm_paddr_t *physmap,
     u_int *physmap_idxp)
@@ -617,103 +615,6 @@ add_physmap_entry(uint64_t base, uint64_t length, vm_paddr_t *physmap,
 	printf("physmap[%d] = 0x%016lx\n", insert_idx + 1, base + length);
 	return (1);
 }
-#endif
-
-#define efi_next_descriptor(ptr, size) \
-	((struct efi_md *)(((uint8_t *) ptr) + size))
-
-#if 0
-static void
-add_efi_map_entries(struct efi_map_header *efihdr, vm_paddr_t *physmap,
-    u_int *physmap_idxp)
-{
-	struct efi_md *map, *p;
-	const char *type;
-	size_t efisz;
-	int ndesc, i;
-
-	static const char *types[] = {
-		"Reserved",
-		"LoaderCode",
-		"LoaderData",
-		"BootServicesCode",
-		"BootServicesData",
-		"RuntimeServicesCode",
-		"RuntimeServicesData",
-		"ConventionalMemory",
-		"UnusableMemory",
-		"ACPIReclaimMemory",
-		"ACPIMemoryNVS",
-		"MemoryMappedIO",
-		"MemoryMappedIOPortSpace",
-		"PalCode"
-	};
-
-	/*
-	 * Memory map data provided by UEFI via the GetMemoryMap
-	 * Boot Services API.
-	 */
-	efisz = (sizeof(struct efi_map_header) + 0xf) & ~0xf;
-	map = (struct efi_md *)((uint8_t *)efihdr + efisz); 
-
-	if (efihdr->descriptor_size == 0)
-		return;
-	ndesc = efihdr->memory_size / efihdr->descriptor_size;
-
-	if (boothowto & RB_VERBOSE)
-		printf("%23s %12s %12s %8s %4s\n",
-		    "Type", "Physical", "Virtual", "#Pages", "Attr");
-
-	for (i = 0, p = map; i < ndesc; i++,
-	    p = efi_next_descriptor(p, efihdr->descriptor_size)) {
-		if (boothowto & RB_VERBOSE) {
-			if (p->md_type <= EFI_MD_TYPE_PALCODE)
-				type = types[p->md_type];
-			else
-				type = "<INVALID>";
-			printf("%23s %012lx %12p %08lx ", type, p->md_phys,
-			    p->md_virt, p->md_pages);
-			if (p->md_attr & EFI_MD_ATTR_UC)
-				printf("UC ");
-			if (p->md_attr & EFI_MD_ATTR_WC)
-				printf("WC ");
-			if (p->md_attr & EFI_MD_ATTR_WT)
-				printf("WT ");
-			if (p->md_attr & EFI_MD_ATTR_WB)
-				printf("WB ");
-			if (p->md_attr & EFI_MD_ATTR_UCE)
-				printf("UCE ");
-			if (p->md_attr & EFI_MD_ATTR_WP)
-				printf("WP ");
-			if (p->md_attr & EFI_MD_ATTR_RP)
-				printf("RP ");
-			if (p->md_attr & EFI_MD_ATTR_XP)
-				printf("XP ");
-			if (p->md_attr & EFI_MD_ATTR_RT)
-				printf("RUNTIME");
-			printf("\n");
-		}
-
-		switch (p->md_type) {
-		case EFI_MD_TYPE_CODE:
-		case EFI_MD_TYPE_DATA:
-		case EFI_MD_TYPE_BS_CODE:
-		case EFI_MD_TYPE_BS_DATA:
-		case EFI_MD_TYPE_FREE:
-			/*
-			 * We're allowed to use any entry with these types.
-			 */
-			break;
-		default:
-			continue;
-		}
-
-		if (!add_physmap_entry(p->md_phys, (p->md_pages * PAGE_SIZE),
-		    physmap, physmap_idxp))
-			break;
-	}
-}
-#endif
 
 #ifdef FDT
 static void
@@ -721,7 +622,6 @@ try_load_dtb(caddr_t kmdp)
 {
 	vm_offset_t dtbp;
 
-	//dtbp = MD_FETCH(kmdp, MODINFOMD_DTBP, vm_offset_t);
 	dtbp = (vm_offset_t)&fdt_static_dtb;
 	if (dtbp == (vm_offset_t)NULL) {
 		printf("ERROR loading DTB\n");
@@ -773,7 +673,9 @@ fake_preload_metadata(struct riscv_bootparams *rvbp __unused)
 	printf("end is 0x%016lx\n", (uint64_t)&end);
 	fake_preload[i++] = (uint64_t)&end - (uint64_t)(KERNBASE + 0x200);
 	i += 1;
-#ifdef DDBremoveme
+#ifdef DDB
+#if 0
+	/* RISCVTODO */
 	if (*(uint32_t *)KERNVIRTADDR == MAGIC_TRAMP_NUMBER) {
 		fake_preload[i++] = MODINFO_METADATA|MODINFOMD_SSYM;
 		fake_preload[i++] = sizeof(vm_offset_t);
@@ -787,6 +689,7 @@ fake_preload_metadata(struct riscv_bootparams *rvbp __unused)
 		db_fetch_ksymtab(zstart, zend);
 	} else
 #endif
+#endif
 		lastaddr = (vm_offset_t)&end;
 	fake_preload[i++] = 0;
 	fake_preload[i] = 0;
@@ -798,65 +701,34 @@ fake_preload_metadata(struct riscv_bootparams *rvbp __unused)
 void
 initriscv(struct riscv_bootparams *rvbp)
 {
-	//struct efi_map_header *efihdr;
-	//struct pcpu *pcpup;
 	vm_offset_t lastaddr;
+	vm_size_t kernlen;
 	caddr_t kmdp;
-	//vm_paddr_t mem_len;
-	//int i;
-
-	printf("preload metadata\n");
 
 	/* Set the module data location */
 	lastaddr = fake_preload_metadata(rvbp);
-	//preload_metadata = (caddr_t)(uintptr_t)(rvbp->modulep);
-
-	printf("preload metadata done\n");
 
 	/* Find the kernel address */
 	kmdp = preload_search_by_type("elf kernel");
 	if (kmdp == NULL)
 		kmdp = preload_search_by_type("elf64 kernel");
 
-	if (kmdp == NULL)
-		printf("elf kernel not found\n");
-	else
-		printf("elf kernel found\n");
+	boothowto = 0;
 
-	printf("boothowto\n");
-
-	boothowto = 0; //MD_FETCH(kmdp, MODINFOMD_HOWTO, int);
-	//boothowto = RB_SINGLE;
-
-	printf("kern_envp\n");
-	kern_envp = NULL; //MD_FETCH(kmdp, MODINFOMD_ENVP, char *);
-
-	printf("try load dtb\n");
+	kern_envp = NULL;
 
 #ifdef FDT
 	try_load_dtb(kmdp);
 #endif
 
-	/* Find the address to start allocating from */
-	//lastaddr = MD_FETCH(kmdp, MODINFOMD_KERNEND, vm_offset_t);
-
-	printf("Load the physical memory ranges\n");
-
 	/* Load the physical memory ranges */
 	physmap_idx = 0;
-#if 0
-	efihdr = (struct efi_map_header *)preload_search_info(kmdp,
-	    MODINFO_METADATA | MODINFOMD_EFI_MAP);
-	add_efi_map_entries(efihdr, physmap, &physmap_idx);
 
-	/* Print the memory map */
-	mem_len = 0;
-	for (i = 0; i < physmap_idx; i += 2)
-		mem_len += physmap[i + 1] - physmap[i];
-#endif
-
+	/*
+	 * RISCVTODO: figure out whether platform provides ranges,
+	 * or grab from FDT.
+	 */
 	add_physmap_entry(0, 0x8000000, physmap, &physmap_idx);
-	printf("physmap_idx %d\n", physmap_idx);
 
 	/* Set the pcpu data, this is needed by pmap_bootstrap */
 	pcpup = &__pcpu[0];
@@ -867,50 +739,22 @@ initriscv(struct riscv_bootparams *rvbp)
 	 * loaded when entering the kernel from userland.
 	 */
 #if 0
-	__asm __volatile(
-	    "mov x18, %0 \n"
-	    "msr tpidr_el1, %0" :: "r"(pcpup));
-#endif
-#if 0
+	/* SMP TODO: try re-use gp for pcpu pointer */
 	__asm __volatile(
 	    "mv gp, %0" :: "r"(pcpup));
 #endif
 
 	PCPU_SET(curthread, &thread0);
 
-	printf("init_param1\n");
-
 	/* Do basic tuning, hz etc */
 	init_param1();
 
-	printf("rvbp->kern_stack 0x%016lx\n", rvbp->kern_stack);
-	printf("rvbp->kern_l1pt 0x%016lx\n", rvbp->kern_l1pt);
-	printf("rvbp->kern_delta 0x%016lx\n", rvbp->kern_delta);
-	printf("lastaddr 0x%016lx KERNBASE 0x%016lx\n", lastaddr, KERNBASE);
-
 	cache_setup();
 
-	// pmap_bootstrap(vm_offset_t l1pt, vm_paddr_t kernstart, vm_size_t kernlen)
-
-	/* Bootstrap enough of pmap to enter the kernel proper */
-
-	vm_paddr_t kernstart;
-	vm_size_t kernlen;
-
-	kernstart = KERNBASE - rvbp->kern_delta;
-	//kernstart = (KERNBASE + 0x200);
-	kernlen = (lastaddr - KERNBASE);
-	pmap_bootstrap(rvbp->kern_l1pt, kernstart, kernlen);
-
-#if 0
 	/* Bootstrap enough of pmap  to enter the kernel proper */
-	pmap_bootstrap(rvbp->kern_l1pt, KERNBASE - rvbp->kern_delta,
-	    lastaddr - KERNBASE);
+	kernlen = (lastaddr - KERNBASE);
+	pmap_bootstrap(rvbp->kern_l1pt, 0x200, kernlen);
 
-	arm_devmap_bootstrap(0, NULL);
-#endif
-
-	printf("cninit\n");
 	cninit();
 
 	printf("init proc0 kernstack 0x%016lx\n", rvbp->kern_stack);
@@ -918,22 +762,11 @@ initriscv(struct riscv_bootparams *rvbp)
 
 	/* set page table base register for thread0 */
 	thread0.td_pcb->pcb_l1addr = (rvbp->kern_l1pt - KERNBASE);
-	printf("thread0 0x%016lx pcb_l1addr 0x%016lx\n",
-		&thread0, thread0.td_pcb->pcb_l1addr);
 
-	printf("msgbuf init\n");
 	msgbufinit(msgbufp, msgbufsize);
-
-	printf("mutex init\n");
 	mutex_init();
-
-	printf("init param2\n");
 	init_param2(physmem);
-
-	printf("kdb_init\n");
 	kdb_init();
 
 	early_boot = 0;
-
-	printf("initriscv done\n");
 }

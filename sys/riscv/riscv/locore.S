@@ -41,7 +41,6 @@
 #include <machine/param.h>
 #include <machine/trap.h>
 #include <machine/pte.h>
-//#include <machine/vmparam.h>
 
 #define	INIT_STACK_SIZE	(PAGE_SIZE * 4)
 #define	RING_SIZE	(64)
@@ -186,20 +185,11 @@ _start:
 	bltu	a0, s1, 1b
 
 	/* Fill riscv_bootparams */
-	addi	sp, sp, -32
-
-	li	t0, 0
-	sd	t0, 0(sp) /* modulep */
-
+	addi	sp, sp, -16
 	la	t0, pagetable_l1
-	sd	t0, 8(sp) /* kern_l1pt */
-
-	li	t0, KERNBASE
-	addi	t0, t0, -0x200
-	sd	t0, 16(sp) /* kern_delta */
-
+	sd	t0, 0(sp) /* kern_l1pt */
 	la	t0, initstack_end
-	sd	t0, 24(sp) /* kern_stack */
+	sd	t0, 8(sp) /* kern_stack */
 
 	mv	a0, sp
 	call	_C_LABEL(initriscv)	/* Off we go */

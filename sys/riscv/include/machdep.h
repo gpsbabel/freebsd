@@ -38,9 +38,7 @@
 #define	_MACHINE_MACHDEP_H_
 
 struct riscv_bootparams {
-	vm_offset_t	modulep;
 	vm_offset_t	kern_l1pt;	/* Kernel L1 base */
-	uint64_t	kern_delta;
 	vm_offset_t	kern_stack;
 };
 
