@@ -57,8 +57,6 @@
 	.weak alias;						\
 	.set alias,sym
 
-//#define	UINT64_C(x)	(x)
-
 #if defined(PIC)
 #define	PIC_SYM(x,y)	x ## @ ## y
 #else
@@ -67,8 +65,8 @@
 
 /*
  * Sets the trap fault handler. The exception handler will return to the
- * address in the handler register on a data abort or the xzr register to
- * clear the handler. The tmp parameter should be a register able to hold
+ * address in the handler register_t on a data abort or the x0 register_t to
+ * clear the handler. The tmp parameter should be a register_t able to hold
  * the temporary data.
  */
 #define	SET_FAULT_HANDLER(handler, tmp)					\
@@ -78,74 +76,67 @@
 	ld	tmp, TD_PCB(tmp);		/* Load the pcb */	\
 	sd	handler, PCB_ONFAULT(tmp)	/* Set the handler */
 
-#if 0
-#define	SET_FAULT_HANDLER(handler, tmp)					\
-	ld	tmp, PC_CURTHREAD(gp);		/* Load curthread */	\
-	ldr	tmp, [x18, #PC_CURTHREAD];	/* Load curthread */	\
-	ldr	tmp, [tmp, #TD_PCB];		/* Load the pcb */	\
-	str	handler, [tmp, #PCB_ONFAULT]	/* Set the handler */
-#endif /* if 0 */
+#define	CSR_ZIMM(val)	\
+	(__builtin_constant_p(val) && ((u_long)(val) < 0x20))
 
-#define CSR_ZIMM(val) \
-	(__builtin_constant_p(val) && ((unsigned long)(val) < 0x20))
-
-#define csr_swap(csr, val)					\
+#define	csr_swap(csr, val)					\
 ({								\
-	unsigned long __v = (unsigned long)(val);		\
-	if (CSR_ZIMM(__v)) { 					\
-		__asm__ __volatile__ (				\
+								\
+	if (CSR_ZIMM(val))  					\
+		__asm __volatile(				\
 			"csrrw %0, " #csr ", %1"		\
-			: "=r" (__v) : "i" (__v));		\
-	} else {						\
-		__asm__ __volatile__ (				\
+			: "=r" (val) : "i" (val));		\
+	else 							\
+		__asm __volatile(				\
 			"csrrw %0, " #csr ", %1"		\
-			: "=r" (__v) : "r" (__v));		\
-	}							\
-	__v;							\
+			: "=r" (val) : "r" (val));		\
+								\
+	val;							\
 })
 
-#define csr_write(csr, val)					\
+#define	csr_write(csr, val)					\
 ({								\
-	unsigned long __v = (unsigned long)(val);		\
-	if (CSR_ZIMM(__v)) {					\
-		__asm__ __volatile__ (				\
-			"csrw " #csr ", %0" : : "i" (__v));	\
-	} else {						\
-		__asm__ __volatile__ (				\
-			"csrw " #csr ", %0" : : "r" (__v));	\
-	}							\
+								\
+	if (CSR_ZIMM(val)) 					\
+		__asm __volatile(				\
+			"csrw " #csr ", %0" : : "i" (val));	\
+	else 							\
+		__asm __volatile(				\
+			"csrw " #csr ", %0" : : "r" (val));	\
+								\
 })
 
-#define csr_set(csr,val)					\
+#define	csr_set(csr, val)					\
 ({								\
-	unsigned long __v = (unsigned long)(val);		\
-	if (CSR_ZIMM(__v)) {					\
-		__asm__ __volatile__ (				\
-			"csrs " #csr ", %0" : : "i" (__v));	\
-	} else {						\
-		__asm__ __volatile__ (				\
-			"csrs " #csr ", %0" : : "r" (__v));	\
-	}							\
+								\
+	if (CSR_ZIMM(val)) 					\
+		__asm __volatile(				\
+			"csrs " #csr ", %0" : : "i" (val));	\
+	else							\
+		__asm __volatile(				\
+			"csrs " #csr ", %0" : : "r" (val));	\
+								\
 })
 
-#define csr_clear(csr,val)					\
+#define	csr_clear(csr, val)					\
 ({								\
-	unsigned long __v = (unsigned long)(val);		\
-	if (CSR_ZIMM(__v)) {					\
-		__asm__ __volatile__ (				\
-			"csrc " #csr ", %0" : : "i" (__v));	\
-	} else {						\
-		__asm__ __volatile__ (				\
-			"csrc " #csr ", %0" : : "r" (__v));	\
-	}							\
+								\
+	if (CSR_ZIMM(val))					\
+		__asm __volatile(				\
+			"csrc " #csr ", %0" : : "i" (val));	\
+	else							\
+		__asm __volatile(				\
+			"csrc " #csr ", %0" : : "r" (val));	\
 })
 
-#define csr_read(csr)						\
+#define	csr_read(csr)						\
 ({								\
-	register unsigned long __v;				\
-	__asm__ __volatile__ (					\
-		"csrr %0, " #csr : "=r" (__v));			\
-	__v;							\
+	u_long val;						\
+								\
+	__asm __volatile(					\
+		"csrr %0, " #csr : "=r" (val));			\
+								\
+	val;							\
 })
 
 #endif /* _MACHINE_ASM_H_ */
