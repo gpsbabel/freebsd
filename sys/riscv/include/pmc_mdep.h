@@ -37,7 +37,7 @@
 #ifndef _MACHINE_PMC_MDEP_H_
 #define	_MACHINE_PMC_MDEP_H_
 
-#define	PMC_MDEP_CLASS_INDEX_ARMV8	1
+#define	PMC_MDEP_CLASS_INDEX_RISCV	1
 /*
  * On the RISC-V platform we don't support any PMCs yet.
  */
