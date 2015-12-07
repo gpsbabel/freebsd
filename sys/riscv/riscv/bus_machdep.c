@@ -42,108 +42,45 @@ __FBSDID("$FreeBSD$");
 
 #include <machine/bus.h>
 
-uint8_t  generic_bs_r_1(void *, bus_space_handle_t, bus_size_t);
-uint16_t generic_bs_r_2(void *, bus_space_handle_t, bus_size_t);
-uint32_t generic_bs_r_4(void *, bus_space_handle_t, bus_size_t);
-uint64_t generic_bs_r_8(void *, bus_space_handle_t, bus_size_t);
-
-void generic_bs_rm_1(void *, bus_space_handle_t, bus_size_t, uint8_t *,
-    bus_size_t);
-void generic_bs_rm_2(void *, bus_space_handle_t, bus_size_t, uint16_t *,
-    bus_size_t);
-void generic_bs_rm_4(void *, bus_space_handle_t, bus_size_t, uint32_t *,
-    bus_size_t);
-void generic_bs_rm_8(void *, bus_space_handle_t, bus_size_t, uint64_t *,
-    bus_size_t);
-
-void generic_bs_w_1(void *, bus_space_handle_t, bus_size_t, uint8_t);
-void generic_bs_w_2(void *, bus_space_handle_t, bus_size_t, uint16_t);
-void generic_bs_w_4(void *, bus_space_handle_t, bus_size_t, uint32_t);
-void generic_bs_w_8(void *, bus_space_handle_t, bus_size_t, uint64_t);
-
-void generic_bs_wm_1(void *, bus_space_handle_t, bus_size_t, const uint8_t *,
-    bus_size_t);
-void generic_bs_wm_2(void *, bus_space_handle_t, bus_size_t, const uint16_t *,
-    bus_size_t);
-void generic_bs_wm_4(void *, bus_space_handle_t, bus_size_t, const uint32_t *,
-    bus_size_t);
-void generic_bs_wm_8(void *, bus_space_handle_t, bus_size_t, const uint64_t *,
-    bus_size_t);
-
-static int
-generic_bs_map(void *t, bus_addr_t bpa, bus_size_t size, int flags,
-    bus_space_handle_t *bshp)
-{
-	void *va;
-
-	va = pmap_mapdev(bpa, size);
-	if (va == NULL)
-		return (ENOMEM);
-	*bshp = (bus_space_handle_t)va;
-	return (0);
-}
-
-static void
-generic_bs_unmap(void *t, bus_space_handle_t bsh, bus_size_t size)
-{
-
-	pmap_unmapdev(bsh, size);
-}
-
-static void
-generic_bs_barrier(void *t, bus_space_handle_t bsh, bus_size_t offset,
-    bus_size_t size, int flags)
-{
-}
-
-static int
-generic_bs_subregion(void *t, bus_space_handle_t bsh, bus_size_t offset,
-    bus_size_t size, bus_space_handle_t *nbshp)
-{
-
-	*nbshp = bsh + offset;
-	return (0);
-}
-
 struct bus_space memmap_bus = {
 	/* cookie */
 	.bs_cookie = NULL,
 
 	/* mapping/unmapping */
-	.bs_map = generic_bs_map,
-	.bs_unmap = generic_bs_unmap,
-	.bs_subregion = generic_bs_subregion,
+	.bs_map = NULL,
+	.bs_unmap = NULL,
+	.bs_subregion = NULL,
 
 	/* allocation/deallocation */
 	.bs_alloc = NULL,
 	.bs_free = NULL,
 
 	/* barrier */
-	.bs_barrier = generic_bs_barrier,
+	.bs_barrier = NULL,
 
 	/* read single */
-	.bs_r_1 = generic_bs_r_1,
-	.bs_r_2 = generic_bs_r_2,
-	.bs_r_4 = generic_bs_r_4,
-	.bs_r_8 = generic_bs_r_8,
+	.bs_r_1 = NULL,
+	.bs_r_2 = NULL,
+	.bs_r_4 = NULL,
+	.bs_r_8 = NULL,
 
 	/* read multiple */
-	.bs_rm_1 = generic_bs_rm_1,
-	.bs_rm_2 = generic_bs_rm_2,
-	.bs_rm_4 = generic_bs_rm_4,
-	.bs_rm_8 = generic_bs_rm_8,
+	.bs_rm_1 = NULL,
+	.bs_rm_2 = NULL,
+	.bs_rm_4 = NULL,
+	.bs_rm_8 = NULL,
 
 	/* write single */
-	.bs_w_1 = generic_bs_w_1,
-	.bs_w_2 = generic_bs_w_2,
-	.bs_w_4 = generic_bs_w_4,
-	.bs_w_8 = generic_bs_w_8,
+	.bs_w_1 = NULL,
+	.bs_w_2 = NULL,
+	.bs_w_4 = NULL,
+	.bs_w_8 = NULL,
 
 	/* write multiple */
-	.bs_wm_1 = generic_bs_wm_1,
-	.bs_wm_2 = generic_bs_wm_2,
-	.bs_wm_4 = generic_bs_wm_4,
-	.bs_wm_8 = generic_bs_wm_8,
+	.bs_wm_1 = NULL,
+	.bs_wm_2 = NULL,
+	.bs_wm_4 = NULL,
+	.bs_wm_8 = NULL,
 
 	/* write region */
 	.bs_wr_1 = NULL,
@@ -176,10 +113,10 @@ struct bus_space memmap_bus = {
 	.bs_r_8_s = NULL,
 
 	/* read multiple stream */
-	.bs_rm_1_s = generic_bs_rm_1,
-	.bs_rm_2_s = generic_bs_rm_2,
-	.bs_rm_4_s = generic_bs_rm_4,
-	.bs_rm_8_s = generic_bs_rm_8,
+	.bs_rm_1_s = NULL,
+	.bs_rm_2_s = NULL,
+	.bs_rm_4_s = NULL,
+	.bs_rm_8_s = NULL,
 
 	/* read region stream */
 	.bs_rr_1_s = NULL,
@@ -194,10 +131,10 @@ struct bus_space memmap_bus = {
 	.bs_w_8_s = NULL,
 
 	/* write multiple stream */
-	.bs_wm_1_s = generic_bs_wm_1,
-	.bs_wm_2_s = generic_bs_wm_2,
-	.bs_wm_4_s = generic_bs_wm_4,
-	.bs_wm_8_s = generic_bs_wm_8,
+	.bs_wm_1_s = NULL,
+	.bs_wm_2_s = NULL,
+	.bs_wm_4_s = NULL,
+	.bs_wm_8_s = NULL,
 
 	/* write region stream */
 	.bs_wr_1_s = NULL,
