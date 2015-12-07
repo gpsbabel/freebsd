@@ -205,7 +205,7 @@
  * Optional floor (in bytes) on the size of the kmem arena.
  */
 #ifndef VM_KMEM_SIZE_MIN
-#define	VM_KMEM_SIZE_MIN	(12 * 1024 * 1024)
+#define	VM_KMEM_SIZE_MIN	(16 * 1024 * 1024)
 #endif
 
 /*
@@ -214,7 +214,7 @@
  */
 #ifndef VM_KMEM_SIZE_MAX
 #define	VM_KMEM_SIZE_MAX	((VM_MAX_KERNEL_ADDRESS - \
-    VM_MIN_KERNEL_ADDRESS + 1) * 2 / 5)
+    VM_MIN_KERNEL_ADDRESS + 1) * 3 / 5)
 #endif
 
 /*
