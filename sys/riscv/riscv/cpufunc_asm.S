@@ -1,10 +1,14 @@
 /*-
- * Copyright (c) 2014 Robin Randhawa
- * Copyright (c) 2015 The FreeBSD Foundation
+ * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
  *
- * Portions of this software were developed by Andrew Turner
- * under sponsorship from the FreeBSD Foundation
+ * This software was developed by SRI International and the University of
+ * Cambridge Computer Laboratory under DARPA/AFRL contract FA8750-10-C-0237
+ * ("CTSRD"), as part of the DARPA CRASH research programme.
+ *
+ * This software was developed by the University of Cambridge Computer
+ * Laboratory as part of the CTSRD Project, with support from the UK Higher
+ * Education Innovation Fund (HEIF).
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,57 +30,17 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
  */
 
 #include <machine/asm.h>
 #include <machine/param.h>
 __FBSDID("$FreeBSD$");
 
-/*
- * FIXME:
- * Need big.LITTLE awareness at some point.
- * Using riscv_p[id]cache_line_size may not be the best option.
- * Need better SMP awareness.
- */
 	.text
 	.align	2
 
 .Lpage_mask:
 	.word	PAGE_MASK
-
-/*
- * Macro to handle the cache. This takes the start address in x0, length
- * in x1. It will corrupt x0, x1, x2, and x3.
- */
-.macro cache_handle_range dcop = 0, ic = 0, icop = 0
-	sfence.vm
-#if 0
-.if \ic == 0
-	ldr	x3, =dcache_line_size	/* Load the D cache line size */
-.else
-	ldr	x3, =idcache_line_size	/* Load the I & D cache line size */
-.endif
-	ldr	x3, [x3]
-	sub	x4, x3, #1		/* Get the address mask */
-	and	x2, x0, x4		/* Get the low bits of the address */
-	add	x1, x1, x2		/* Add these to the size */
-	bic	x0, x0, x4		/* Clear the low bit of the address */
-1:
-.if \ic != 0
-	ic	\icop, x0
-.endif
-	dc	\dcop, x0
-	add	x0, x0, x3		/* Move to the next line */
-	subs	x1, x1, x3		/* Reduce the size */
-	b.hi	1b			/* Check if we are done */
-.if \ic != 0
-	isb
-.endif
-	dsb	ish
-	ret
-#endif
-.endm
 
 ENTRY(riscv_nullop)
 	ret
@@ -86,86 +50,54 @@ END(riscv_nullop)
  * Generic functions to read/modify/write the internal coprocessor registers
  */
 
-#if 1
 ENTRY(riscv_setttb)
 	fence
 	csrw	sptbr0, a0
-	sfence.vm
+	fence
 	ret
-#if 0
-	dsb	ish
-	msr	ttbr0_el1, x0
-	dsb	ish
-	isb
-	ret
-#endif
 END(riscv_setttb)
-#endif
 
 ENTRY(riscv_tlb_flushID)
 	sfence.vm
-#if 0
-#ifdef SMP
-	tlbi	vmalle1is
-#else
-	tlbi	vmalle1
-#endif
-	dsb	ish
-	isb
 	ret
-#endif
 END(riscv_tlb_flushID)
 
 ENTRY(riscv_tlb_flushID_SE)
 	sfence.vm
-#if 0
-	ldr	x1, .Lpage_mask
-	bic	x0, x0, x1
-#ifdef SMP
-	tlbi	vae1is, x0
-#else
-	tlbi	vae1, x0
-#endif
-	dsb	ish
-	isb
 	ret
-#endif
 END(riscv_tlb_flushID_SE)
 
 /*
  * void riscv_dcache_wb_range(vm_offset_t, vm_size_t)
  */
 ENTRY(riscv_dcache_wb_range)
-	cache_handle_range	dcop = cvac
+	ret
 END(riscv_dcache_wb_range)
 
 /*
  * void riscv_dcache_wbinv_range(vm_offset_t, vm_size_t)
  */
 ENTRY(riscv_dcache_wbinv_range)
-	cache_handle_range	dcop = civac
+	ret
 END(riscv_dcache_wbinv_range)
 
 /*
  * void riscv_dcache_inv_range(vm_offset_t, vm_size_t)
- *
- * Note, we must not invalidate everything.  If the range is too big we
- * must use wb-inv of the entire cache.
  */
 ENTRY(riscv_dcache_inv_range)
-	cache_handle_range	dcop = ivac
+	ret
 END(riscv_dcache_inv_range)
 
 /*
  * void riscv_idcache_wbinv_range(vm_offset_t, vm_size_t)
  */
 ENTRY(riscv_idcache_wbinv_range)
-	cache_handle_range	dcop = civac, ic = 1, icop = ivau
+	ret
 END(riscv_idcache_wbinv_range)
 
 /*
  * void riscv_icache_sync_range(vm_offset_t, vm_size_t)
  */
 ENTRY(riscv_icache_sync_range)
-	cache_handle_range	dcop = cvac, ic = 1, icop = ivau
+	ret
 END(riscv_icache_sync_range)
