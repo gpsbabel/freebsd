@@ -236,7 +236,7 @@ htif_blk_task(void *arg)
 			cmd |= paddr;
 
 			sc->cmd_done = 0;
-			htif_command(cmd, ECALL_HTIF_CMD);
+			htif_command(cmd);
 
 			/* Wait for interrupt */
 			HTIF_BLK_LOCK(sc);

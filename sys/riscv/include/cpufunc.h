@@ -103,14 +103,15 @@ intr_enable(void)
 }
 
 static __inline register_t
-mcsr_get(uint64_t cmd)
+machine_command(uint64_t cmd, uint64_t arg)
 {
 	uint64_t res;
 
 	__asm __volatile(
-		"mv	t5, %1\n"
+		"mv	t5, %2\n"
+		"mv	t6, %1\n"
 		"ecall\n"
-		"mv	%0, t6" : "=&r"(res) : "r"(cmd)
+		"mv	%0, t6" : "=&r"(res) : "r"(arg), "r"(cmd)
 	);
 
 	return (res);

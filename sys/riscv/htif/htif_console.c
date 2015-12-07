@@ -107,7 +107,7 @@ htif_putc(int c)
 	cmd = 0x101000000000000;
 	cmd |= c;
 
-	htif_command(cmd, ECALL_HTIF_CMD);
+	htif_command(cmd);
 }
 
 static uint8_t
@@ -118,7 +118,7 @@ htif_getc(void)
 
 	cmd = 0x100000000000000;
 
-	res = htif_command(cmd, ECALL_HTIF_CMD);
+	res = htif_command(cmd);
 
 	return (res);
 }

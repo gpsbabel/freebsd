@@ -113,8 +113,8 @@ identify_cpu(void)
 
 	cpu_partsp = NULL;
 
-	mimpid = mcsr_get(ECALL_MIMPID_GET);
-	mcpuid = mcsr_get(ECALL_MCPUID_GET);
+	mimpid = machine_command(ECALL_MIMPID_GET, 0);
+	mcpuid = machine_command(ECALL_MCPUID_GET, 0);
 
 	/* SMPTODO: use mhartid ? */
 	cpu = PCPU_GET(cpuid);

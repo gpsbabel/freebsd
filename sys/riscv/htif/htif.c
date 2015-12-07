@@ -74,18 +74,10 @@ struct intr_entry {
 struct intr_entry intrs[HTIF_NDEV];
 
 uint64_t
-htif_command(uint64_t cmd, uint64_t m)
+htif_command(uint64_t arg)
 {
-	uint64_t res;
 
-	__asm __volatile(
-		"mv	t5, %2\n"
-		"mv	t6, %1\n"
-		"ecall\n"
-		"mv	%0, t6" : "=&r"(res) : "r"(cmd), "r"(m)
-	);
-
-	return (res);
+	return (machine_command(ECALL_HTIF_CMD, arg));
 }
 
 int
@@ -107,10 +99,8 @@ htif_handle_entry(struct htif_softc *sc)
 	uint64_t entry;
 	uint8_t devcmd;
 	uint8_t devid;
-	uint64_t cmd;
 
-	cmd = 0;
-	entry = htif_command(cmd, ECALL_HTIF_GET_ENTRY);
+	entry = machine_command(ECALL_HTIF_GET_ENTRY, 0);
 	while (entry) {
 		devid = HTIF_DEV_ID(entry);
 		devcmd = HTIF_DEV_CMD(entry);
@@ -125,7 +115,7 @@ htif_handle_entry(struct htif_softc *sc)
 				intrs[devid].func(intrs[devid].arg, entry);
 		}
 
-		entry = htif_command(cmd, ECALL_HTIF_GET_ENTRY);
+		entry = machine_command(ECALL_HTIF_GET_ENTRY, 0);
 	}
 }
 
@@ -184,7 +174,7 @@ htif_enumerate(struct htif_softc *sc)
 		cmd |= (HTIF_CMD_IDENTIFY << HTIF_CMD_SHIFT);
 		cmd |= data;
 
-		htif_command(cmd, ECALL_HTIF_CMD);
+		htif_command(cmd);
 
 		/* Do poll as interrupts are disabled yet */
 		while (sc->identify_done == 0) {

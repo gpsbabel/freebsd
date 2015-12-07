@@ -73,5 +73,5 @@ struct htif_dev_softc {
 	struct htif_softc	*sc;
 };
 
-uint64_t htif_command(uint64_t, uint64_t);
+uint64_t htif_command(uint64_t);
 int htif_setup_intr(int id, void *func, void *arg);
