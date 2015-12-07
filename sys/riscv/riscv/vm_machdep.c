@@ -81,7 +81,7 @@ cpu_fork(struct thread *td1, struct proc *p2, struct thread *td2, int flags)
 		 */
 
 		__asm __volatile("mv	%0, tp" : "=&r"(val));
-		td1->td_pcb->pcb_x[4] = val;
+		td1->td_pcb->pcb_x[PCB_TP] = val;
 #ifdef VFP
 		if ((td1->td_pcb->pcb_fpflags & PCB_FP_STARTED) != 0)
 			vfp_save_state(td1);
@@ -216,7 +216,7 @@ cpu_set_user_tls(struct thread *td, void *tls_base)
 		return (EINVAL);
 
 	pcb = td->td_pcb;
-	pcb->pcb_x[4] = (register_t)tls_base;
+	pcb->pcb_x[PCB_TP] = (register_t)tls_base;
 
 	return (0);
 }
