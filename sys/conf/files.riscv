@@ -1,3 +1,5 @@
+crypto/blowfish/bf_enc.c	optional	crypto | ipsec
+crypto/des/des_enc.c		optional	crypto | ipsec | netsmb
 riscv/riscv/autoconf.c		standard
 riscv/riscv/bcopy.c		standard
 riscv/riscv/bus_space_asm.S	standard
