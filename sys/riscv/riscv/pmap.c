@@ -425,10 +425,7 @@ pmap_l3_valid_cacheable(pt_entry_t l3)
 
 #define	PTE_SYNC(pte)	cpu_dcache_wb_range((vm_offset_t)pte, sizeof(*pte))
 
-/*
- * Checks if the page is dirty. We currently lack proper tracking of this on
- * arm64 so for now assume is a page mapped as rw was accessed it is.
- */
+/* Checks if the page is dirty. */
 static inline int
 pmap_page_dirty(pt_entry_t pte)
 {

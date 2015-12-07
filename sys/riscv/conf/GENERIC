@@ -5,7 +5,7 @@ ident		GENERIC
 cpu		CPU_RISCV
 machine		riscv
 
-makeoptions	NO_MODULES=1	# We don't yet support modules on arm64
+makeoptions	NO_MODULES=1	# We don't yet support modules on RISC-V
 
 options 	HZ=100
 # options 	SCHED_4BSD		# 4BSD scheduler

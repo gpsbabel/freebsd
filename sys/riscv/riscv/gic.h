@@ -34,8 +34,8 @@
  * $FreeBSD$
  */
 
-#ifndef _ARM64_GIC_H_
-#define	_ARM64_GIC_H_
+#ifndef _RISCV_GIC_H_
+#define	_RISCV_GIC_H_
 
 DECLARE_CLASS(riscv_gic_driver);
 
