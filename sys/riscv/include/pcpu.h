@@ -36,8 +36,6 @@
 #define	ALT_STACK_SIZE	128
 
 #define	PCPU_MD_FIELDS							\
-	u_int	pc_acpi_id;	/* ACPI CPU id */			\
-	u_int	pc_midr;	/* stored MIDR value */			\
 	char __pad[121]
 
 #ifdef _KERNEL
@@ -49,10 +47,6 @@ extern struct pcpu *pcpup;
 static inline struct pcpu *
 get_pcpu(void)
 {
-	//struct pcpu *pcpu;
-	//__asm __volatile("la	%0, _C_LABEL(pcpup)" : "=&r"(pcpu));
-	//__asm __volatile("la	%0, pcpup" : "=r"(pcpu));
-	//__asm __volatile("mv	%0, tp" : "=&r"(pcpu));
 
 	return (pcpup);
 }
@@ -60,16 +54,6 @@ get_pcpu(void)
 static inline struct thread *
 get_curthread(void)
 {
-	//struct thread *td;
-	//__asm __volatile("ld %0, 0(gp)" : "=&r"(td));
-	//td = *(uint64_t **)pcpup;
-	//td = (struct thread *)*(uint64_t *)pcpup;
-	//uint64_t p;
-	//p = *(uint64_t *)pcpup;
-	//td = (struct thread *)p;
-	//__asm __volatile("ld %0, 0(tp)" : "=&r"(td));
-	//return (td);
-	//return (get_pcpu()->pc_curthread);
 
 	return ((struct thread *)*(uint64_t *)pcpup);
 }

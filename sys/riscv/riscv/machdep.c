@@ -359,7 +359,6 @@ void
 cpu_pcpu_init(struct pcpu *pcpu, int cpuid, size_t size)
 {
 
-	pcpu->pc_acpi_id = 0xffffffff;
 }
 
 void
