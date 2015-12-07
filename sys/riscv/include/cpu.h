@@ -59,16 +59,19 @@
  * 0xFFFF         Reserved for extension
  */
 
+#define	CPU_IMPL_SHIFT		0
+#define	CPU_IMPL_MASK		(0xffff << CPU_IMPL_SHIFT)
+#define	CPU_IMPL(mimpid)	((mimpid & CPU_IMPL_MASK) >> CPU_IMPL_SHIFT)
 #define	CPU_IMPL_UNIMPLEMEN	0x0
 #define	CPU_IMPL_UCB_ROCKET	0x1
 
-#define	CPU_PART_RV32I	0x0
-#define	CPU_PART_RV32E	0x1
-#define	CPU_PART_RV64I	0x2
-#define	CPU_PART_RV128I	0x3
-
-#define	CPU_IMPL(mimpid)	(((mimpid) >> 0) & 0xffff)
-#define	CPU_PART(mcpuid)	(((mcpuid) >> 62) & 0x3)
+#define	CPU_PART_SHIFT		62
+#define	CPU_PART_MASK		(0x3ul << CPU_PART_SHIFT)
+#define	CPU_PART(mcpuid)	((mcpuid & CPU_PART_MASK) >> CPU_PART_SHIFT)
+#define	CPU_PART_RV32I		0x0
+#define	CPU_PART_RV32E		0x1
+#define	CPU_PART_RV64I		0x2
+#define	CPU_PART_RV128I		0x3
 
 extern char btext[];
 extern char etext[];
