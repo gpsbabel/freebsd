@@ -43,42 +43,13 @@ __FBSDID("$FreeBSD$");
 void *
 uma_small_alloc(uma_zone_t zone, vm_size_t bytes, u_int8_t *flags, int wait)
 {
-	vm_page_t m;
-	vm_paddr_t pa;
-	void *va;
-	int pflags;
 
-	*flags = UMA_SLAB_PRIV;
-	pflags = malloc2vm_flags(wait) | VM_ALLOC_NOOBJ | VM_ALLOC_WIRED;
-	for (;;) {
-		m = vm_page_alloc(NULL, 0, pflags);
-		if (m == NULL) {
-			if (wait & M_NOWAIT)
-				return (NULL);
-			else
-				VM_WAIT;
-		} else
-			break;
-	}
-	pa = m->phys_addr;
-	if ((wait & M_NODUMP) == 0)
-		dump_add_page(pa);
-	va = (void *)PHYS_TO_DMAP(pa);
-	if ((wait & M_ZERO) && (m->flags & PG_ZERO) == 0)
-		bzero(va, PAGE_SIZE);
-	return (va);
+	panic("uma_small_alloc");
 }
 
 void
 uma_small_free(void *mem, vm_size_t size, u_int8_t flags)
 {
-	vm_page_t m;
-	vm_paddr_t pa;
 
-	pa = DMAP_TO_PHYS((vm_offset_t)mem);
-	dump_drop_page(pa);
-	m = PHYS_TO_VM_PAGE(pa);
-	m->wire_count--;
-	vm_page_free(m);
-	atomic_subtract_int(&vm_cnt.v_wire_count, 1);
+	panic("uma_small_free");
 }
