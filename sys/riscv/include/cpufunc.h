@@ -45,29 +45,7 @@ static __inline void
 breakpoint(void)
 {
 
-	//RISCVTODO
-	//__asm("brk #0");
 	__asm("ebreak");
-}
-
-static __inline register_t
-dbg_disable(void)
-{
-	uint32_t ret;
-
-	__asm __volatile(
-	    "mrs %x0, daif   \n"
-	    "msr daifset, #8 \n"
-	    : "=&r" (ret));
-
-	return (ret);
-}
-
-static __inline void
-dbg_enable(void)
-{
-
-	__asm __volatile("msr daifclr, #8");
 }
 
 static __inline register_t
