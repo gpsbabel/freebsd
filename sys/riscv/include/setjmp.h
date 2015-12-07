@@ -54,8 +54,8 @@
 
 /* This should only be needed in libc and may change */
 #ifdef __ASSEMBLER__
-#define	_JB_MAGIC__SETJMP	0xfb5d25837d7ff700
-#define	_JB_MAGIC_SETJMP	0xfb5d25837d7ff701
+#define	_JB_MAGIC__SETJMP	0xbe87fd8a2910af00
+#define	_JB_MAGIC_SETJMP	0xbe87fd8a2910af01
 #endif
 
 #ifndef __ASSEMBLER__
