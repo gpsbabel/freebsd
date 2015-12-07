@@ -49,7 +49,7 @@ __FBSDID("$FreeBSD$");
 #include <vm/uma.h>
 #include <vm/uma_int.h>
 
-#include <machine/armreg.h>
+#include <machine/riscvreg.h>
 #include <machine/cpu.h>
 #include <machine/pcb.h>
 #include <machine/frame.h>

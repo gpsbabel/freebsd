@@ -39,7 +39,7 @@
 
 #ifdef _KERNEL
 
-#include <machine/armreg.h>
+#include <machine/riscvreg.h>
 
 static __inline void
 breakpoint(void)

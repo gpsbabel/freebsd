@@ -70,7 +70,7 @@ __FBSDID("$FreeBSD$");
 #include <vm/vm_map.h>
 #include <vm/vm_pager.h>
 
-#include <machine/armreg.h>
+#include <machine/riscvreg.h>
 #include <machine/cpu.h>
 #include <machine/kdb.h>
 #include <machine/machdep.h>
