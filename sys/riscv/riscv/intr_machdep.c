@@ -71,11 +71,11 @@ static MALLOC_DEFINE(M_INTR, "intr", "Interrupt Services");
  * Each element holds the interrupt description
  * and has to be allocated and freed dynamically.
  */
-static SLIST_HEAD(, riscv64_intr_entry) irq_slist_head =
+static SLIST_HEAD(, riscv_intr_entry) irq_slist_head =
     SLIST_HEAD_INITIALIZER(irq_slist_head);
 
-struct riscv64_intr_entry {
-	SLIST_ENTRY(riscv64_intr_entry) entries;
+struct riscv_intr_entry {
+	SLIST_ENTRY(riscv_intr_entry) entries;
 	struct intr_event	*i_event;
 
 	enum intr_trigger	i_trig;
@@ -95,8 +95,8 @@ size_t sintrcnt = sizeof(intrcnt);
 size_t sintrnames = sizeof(intrnames);
 
 static u_int intrcntidx;	/* Current index into intrcnt table */
-static u_int riscv64_nintrs;	/* Max interrupts number of the root PIC */
-static u_int riscv64_nstray;	/* Number of received stray interrupts */
+static u_int riscv_nintrs;	/* Max interrupts number of the root PIC */
+static u_int riscv_nstray;	/* Number of received stray interrupts */
 static device_t root_pic;	/* PIC device for all incoming interrupts */
 static device_t msi_pic;	/* Device which handles MSI/MSI-X interrupts */
 static struct mtx intr_list_lock;
@@ -126,12 +126,12 @@ intrcnt_setname(const char *name, u_int idx)
  * Get intr structure for the given interrupt number.
  * Allocate one if this is the first time.
  * (Similar to ppc's intr_lookup() but without actual
- * lookup since irq number is an index in riscv64_intrs[]).
+ * lookup since irq number is an index in riscv_intrs[]).
  */
-static struct riscv64_intr_entry *
+static struct riscv_intr_entry *
 intr_acquire(u_int hw_irq)
 {
-	struct riscv64_intr_entry *intr;
+	struct riscv_intr_entry *intr;
 
 	mtx_lock(&intr_list_lock);
 
@@ -167,7 +167,7 @@ out:
 static void
 intr_pre_ithread(void *arg)
 {
-	struct riscv64_intr_entry *intr = arg;
+	struct riscv_intr_entry *intr = arg;
 
 	PIC_PRE_ITHREAD(root_pic, intr->i_hw_irq);
 }
@@ -175,7 +175,7 @@ intr_pre_ithread(void *arg)
 static void
 intr_post_ithread(void *arg)
 {
-	struct riscv64_intr_entry *intr = arg;
+	struct riscv_intr_entry *intr = arg;
 
 	PIC_POST_ITHREAD(root_pic, intr->i_hw_irq);
 }
@@ -183,7 +183,7 @@ intr_post_ithread(void *arg)
 static void
 intr_post_filter(void *arg)
 {
-	struct riscv64_intr_entry *intr = arg;
+	struct riscv_intr_entry *intr = arg;
 
 	PIC_POST_FILTER(root_pic, intr->i_hw_irq);
 }
@@ -203,7 +203,7 @@ riscv_register_root_pic(device_t dev, u_int nirq)
 	KASSERT(root_pic == NULL, ("Unable to set the pic twice"));
 	KASSERT(nirq <= NIRQS, ("PIC is trying to handle too many IRQs"));
 
-	riscv64_nintrs = NIRQS; /* Number of IRQs limited only by array size */
+	riscv_nintrs = NIRQS; /* Number of IRQs limited only by array size */
 	root_pic = dev;
 }
 
@@ -267,9 +267,7 @@ riscv_map_msix(device_t pci_dev, int irq, uint64_t *addr, uint32_t *data)
 int
 riscv_enable_intr(void)
 {
-	struct riscv64_intr_entry *intr;
-
-	//printf("Enable interrupts\n");
+	struct riscv_intr_entry *intr;
 
 	if (root_pic == NULL)
 		panic("Cannot enable interrupts. No PIC configured");
@@ -287,11 +285,11 @@ riscv_enable_intr(void)
 		 *	This can happen only when calling bus_setup_intr()
 		 *	before the interrupt controller is attached.
 		 */
-		if (intr->i_cntidx >= riscv64_nintrs) {
+		if (intr->i_cntidx >= riscv_nintrs) {
 			/* Better fail when IVARIANTS enabled */
 			KASSERT(0, ("%s: Interrupt %u cannot be handled by the "
 			    "registered PIC. Max interrupt number: %u", __func__,
-			    intr->i_cntidx, riscv64_nintrs - 1));
+			    intr->i_cntidx, riscv_nintrs - 1));
 			/* Print message and disable otherwise */
 			printf("ERROR: Cannot enable irq %u. Disabling.\n",
 			    intr->i_cntidx);
@@ -304,16 +302,12 @@ riscv_enable_intr(void)
 			    intr->i_trig, intr->i_pol);
 		}
 
-		if (intr->i_handlers > 0) {
-			printf("pic_unmask %d\n", intr->i_hw_irq);
+		if (intr->i_handlers > 0)
 			PIC_UNMASK(root_pic, intr->i_hw_irq);
-		}
 
 	}
 	/* Enable interrupt reception on this CPU */
-	/* XXX: figure out if we need that here */
-	//printf("intr_enable()\n");
-	//intr_enable();
+	intr_enable();
 
 	return (0);
 }
@@ -322,10 +316,8 @@ int
 riscv_setup_intr(const char *name, driver_filter_t *filt, driver_intr_t handler,
     void *arg, u_int hw_irq, enum intr_type flags, void **cookiep)
 {
-	struct riscv64_intr_entry *intr;
+	struct riscv_intr_entry *intr;
 	int error;
-
-	//printf("%s\n", __func__);
 
 	intr = intr_acquire(hw_irq);
 	if (intr == NULL)
@@ -339,8 +331,6 @@ riscv_setup_intr(const char *name, driver_filter_t *filt, driver_intr_t handler,
 	if (intr->i_cntidx >= NIRQS)
 		return (EINVAL);
 
-	//printf("%s 1\n", __func__);
-
 	if (intr->i_event == NULL) {
 		error = intr_event_create(&intr->i_event, (void *)intr, 0,
 		    hw_irq, intr_pre_ithread, intr_post_ithread,
@@ -349,12 +339,8 @@ riscv_setup_intr(const char *name, driver_filter_t *filt, driver_intr_t handler,
 			return (error);
 	}
 
-	//printf("%s name %s\n", __func__, name);
-
 	error = intr_event_add_handler(intr->i_event, name, filt, handler, arg,
 	    intr_priority(flags), flags, cookiep);
-
-	//printf("%s error %d\n", __func__, error);
 
 	if (!error) {
 		mtx_lock(&intr_list_lock);
@@ -368,7 +354,6 @@ riscv_setup_intr(const char *name, driver_filter_t *filt, driver_intr_t handler,
 				    intr->i_pol);
 			}
 
-			//printf("%s 4\n", __func__);
 			PIC_UNMASK(root_pic, intr->i_hw_irq);
 		}
 		mtx_unlock(&intr_list_lock);
@@ -380,7 +365,7 @@ riscv_setup_intr(const char *name, driver_filter_t *filt, driver_intr_t handler,
 int
 riscv_teardown_intr(void *cookie)
 {
-	struct riscv64_intr_entry *intr;
+	struct riscv_intr_entry *intr;
 	int error;
 
 	intr = intr_handler_source(cookie);
@@ -400,7 +385,7 @@ riscv_teardown_intr(void *cookie)
 int
 riscv_config_intr(u_int hw_irq, enum intr_trigger trig, enum intr_polarity pol)
 {
-	struct riscv64_intr_entry *intr;
+	struct riscv_intr_entry *intr;
 
 	intr = intr_acquire(hw_irq);
 	if (intr == NULL)
@@ -418,7 +403,7 @@ riscv_config_intr(u_int hw_irq, enum intr_trigger trig, enum intr_polarity pol)
 void
 riscv_dispatch_intr(u_int hw_irq, struct trapframe *tf)
 {
-	struct riscv64_intr_entry *intr;
+	struct riscv_intr_entry *intr;
 
 	SLIST_FOREACH(intr, &irq_slist_head, entries) {
 		if (intr->i_hw_irq == hw_irq) {
@@ -435,10 +420,10 @@ riscv_dispatch_intr(u_int hw_irq, struct trapframe *tf)
 		return;
 
 stray:
-	if (riscv64_nstray < MAX_STRAY_LOG) {
-		riscv64_nstray++;
+	if (riscv_nstray < MAX_STRAY_LOG) {
+		riscv_nstray++;
 		printf("Stray IRQ %u\n", hw_irq);
-		if (riscv64_nstray >= MAX_STRAY_LOG) {
+		if (riscv_nstray >= MAX_STRAY_LOG) {
 			printf("Got %d stray IRQs. Not logging anymore.\n",
 			    MAX_STRAY_LOG);
 		}
@@ -494,7 +479,7 @@ ipi_all_but_self(u_int ipi)
 	other_cpus = all_cpus;
 	CPU_CLR(PCPU_GET(cpuid), &other_cpus);
 
-	/* ARM64TODO: This will be fixed with riscv_intrng */
+	/* RISCVTODO: This will be fixed with riscv_intrng */
 	ipi += 16;
 
 	CTR2(KTR_SMP, "%s: ipi: %x", __func__, ipi);
