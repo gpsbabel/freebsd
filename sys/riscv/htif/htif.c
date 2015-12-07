@@ -66,6 +66,13 @@ static struct resource_spec htif_spec[] = {
 	{ -1, 0 }
 };
 
+struct intr_entry {
+	void (*func) (void *, uint64_t);
+	void *arg;
+};
+
+struct intr_entry intrs[HTIF_NDEV];
+
 uint64_t
 htif_command(uint64_t cmd, uint64_t m)
 {
@@ -80,13 +87,6 @@ htif_command(uint64_t cmd, uint64_t m)
 
 	return (res);
 }
-
-struct intr_entry {
-	void (*func) (void *, uint64_t);
-	void *arg;
-};
-
-struct intr_entry intrs[HTIF_NDEV];
 
 int
 htif_setup_intr(int id, void *func, void *arg)
@@ -112,7 +112,6 @@ htif_handle_entry(struct htif_softc *sc)
 	cmd = 0;
 	entry = htif_command(cmd, ECALL_HTIF_GET_ENTRY);
 	while (entry) {
-		//printf("entry 0x%016lx\n", entry);
 		devid = HTIF_DEV_ID(entry);
 		devcmd = HTIF_DEV_CMD(entry);
 
@@ -149,8 +148,6 @@ htif_add_device(struct htif_softc *sc, int i, char *id, char *name)
 {
 	struct htif_dev_softc *dev_sc;
 
-	//device_printf(sc->dev, "%s\n", name);
-
 	dev_sc = malloc(sizeof(struct htif_dev_softc), M_DEVBUF, M_NOWAIT | M_ZERO);
 	dev_sc->sc = sc;
 	dev_sc->index = i;
@@ -177,8 +174,6 @@ htif_enumerate(struct htif_softc *sc)
 
 	for (i = 0; i < HTIF_NDEV; i++) {
 		paddr = pmap_kextract((vm_offset_t)&id);
-		//printf("paddr 0x%016lx\n", paddr);
-
 		data = (paddr << 8) | 0xff;
 
 		sc->identify_id = i;
@@ -237,7 +232,6 @@ htif_attach(device_t dev)
 
 	sc = device_get_softc(dev);
 	sc->dev = dev;
-	//mtx_init(&sc->sc_mtx, device_get_nameunit(dev), "htif_command", MTX_DEF);
 
 	if (bus_alloc_resources(dev, htif_spec, sc->res)) {
 		device_printf(dev, "could not allocate resources\n");
