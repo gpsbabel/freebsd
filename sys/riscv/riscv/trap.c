@@ -342,22 +342,17 @@ do_trap(struct trapframe *frame)
 	//	frame->tf_sepc += 4;
 	//	svc_handler(frame);
 	//	break;
-	case EXCP_BRK:
+	//case EXCP_BRK:
 #ifdef KDTRACE_HOOKS
-		if ((esr & ESR_ELx_ISS_MASK) == 0x40d && \
-		    dtrace_invop_jump_addr != 0) {
-			dtrace_invop_jump_addr(frame);
-			break;
-		}
 #endif
-	case EXCP_WATCHPT_EL1:
-	case EXCP_SOFTSTP_EL1:
+	//case EXCP_WATCHPT_EL1:
+	//case EXCP_SOFTSTP_EL1:
 #ifdef KDB
-		kdb_trap(exception, 0, frame);
+	//	kdb_trap(exception, 0, frame);
 #else
-		panic("No debugger in kernel.\n");
+	//	panic("No debugger in kernel.\n");
 #endif
-		break;
+	//	break;
 	default:
 		for (i = 0; i < 32; i++) {
 			printf("x[%d] == 0x%016lx\n", i, frame->tf_x[i]);
@@ -410,20 +405,20 @@ do_trap_user(struct trapframe *frame)
 		svc_handler(frame);
 		break;
 	//case EXCP_FP_SIMD:
-	case EXCP_TRAP_FP:
+	//case EXCP_TRAP_FP:
 #ifdef VFP
-		vfp_restore_state();
+	//	vfp_restore_state();
 #else
-		panic("VFP exception in userland");
+	//	panic("VFP exception in userland");
 #endif
-		break;
-	case EXCP_SVC:
-		svc_handler(frame);
-		break;
-	case EXCP_INSN_ABORT_L:
-	case EXCP_DATA_ABORT_L:
-		data_abort(frame, esr, 1);
-		break;
+	//	break;
+	//case EXCP_SVC:
+	//	svc_handler(frame);
+	//	break;
+	//case EXCP_INSN_ABORT_L:
+	//case EXCP_DATA_ABORT_L:
+	//	data_abort(frame, esr, 1);
+	//	break;
 	default:
 		for (i = 0; i < 32; i++) {
 			printf("x[%d] == 0x%016lx\n", i, frame->tf_x[i]);
