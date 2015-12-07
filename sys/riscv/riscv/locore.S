@@ -237,34 +237,6 @@ console_intr:
 	/* Re-check for new ast scheduled */
 	j	1b
 2:
-#if 0
-	/* Disable interrupts */
-	mrs	x19, daif
-1:
-	msr	daifset, #2
-
-	/* Read the current thread flags */
-	ldr	x1, [x18, #PC_CURTHREAD]	/* Load curthread */
-	ldr	x2, [x1, #TD_FLAGS]
-
-	/* Check if we have either bits set */
-	mov	x3, #((TDF_ASTPENDING|TDF_NEEDRESCHED) >> 8)
-	lsl	x3, x3, #8
-	and	x2, x2, x3
-	cmp	x2, #0
-	b.eq	2f
-
-	/* Restore interrupts */
-	msr	daif, x19
-
-	/* handle the ast */
-	mov	x0, sp
-	bl	_C_LABEL(ast)
-
-	/* Re-check for new ast scheduled */
-	b	1b
-2:
-#endif
 .endm
 
 ENTRY(sigcode)

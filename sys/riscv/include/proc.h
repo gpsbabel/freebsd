@@ -36,7 +36,7 @@
 
 struct mdthread {
 	int	md_spinlock_count;	/* (k) */
-	register_t md_saved_daif;	/* (k) */
+	register_t md_saved_sstatus_ie;	/* (k) */
 };
 
 struct mdproc {

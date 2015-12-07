@@ -156,17 +156,11 @@ riscv_tmr_start(struct eventtimer *et, sbintime_t first, sbintime_t period)
 	struct riscv_tmr_softc *sc;
 	int counts;
 
-	//struct thread *td;
-	//td = curthread;
-	//printf("riscv_tmr_start first %d period %d sstatus 0x%016lx sc %d d %d\n",
-	//		first, period, csr_read(sstatus), td->td_md.md_spinlock_count, td->td_md.md_saved_daif);
-
 	sc = (struct riscv_tmr_softc *)et->et_priv;
 
 	if (first != 0) {
 		counts = ((uint32_t)et->et_frequency * first) >> 32;
 		set_mtimecmp(counts);
-
 		return (0);
 	}
 

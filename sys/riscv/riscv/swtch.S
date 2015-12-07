@@ -431,92 +431,15 @@ ENTRY(fork_trampoline)
 	/*
 	 * TODO: interrupt can happen here, between ld and eret.
 	 * It will came to supervisor handler
-	 * with user stack causing some panic
+	 * with user stack causing some panic.
+	 * Need to disable interrupts before changing sp.
 	 */
 	eret
-#if 0
-	mov	x0, x8
-	mov	x1, x9
-	mov	x2, sp
-	mov	fp, #0	/* Stack traceback stops here. */
-	bl	_C_LABEL(fork_exit)
-
-	/* Restore sp and lr */
-	ldp	x0, x1, [sp]
-	msr	sp_el0, x0
-	mov	lr, x1
-
-	/* Restore the registers other than x0 and x1 */
-	ldp	x2, x3, [sp, #TF_X + 2 * 8]
-	ldp	x4, x5, [sp, #TF_X + 4 * 8]
-	ldp	x6, x7, [sp, #TF_X + 6 * 8]
-	ldp	x8, x9, [sp, #TF_X + 8 * 8]
-	ldp	x10, x11, [sp, #TF_X + 10 * 8]
-	ldp	x12, x13, [sp, #TF_X + 12 * 8]
-	ldp	x14, x15, [sp, #TF_X + 14 * 8]
-	ldp	x16, x17, [sp, #TF_X + 16 * 8]
-	ldr	     x19, [sp, #TF_X + 19 * 8]
-	ldp	x20, x21, [sp, #TF_X + 20 * 8]
-	ldp	x22, x23, [sp, #TF_X + 22 * 8]
-	ldp	x24, x25, [sp, #TF_X + 24 * 8]
-	ldp	x26, x27, [sp, #TF_X + 26 * 8]
-	ldp	x28, x29, [sp, #TF_X + 28 * 8]
-	/* Skip x30 as it was restored above as lr */
-
-	/*
-	 * Disable interrupts to avoid
-	 * overwriting spsr_el1 by an IRQ exception.
-	 */
-	msr	daifset, #2
-
-	/* Restore elr and spsr */
-	ldp	x0, x1, [sp, #16]
-	msr	elr_el1, x0
-	msr	spsr_el1, x1
-
-	/* Finally x0 and x1 */
-	ldp	x0, x1, [sp, #TF_X + 0 * 8]
-	ldr	x18, [sp, #TF_X + 18 * 8]
-
-	/*
-	 * No need for interrupts reenabling since PSR
-	 * will be set to the desired value anyway.
-	 */
-	eret
-#endif
 END(fork_trampoline)
 
 ENTRY(savectx)
 	la	a0, .Lsavectx_panic_str
 	call	panic
-#if 0
-	/* Store the callee-saved registers */
-	stp	x8,  x9,  [x0, #PCB_REGS + 8 * 8]
-	stp	x10, x11, [x0, #PCB_REGS + 10 * 8]
-	stp	x12, x13, [x0, #PCB_REGS + 12 * 8]
-	stp	x14, x15, [x0, #PCB_REGS + 14 * 8]
-	stp	x16, x17, [x0, #PCB_REGS + 16 * 8]
-	stp	x18, x19, [x0, #PCB_REGS + 18 * 8]
-	stp	x20, x21, [x0, #PCB_REGS + 20 * 8]
-	stp	x22, x23, [x0, #PCB_REGS + 22 * 8]
-	stp	x24, x25, [x0, #PCB_REGS + 24 * 8]
-	stp	x26, x27, [x0, #PCB_REGS + 26 * 8]
-	stp	x28, x29, [x0, #PCB_REGS + 28 * 8]
-	str	x30, [x0, #PCB_REGS + 30 * 8]
-	/* And the old stack pointer */
-	mov	x5, sp
-	mrs	x6, tpidr_el0
-	stp	x5, x6, [x0, #PCB_SP]
-
-	/* Store the VFP registers */
-#ifdef VFP
-	mov	x29, lr
-	bl	vfp_save_state
-	mov	lr, x29
-#endif
-
-	ret
-#endif
 .Lsavectx_panic_str:
 	.asciz "savectx_panic: %p\0"
 END(savectx)
