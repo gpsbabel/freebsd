@@ -1,10 +1,14 @@
 /*-
- * Copyright (c) 2014 Andrew Turner
- * Copyright (c) 2014-2015 The FreeBSD Foundation
+ * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
  *
- * This software was developed by Andrew Turner under
- * sponsorship from the FreeBSD Foundation.
+ * This software was developed by SRI International and the University of
+ * Cambridge Computer Laboratory under DARPA/AFRL contract FA8750-10-C-0237
+ * ("CTSRD"), as part of the DARPA CRASH research programme.
+ *
+ * This software was developed by the University of Cambridge Computer
+ * Laboratory as part of the CTSRD Project, with support from the UK Higher
+ * Education Innovation Fund (HEIF).
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -39,15 +43,15 @@
  * We need to store:
  *  - A magic value to differentiate the buffers
  *  - The stack pointer
- *  - The link register
- *  - 11 general purpose registers
- *  - 8 floating point registers
+ *  - The return address
+ *  - 12 general purpose registers
+ *  - 12 floating point registers
  *  - The signal mask (128 bits)
- * i.e. 24 64-bit words, this can be rounded up to 32 to give us some
+ * i.e. 29 64-bit words, this can be rounded up to 32 to give us some
  * space to expand into without affecting the ABI.
  * XXX: Is this enough space for expansion?
  *
- * The registers to save are: r19 to r29, and d8 to d15.
+ * The registers to save are: s0 to s11, and fs0 to fs11.
  */
 #define	_JBLEN		32
 #define	_JB_SIGMASK	21
