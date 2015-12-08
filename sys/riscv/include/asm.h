@@ -76,44 +76,4 @@
 	ld	tmp, TD_PCB(tmp);		/* Load the pcb */	\
 	sd	handler, PCB_ONFAULT(tmp)	/* Set the handler */
 
-#define	CSR_ZIMM(val)							\
-	(__builtin_constant_p(val) && ((u_long)(val) < 32))
-
-#define	csr_swap(csr, val)						\
-({	if (CSR_ZIMM(val))  						\
-		__asm __volatile("csrrwi %0, " #csr ", %1"		\
-				: "=r" (val) : "i" (val));		\
-	else 								\
-		__asm __volatile("csrrw %0, " #csr ", %1"		\
-				: "=r" (val) : "r" (val));		\
-	val;								\
-})
-
-#define	csr_write(csr, val)						\
-({	if (CSR_ZIMM(val)) 						\
-		__asm __volatile("csrwi " #csr ", %0" :: "i" (val));	\
-	else 								\
-		__asm __volatile("csrw " #csr ", %0" ::  "r" (val));	\
-})
-
-#define	csr_set(csr, val)						\
-({	if (CSR_ZIMM(val)) 						\
-		__asm __volatile("csrsi " #csr ", %0" :: "i" (val));	\
-	else								\
-		__asm __volatile("csrs " #csr ", %0" :: "r" (val));	\
-})
-
-#define	csr_clear(csr, val)						\
-({	if (CSR_ZIMM(val))						\
-		__asm __volatile("csrci " #csr ", %0" :: "i" (val));	\
-	else								\
-		__asm __volatile("csrc " #csr ", %0" :: "r" (val));	\
-})
-
-#define	csr_read(csr)							\
-({	u_long val;							\
-	__asm __volatile("csrr %0, " #csr : "=r" (val));		\
-	val;								\
-})
-
 #endif /* _MACHINE_ASM_H_ */

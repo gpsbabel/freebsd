@@ -38,6 +38,7 @@ __FBSDID("$FreeBSD$");
 #include "assym.s"
 
 #include <machine/trap.h>
+#include <machine/riscvreg.h>
 
 .macro save_registers el
 	addi	sp, sp, -288
