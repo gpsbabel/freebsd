@@ -67,6 +67,8 @@ __FBSDID("$FreeBSD$");
 #include <dev/ofw/ofw_bus_subr.h>
 #endif
 
+#define	DEFAULT_FREQ	1000000
+
 struct riscv_tmr_softc {
 	struct resource		*res[1];
 	void			*ihl[1];
@@ -117,7 +119,6 @@ riscv_tmr_start(struct eventtimer *et, sbintime_t first, sbintime_t period)
 	if (first != 0) {
 		counts = ((uint32_t)et->et_frequency * first) >> 32;
 		machine_command(ECALL_MTIMECMP, counts);
-		//set_mtimecmp(counts);
 		return (0);
 	}
 
@@ -129,15 +130,10 @@ static int
 riscv_tmr_stop(struct eventtimer *et)
 {
 	struct riscv_tmr_softc *sc;
-	//int ctrl;
-
-	printf("riscv_tmr_stop\n");
 
 	sc = (struct riscv_tmr_softc *)et->et_priv;
 
-	//ctrl = get_ctrl(sc->physical);
-	//ctrl &= GT_CTRL_ENABLE;
-	//set_ctrl(ctrl, sc->physical);
+	/* TODO */
 
 	return (0);
 }
@@ -151,8 +147,8 @@ riscv_tmr_intr(void *arg)
 
 	/*
 	 * Clear interrupt pending bit.
-	 * Note clear pending bit in sip register is not implemented
-	 * in Spike simulator, so use machine command.
+	 * Note sip register is unimplemented in Spike simulator,
+	 * so use machine command to clear in mip.
 	 */
 	machine_command(ECALL_CLEAR_PENDING, 0);
 
@@ -206,7 +202,8 @@ riscv_tmr_attach(device_t dev)
 	}
 #endif
 
-	sc->clkfreq = 1000000;
+	if (sc->clkfreq == 0)
+		sc->clkfreq = DEFAULT_FREQ;
 
 	if (sc->clkfreq == 0) {
 		device_printf(dev, "No clock frequency specified\n");
