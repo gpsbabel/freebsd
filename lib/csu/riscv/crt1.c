@@ -64,11 +64,7 @@ __asm("	.text			\n"
 "	.align	0		\n"
 "	.globl	_start		\n"
 "	_start:			\n"
-/* TODO: Remove this when the kernel correctly aligns the stack */
-"	bnez	a0, 1f		\n" /* Are we using a new kernel? */
-"	mv	a0, sp		\n" /* No, load the args from sp */
-"	and	sp, a0, ~0xf	\n" /* And align the stack */
-"1:	mv	a3, a2		\n" /* cleanup */
+"	mv	a3, a2		\n" /* cleanup */
 "	addi	a1, a0, 8	\n" /* load argv */
 "	ld	a0, 0(a0)	\n" /* load argc */
 "	slli	t0, a0, 3	\n" /* mult by 8 */
