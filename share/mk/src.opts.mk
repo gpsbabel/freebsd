@@ -234,6 +234,9 @@ __DEFAULT_YES_OPTIONS+=ELFCOPY_AS_OBJCOPY
 .else
 __DEFAULT_NO_OPTIONS+=ELFCOPY_AS_OBJCOPY
 .endif
+.if ${__T} == "riscv"
+BROKEN_OPTIONS+=PROFILE TESTS CXX RESCUE
+.endif
 # LLVM lacks support for FreeBSD 64-bit atomic operations for ARMv4/ARMv5
 .if ${__T} == "arm" || ${__T} == "armeb"
 BROKEN_OPTIONS+=LLDB
