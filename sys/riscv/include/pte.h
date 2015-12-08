@@ -44,43 +44,24 @@ typedef	uint64_t	pt_entry_t;		/* page table entry */
 
 /* Level 0 table, 512GiB per entry */
 #define	L0_SHIFT	39
-#define	L0_INVAL	0x0 /* An invalid address */
-#define	L0_BLOCK	0x1 /* A block */
-	/* 0x2 also marks an invalid address */
-#define	L0_TABLE	0x3 /* A next-level table */
 
 /* Level 1 table, 1GiB per entry */
 #define	L1_SHIFT	30
 #define	L1_SIZE 	(1 << L1_SHIFT)
 #define	L1_OFFSET 	(L1_SIZE - 1)
-#define	L1_INVAL	L0_INVAL
-#define	L1_BLOCK	L0_BLOCK
-#define	L1_TABLE	L0_TABLE
 
 /* Level 2 table, 2MiB per entry */
 #define	L2_SHIFT	21
 #define	L2_SIZE 	(1 << L2_SHIFT)
 #define	L2_OFFSET 	(L2_SIZE - 1)
-#define	L2_INVAL	L0_INVAL
-#define	L2_BLOCK	L0_BLOCK
-#define	L2_TABLE	L0_TABLE
-
-#define	L2_BLOCK_MASK	UINT64_C(0xffffffe00000)
 
 /* Level 3 table, 4KiB per entry */
 #define	L3_SHIFT	12
 #define	L3_SIZE 	(1 << L3_SHIFT)
 #define	L3_OFFSET 	(L3_SIZE - 1)
-#define	L3_INVAL	0x0
-	/* 0x1 is reserved */
-	/* 0x2 also marks an invalid address */
-#define	L3_PAGE		0x3
 
 #define	Ln_ENTRIES	(1 << 9)
 #define	Ln_ADDR_MASK	(Ln_ENTRIES - 1)
-#define	Ln_TABLE_MASK	((1 << 12) - 1)
-
-/* RISC-V */
 
 #define	ATTR_MASK	0x3ff
 /* Bits 9:7 are reserved for software */
