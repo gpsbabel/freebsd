@@ -73,23 +73,15 @@ __bswap64(__uint64_t _x)
 	ret |= ((_x << 40) & ((__uint64_t)0xff << 48));
 	ret |= (_x << 56);
 
-	//__asm __volatile("rev %0, %1\n"
-	//		 : "=&r" (ret), "+r" (x));
-	
 	return (ret);
 }
 
 static __inline __uint32_t
 __bswap32_var(__uint32_t _x)
 {
-	//__uint32_t ret;
 
 	return ((_x >> 24) | ((_x >> 8) & 0xff00) | ((_x << 8) & 0xff0000) | 
 	    ((_x << 24) & 0xff000000));
-
-	//__asm __volatile("rev32 %x0, %x1\n"
-	//		 : "=&r" (ret), "+r" (v));
-	//return (ret);
 }
 
 static __inline __uint16_t
@@ -99,14 +91,8 @@ __bswap16_var(__uint16_t _x)
 
 	ret = ((_x >> 8) | ((_x << 8) & 0xff00));
 
-	//ret = (_x >> 8);
-	//ret |= ((_x << 8) & 0xff00);
-
-	//__asm __volatile("rev17 %w0, %w1\n"
-	//		 : "=&r" (ret), "+r" (v));
-
 	return ((__uint16_t)ret);
-}		
+}
 
 #ifdef __OPTIMIZE__
 

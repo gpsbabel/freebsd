@@ -83,7 +83,6 @@
 #define	MIE_SSIE	(1 << 1)
 #define	MIE_HSIE	(1 << 2)
 #define	MIE_MSIE	(1 << 3)
-
 #define	MIE_STIE	(1 << 5)
 #define	MIE_HTIE	(1 << 6)
 #define	MIE_MTIE	(1 << 7)
@@ -91,7 +90,6 @@
 #define	MIP_SSIP	(1 << 1)
 #define	MIP_HSIP	(1 << 2)
 #define	MIP_MSIP	(1 << 3)
-
 #define	MIP_STIP	(1 << 5)
 #define	MIP_HTIP	(1 << 6)
 #define	MIP_MTIP	(1 << 7)

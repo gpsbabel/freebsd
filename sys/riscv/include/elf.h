@@ -101,6 +101,5 @@ __ElfType(Auxinfo);
 
 /* TODO: set correct value */
 #define	ET_DYN_LOAD_ADDR 0x100000
-//#define	ET_DYN_LOAD_ADDR 0x800000
 
 #endif /* !_MACHINE_ELF_H_ */
