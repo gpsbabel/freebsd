@@ -2,6 +2,14 @@
  * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
  *
+ * This software was developed by SRI International and the University of
+ * Cambridge Computer Laboratory under DARPA/AFRL contract FA8750-10-C-0237
+ * ("CTSRD"), as part of the DARPA CRASH research programme.
+ *
+ * This software was developed by the University of Cambridge Computer
+ * Laboratory as part of the CTSRD Project, with support from the UK Higher
+ * Education Innovation Fund (HEIF).
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -26,6 +34,11 @@
  * $FreeBSD$
  */
 
+/*
+ * RISC-V FPU, Chapter 6, The RISC-V Instruction Set Manual,
+ * Volume I: User-Level ISA, Version 2.0
+ */
+
 #ifndef	_FENV_H_
 #define	_FENV_H_
 
@@ -48,19 +61,8 @@ typedef	__uint64_t	fexcept_t;
 			 FE_INVALID | FE_OVERFLOW | FE_UNDERFLOW)
 
 /*
- * Rounding modes
- *
- * We can't just use the hardware bit values here, because that would
- * make FE_UPWARD and FE_DOWNWARD negative, which is not allowed.
+ * RISC-V Rounding modes
  */
-#define	FE_TONEAREST	0x0
-#define	FE_UPWARD	0x1
-#define	FE_DOWNWARD	0x2
-#define	FE_TOWARDZERO	0x3
-//#define	_ROUND_MASK	(FE_TONEAREST | FE_DOWNWARD | FE_UPWARD | FE_TOWARDZERO)
-//#define	_ROUND_SHIFT	22
-
-/* RISC-V */
 #define	FRM_SHIFT	5
 #define	FRM_MASK	(0x7 << FRM_SHIFT)
 #define	FRM_RNE		0 /* Round to Nearest, ties to Even */
