@@ -68,11 +68,10 @@ __FBSDID("$FreeBSD$");
 #endif
 
 struct riscv_tmr_softc {
-	struct resource		*res[4];
-	void			*ihl[4];
+	struct resource		*res[1];
+	void			*ihl[1];
 	uint32_t		clkfreq;
 	struct eventtimer	et;
-	bool			physical;
 };
 
 static struct riscv_tmr_softc *riscv_tmr_sc = NULL;
@@ -93,61 +92,18 @@ static struct timecounter riscv_tmr_timecount = {
 	.tc_quality        = 1000,
 };
 
-#ifdef __riscv__
-#define	get_el0(x)	cp15_## x ##_get()
-#define	get_el1(x)	cp15_## x ##_get()
-#define	set_el0(x, val)	cp15_## x ##_set(val)
-#define	set_el1(x, val)	cp15_## x ##_set(val)
-#else /* __aarch64__ */
-#define	get_el0(x)	(0)
-#define	get_el1(x)	(0)
-#define	set_el0(x, val)	(0)
-#define	set_el1(x, val) (0)
-#endif
-
-static void
-set_mtimecmp(int c)
-{
-
-	__asm __volatile(
-		"mv	t5, %0\n"
-		"mv	t6, %1\n"
-		"ecall" :: "r"(ECALL_MTIMECMP), "r"(c)
-	);
-}
-
-static void
-clear_pending(void)
-{
-
-	__asm __volatile(
-		"mv	t5, %0\n"
-		"ecall" :: "r"(ECALL_CLEAR_PENDING)
-	);
-}
-
-static int
-get_freq(void)
-{
-
-	return (0);
-}
-
 static long
-get_cntxct(bool physical)
+get_counts(void)
 {
-	uint64_t val;
 
-	__asm __volatile("csrr %0, stime" : "=r"(val));
-
-	return (val);
+	return (csr_read(stime));
 }
 
 static unsigned
 riscv_tmr_get_timecount(struct timecounter *tc)
 {
 
-	return (get_cntxct(riscv_tmr_sc->physical));
+	return (get_counts());
 }
 
 static int
@@ -160,7 +116,8 @@ riscv_tmr_start(struct eventtimer *et, sbintime_t first, sbintime_t period)
 
 	if (first != 0) {
 		counts = ((uint32_t)et->et_frequency * first) >> 32;
-		set_mtimecmp(counts);
+		machine_command(ECALL_MTIMECMP, counts);
+		//set_mtimecmp(counts);
 		return (0);
 	}
 
@@ -192,11 +149,12 @@ riscv_tmr_intr(void *arg)
 
 	sc = (struct riscv_tmr_softc *)arg;
 
-	/* Clear pending */
-	/* not implemented in spike */
-	//csr_clear(sip, (1 << 5));
-
-	clear_pending();
+	/*
+	 * Clear interrupt pending bit.
+	 * Note clear pending bit in sip register is not implemented
+	 * in Spike simulator, so use machine command.
+	 */
+	machine_command(ECALL_CLEAR_PENDING, 0);
 
 	if (sc->et.et_active)
 		sc->et.et_event_cb(&sc->et, sc->et.et_arg);
@@ -251,11 +209,6 @@ riscv_tmr_attach(device_t dev)
 	sc->clkfreq = 1000000;
 
 	if (sc->clkfreq == 0) {
-		/* Try to get clock frequency from timer */
-		sc->clkfreq = get_freq();
-	}
-
-	if (sc->clkfreq == 0) {
 		device_printf(dev, "No clock frequency specified\n");
 		return (ENXIO);
 	}
@@ -264,12 +217,6 @@ riscv_tmr_attach(device_t dev)
 		device_printf(dev, "could not allocate resources\n");
 		return (ENXIO);
 	}
-
-#ifdef __riscv__
-	sc->physical = true;
-#else /* __aarch64__ */
-	sc->physical = false;
-#endif
 
 	riscv_tmr_sc = sc;
 
@@ -295,31 +242,6 @@ riscv_tmr_attach(device_t dev)
 	sc->et.et_stop = riscv_tmr_stop;
 	sc->et.et_priv = sc;
 	et_register(&sc->et);
-
-#if 0
-	/* Atomic tests */
-	uint64_t t1;
-	uint64_t t;
-	t = 0;
-	atomic_add_long(&t, 1);
-	printf("expect 1 == %d\n", t);
-	t1 = atomic_swap_64(&t, 0);
-	printf("expect 0 1 == %d %d\n", t, t1);
-	atomic_subtract_long(&t1, 1);
-	printf("expect 0 == %d\n", t1);
-
-	atomic_add_long(&t, 1);
-	printf("expect 1 == %d\n", t);
-	atomic_clear_long(&t, 1);
-	printf("clear expect 0 == %d\n", t);
-
-	uint32_t t2;
-	t2 = 0;
-	atomic_add_int(&t2, 1);
-	printf("expect 1 == %d\n", t2);
-	atomic_subtract_int(&t2, 1);
-	printf("expect 0 == %d\n", t2);
-#endif
 
 	return (0);
 }
@@ -351,8 +273,6 @@ DELAY(int usec)
 	int32_t counts, counts_per_usec;
 	uint32_t first, last;
 
-	printf("DELAY %d\n", usec);
-
 	/*
 	 * Check the timers are setup, if not just
 	 * use a for loop for the meantime
@@ -382,10 +302,10 @@ DELAY(int usec)
 	else
 		counts = usec * counts_per_usec;
 
-	first = get_cntxct(riscv_tmr_sc->physical);
+	first = get_counts();
 
 	while (counts > 0) {
-		last = get_cntxct(riscv_tmr_sc->physical);
+		last = get_counts();
 		counts -= (int32_t)(last - first);
 		first = last;
 	}
