@@ -88,7 +88,7 @@
 			compatible = "riscv,timer";
 			interrupts = < 1 >;
 			interrupt-parent = < &pic0 >;
-			clock-frequency = < 100000000 >;
+			clock-frequency = < 1000000 >;
 		};
 
 		htif0: htif@0 {
