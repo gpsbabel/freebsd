@@ -150,8 +150,6 @@ htif_blk_attach(device_t dev)
 		return (ENXIO);
 	}
 
-	//printf("htif blk attach, size %ld\n", size);
-
 	htif_setup_intr(sc_dev->index, htif_blk_intr, sc);
 
 	sc->disk = disk_alloc();
@@ -199,13 +197,10 @@ htif_blk_task(void *arg)
 	struct htif_blk_softc *sc;
 	struct bio *bp;
 	uint64_t paddr;
-	//int block;
-	//int bcount;
 	uint64_t cmd;
-	//device_t dev;
+	int i;
 
 	sc = (struct htif_blk_softc *)arg;
-	//dev = sc->dev;
 	sc_dev = sc->sc_dev;
 
 	while (1) {
@@ -240,17 +235,14 @@ htif_blk_task(void *arg)
 
 			/* Wait for interrupt */
 			HTIF_BLK_LOCK(sc);
-			int i = 0;
+			i = 0;
 			while (sc->cmd_done == 0) {
 				msleep(&sc->intr_chan, &sc->sc_mtx, PRIBIO, "intr", hz/2);
-				i+=1;
-				if ( i > 2 ) {
-					printf("Err %d\n", i);
-
+				/* TODO: implement attempts */
+				if (i++ > 2) {
 					bp->bio_error = EIO;
 					bp->bio_flags |= BIO_ERROR;
 					disk_err(bp, "hard error", -1, 1);
-
 					break;
 				}
 			}
