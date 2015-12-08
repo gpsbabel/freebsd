@@ -63,6 +63,11 @@ typedef	__uint64_t	fexcept_t;
 /*
  * RISC-V Rounding modes
  */
+#define	FE_TONEAREST	0x0
+#define	FE_UPWARD	0x1
+#define	FE_DOWNWARD	0x2
+#define	FE_TOWARDZERO	0x3
+
 #define	FRM_SHIFT	5
 #define	FRM_MASK	(0x7 << FRM_SHIFT)
 #define	FRM_RNE		0 /* Round to Nearest, ties to Even */
