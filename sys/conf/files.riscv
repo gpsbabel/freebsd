@@ -25,8 +25,7 @@ riscv/riscv/cpufunc_asm.S	standard
 riscv/riscv/devmap.c		standard
 riscv/riscv/dump_machdep.c	standard
 riscv/riscv/elf_machdep.c	standard
-riscv/riscv/gic.c		standard
-riscv/riscv/gic_fdt.c		standard
+riscv/riscv/ric.c		standard
 riscv/riscv/intr_machdep.c	standard
 riscv/riscv/in_cksum.c		optional	inet | inet6
 riscv/riscv/identcpu.c		standard
