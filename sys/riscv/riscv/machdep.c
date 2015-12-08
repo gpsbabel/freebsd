@@ -756,7 +756,6 @@ initriscv(struct riscv_bootparams *rvbp)
 
 	cninit();
 
-	printf("init proc0 kernstack 0x%016lx\n", rvbp->kern_stack);
 	init_proc0(rvbp->kern_stack);
 
 	/* set page table base register for thread0 */
