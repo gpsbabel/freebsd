@@ -1,6 +1,6 @@
 # $FreeBSD$
 #
-# Machine dependent definitions for the arm 64-bit architecture.
+# Machine dependent definitions for the RISC-V architecture.
 #
 
 # Long double is quad precision
