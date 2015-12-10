@@ -84,8 +84,8 @@ extern const fenv_t	__fe_dfl_env;
 #define _FPUSW_SHIFT	16
 #define	_ENABLE_MASK	(FE_ALL_EXCEPT << _FPUSW_SHIFT)
 
-#define	__rfs(__fpsr)	__asm __volatile("csrr %0, fcsr" : "=r" (*(__r)))
-#define	__wfs(__fpsr)	__asm __volatile("csrw fcsr, %0" :: "r" (__r))
+#define	__rfs(__fpsr)	__asm __volatile("csrr %0, fcsr" : "=r" (*(__fpsr)))
+#define	__wfs(__fpsr)	__asm __volatile("csrw fcsr, %0" :: "r" (__fpsr))
 
 __fenv_static inline int
 feclearexcept(int __excepts)
