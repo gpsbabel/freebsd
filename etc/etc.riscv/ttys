@@ -48,4 +48,4 @@ ttyu3	"/usr/libexec/getty 3wire"	vt100	onifconsole  secure
 # Dumb console
 dcons	"/usr/libexec/getty std.9600"	vt100	off secure
 # RISC-V HTIF console
-rcons	"/usr/libexec/getty std.9600"	vt100	on secure
+rcons	"/usr/libexec/getty std.9600"	vt100	onifconsole  secure
