@@ -1,4 +1,5 @@
 /*-
+ * Copyright 2001 David E. O'Brien
  * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
  *
@@ -40,7 +41,7 @@ __FBSDID("$FreeBSD$");
 _gp:
 
 	.section .init,"ax",@progbits
-	.align 4
+	.align	2
 	.globl	_init
 	.type	_init,@function
 _init:
@@ -48,9 +49,11 @@ _init:
 	sd	ra, 0(sp)
 
 	.section .fini,"ax",@progbits
-	.align 4
+	.align	2
 	.globl	_fini
 	.type	_fini,@function
 _fini:
 	addi	sp, sp, -16
 	sd	ra, 0(sp)
+
+	.section .note.GNU-stack,"",%progbits
