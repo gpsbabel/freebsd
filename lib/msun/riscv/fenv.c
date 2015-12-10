@@ -1,14 +1,6 @@
 /*-
- * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
+ * Copyright (c) 2004 David Schultz <das@FreeBSD.ORG>
  * All rights reserved.
- *
- * This software was developed by SRI International and the University of
- * Cambridge Computer Laboratory under DARPA/AFRL contract FA8750-10-C-0237
- * ("CTSRD"), as part of the DARPA CRASH research programme.
- *
- * This software was developed by the University of Cambridge Computer
- * Laboratory as part of the CTSRD Project, with support from the UK Higher
- * Education Innovation Fund (HEIF).
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -37,15 +29,15 @@
 #define	__fenv_static
 #include "fenv.h"
 
+#ifdef __GNUC_GNU_INLINE__
+#error "This file must be compiled with C99 'inline' semantics"
+#endif
+
 /*
  * Hopefully the system ID byte is immutable, so it's valid to use
  * this as a default environment.
  */
 const fenv_t __fe_dfl_env = 0;
-
-#ifdef __GNUC_GNU_INLINE__
-#error "This file must be compiled with C99 'inline' semantics"
-#endif
 
 extern inline int feclearexcept(int __excepts);
 extern inline int fegetexceptflag(fexcept_t *__flagp, int __excepts);
@@ -58,6 +50,3 @@ extern inline int fegetenv(fenv_t *__envp);
 extern inline int feholdexcept(fenv_t *__envp);
 extern inline int fesetenv(const fenv_t *__envp);
 extern inline int feupdateenv(const fenv_t *__envp);
-extern inline int feenableexcept(int __mask);
-extern inline int fedisableexcept(int __mask);
-extern inline int fegetexcept(void);

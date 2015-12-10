@@ -1,14 +1,15 @@
 /*-
+ * Copyright (c) 2004-2005 David Schultz <das@FreeBSD.ORG>
  * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
  *
- * This software was developed by SRI International and the University of
- * Cambridge Computer Laboratory under DARPA/AFRL contract FA8750-10-C-0237
- * ("CTSRD"), as part of the DARPA CRASH research programme.
+ * Portions of this software were developed by SRI International and the
+ * University of Cambridge Computer Laboratory under DARPA/AFRL contract
+ * FA8750-10-C-0237 ("CTSRD"), as part of the DARPA CRASH research programme.
  *
- * This software was developed by the University of Cambridge Computer
- * Laboratory as part of the CTSRD Project, with support from the UK Higher
- * Education Innovation Fund (HEIF).
+ * Portions of this software were developed by the University of Cambridge
+ * Computer Laboratory as part of the CTSRD Project, with support from the
+ * UK Higher Education Innovation Fund (HEIF).
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,11 +35,6 @@
  * $FreeBSD$
  */
 
-/*
- * RISC-V FPU, Chapter 6, The RISC-V Instruction Set Manual,
- * Volume I: User-Level ISA, Version 2.0
- */
-
 #ifndef	_FENV_H_
 #define	_FENV_H_
 
@@ -52,21 +48,21 @@ typedef	__uint64_t	fenv_t;
 typedef	__uint64_t	fexcept_t;
 
 /* Exception flags */
-#define	FE_INVALID	0x00000001
-#define	FE_DIVBYZERO	0x00000002
-#define	FE_OVERFLOW	0x00000004
-#define	FE_UNDERFLOW	0x00000008
-#define	FE_INEXACT	0x00000010
+#define	FE_INVALID	0x0001
+#define	FE_DIVBYZERO	0x0002
+#define	FE_OVERFLOW	0x0004
+#define	FE_UNDERFLOW	0x0008
+#define	FE_INEXACT	0x0010
 #define	FE_ALL_EXCEPT	(FE_DIVBYZERO | FE_INEXACT | \
 			 FE_INVALID | FE_OVERFLOW | FE_UNDERFLOW)
 
 /*
  * RISC-V Rounding modes
  */
-#define	FE_TONEAREST	0x0
-#define	FE_UPWARD	0x1
-#define	FE_DOWNWARD	0x2
-#define	FE_TOWARDZERO	0x3
+#define	FE_TONEAREST	0x00
+#define	FE_UPWARD	0x01
+#define	FE_DOWNWARD	0x02
+#define	FE_TOWARDZERO	0x03
 
 #define	FRM_SHIFT	5
 #define	FRM_MASK	(0x7 << FRM_SHIFT)
@@ -85,111 +81,99 @@ extern const fenv_t	__fe_dfl_env;
 #define	FE_DFL_ENV	(&__fe_dfl_env)
 
 /* We need to be able to map status flag positions to mask flag positions */
-#define _FPUSW_SHIFT	0
+#define _FPUSW_SHIFT	16
 #define	_ENABLE_MASK	(FE_ALL_EXCEPT << _FPUSW_SHIFT)
 
-#define	__wr_fcsr(__r)	__asm __volatile("csrw fcsr, %0" :: "r" (__r))
-#define	__rd_fcsr(__r)	__asm __volatile("csrr %0, fcsr" : "=r" (*(__r)))
-#define	__set_fcsr(__r)	__asm __volatile("csrs fcsr, %0" :: "r" (__r))
-#define	__clr_fcsr(__r)	__asm __volatile("csrc fcsr, %0" :: "r" (__r))
+#define	__rfs(__fpsr)	__asm __volatile("csrr %0, fcsr" : "=r" (*(__r)))
+#define	__wfs(__fpsr)	__asm __volatile("csrw fcsr, %0" :: "r" (__r))
 
-__fenv_static __inline int
+__fenv_static inline int
 feclearexcept(int __excepts)
 {
+	fexcept_t __fpsr;
 
-	__clr_fcsr(__excepts);
-
+	__rfs(&__fpsr);
+	__fpsr &= ~__excepts;
+	__wfs(__fpsr);
 	return (0);
 }
 
 __fenv_static inline int
 fegetexceptflag(fexcept_t *__flagp, int __excepts)
 {
-	fexcept_t __r;
+	fexcept_t __fpsr;
 
-	__rd_fcsr(&__r);
-	*__flagp = (__r & __excepts);
+	__rfs(&__fpsr);
+	*__flagp = __fpsr & __excepts;
 	return (0);
 }
 
 __fenv_static inline int
 fesetexceptflag(const fexcept_t *__flagp, int __excepts)
 {
-	fexcept_t __r;
+	fexcept_t __fpsr;
 
-	__r = (*__flagp & __excepts);
-	__set_fcsr(__r);
-
+	__rfs(&__fpsr);
+	__fpsr &= ~__excepts;
+	__fpsr |= *__flagp & __excepts;
+	__wfs(__fpsr);
 	return (0);
 }
 
 __fenv_static inline int
 feraiseexcept(int __excepts)
 {
-	fexcept_t __r;
+	fexcept_t __ex = __excepts;
 
-	__r = __excepts;
-	__set_fcsr(__r);
-
+	fesetexceptflag(&__ex, __excepts);	/* XXX */
 	return (0);
 }
 
 __fenv_static inline int
 fetestexcept(int __excepts)
 {
-	fexcept_t __r;
+	fexcept_t __fpsr;
 
-	__rd_fcsr(&__r);
-	return (__r & __excepts);
+	__rfs(&__fpsr);
+	return (__fpsr & __excepts);
 }
 
 __fenv_static inline int
 fegetround(void)
 {
-	fenv_t __r;
 
-	__rd_fcsr(&__r);
-	return ((__r >> _ROUND_SHIFT) & _ROUND_MASK);
+	/*
+	 * Apparently, the rounding mode is specified as part of the
+	 * instruction format on ARM, so the dynamic rounding mode is
+	 * indeterminate.  Some FPUs may differ.
+	 */
+	return (-1);
 }
 
 __fenv_static inline int
 fesetround(int __round)
 {
-	fenv_t __r;
 
-	if (__round & ~_ROUND_MASK)
-		return (-1);
-
-	__rd_fcsr(&__r);
-	__r &= ~(_ROUND_MASK << _ROUND_SHIFT);
-	__r |= __round << _ROUND_SHIFT;
-	__wr_fcsr(__r);
-
-	return (0);
+	return (-1);
 }
 
 __fenv_static inline int
 fegetenv(fenv_t *__envp)
 {
-	fenv_t __r;
 
-	__rd_fcsr(&__r);
-	*__envp = __r & (FE_ALL_EXCEPT | (_ROUND_MASK << _ROUND_SHIFT));
-
+	__rfs(__envp);
 	return (0);
 }
 
 __fenv_static inline int
 feholdexcept(fenv_t *__envp)
 {
-	fenv_t __r;
+	fenv_t __env;
 
-	__rd_fcsr(&__r);
-	*__envp |= __r & (FE_ALL_EXCEPT | (_ROUND_MASK << _ROUND_SHIFT));
-
-	__r &= ~(_ENABLE_MASK);
-	__wr_fcsr(__r);
-
+	__rfs(&__env);
+	*__envp = __env;
+	__env &= ~(FE_ALL_EXCEPT | _ENABLE_MASK);
+	__wfs(__env);
 	return (0);
 }
 
@@ -197,18 +181,18 @@ __fenv_static inline int
 fesetenv(const fenv_t *__envp)
 {
 
-	__wr_fcsr((*__envp) & (FE_ALL_EXCEPT | (_ROUND_MASK << _ROUND_SHIFT)));
+	__wfs(*__envp);
 	return (0);
 }
 
 __fenv_static inline int
 feupdateenv(const fenv_t *__envp)
 {
-	fexcept_t __r;
+	fexcept_t __fpsr;
 
-	__rd_fcsr(&__r);
-	fesetenv(__envp);
-	feraiseexcept(__r & FE_ALL_EXCEPT);
+	__rfs(&__fpsr);
+	__wfs(*__envp);
+	feraiseexcept(__fpsr & FE_ALL_EXCEPT);
 	return (0);
 }
 
@@ -219,32 +203,34 @@ feupdateenv(const fenv_t *__envp)
 static inline int
 feenableexcept(int __mask)
 {
-	fenv_t __old_r, __new_r;
+	fenv_t __old_fpsr;
+	fenv_t __new_fpsr;
 
-	__rd_fcsr(&__old_r);
-	__new_r = __old_r | ((__mask & FE_ALL_EXCEPT) << _FPUSW_SHIFT);
-	__wr_fcsr(__new_r);
-	return ((__old_r >> _FPUSW_SHIFT) & FE_ALL_EXCEPT);
+	__rfs(&__old_fpsr);
+	__new_fpsr = __old_fpsr | (__mask & FE_ALL_EXCEPT) << _FPUSW_SHIFT;
+	__wfs(__new_fpsr);
+	return ((__old_fpsr >> _FPUSW_SHIFT) & FE_ALL_EXCEPT);
 }
 
 static inline int
 fedisableexcept(int __mask)
 {
-	fenv_t __old_r, __new_r;
+	fenv_t __old_fpsr;
+	fenv_t __new_fpsr;
 
-	__rd_fcsr(&__old_r);
-	__new_r = __old_r & ~((__mask & FE_ALL_EXCEPT) << _FPUSW_SHIFT);
-	__wr_fcsr(__new_r);
-	return ((__old_r >> _FPUSW_SHIFT) & FE_ALL_EXCEPT);
+	__rfs(&__old_fpsr);
+	__new_fpsr = __old_fpsr & ~((__mask & FE_ALL_EXCEPT) << _FPUSW_SHIFT);
+	__wfs(__new_fpsr);
+	return ((__old_fpsr >> _FPUSW_SHIFT) & FE_ALL_EXCEPT);
 }
 
 static inline int
 fegetexcept(void)
 {
-	fenv_t __r;
+	fenv_t __fpsr;
 
-	__rd_fcsr(&__r);
-	return ((__r & _ENABLE_MASK) >> _FPUSW_SHIFT);
+	__rfs(&__fpsr);
+	return ((__fpsr & _ENABLE_MASK) >> _FPUSW_SHIFT);
 }
 
 #endif /* __BSD_VISIBLE */
