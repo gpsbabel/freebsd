@@ -142,11 +142,6 @@ __fenv_static inline int
 fegetround(void)
 {
 
-	/*
-	 * Apparently, the rounding mode is specified as part of the
-	 * instruction format on ARM, so the dynamic rounding mode is
-	 * indeterminate.  Some FPUs may differ.
-	 */
 	return (-1);
 }
 
