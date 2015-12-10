@@ -292,7 +292,7 @@ MACHINE_CPU = v9 ultrasparc ultrasparc3
 .endif
 
 .if ${MACHINE_CPUARCH} == "riscv"
-# If TARGET_CPUTYPE is not specified then this will add required option
+# Case when TARGET_CPUTYPE is not specified in the command line
 _CPUCFLAGS = -msoft-float
 .endif
 
