@@ -20,6 +20,7 @@ MACHINE_CPU = mips
 MACHINE_CPU = aim
 . elif ${MACHINE_CPUARCH} == "riscv"
 MACHINE_CPU = riscv
+_CPUCFLAGS = -msoft-float
 . elif ${MACHINE_CPUARCH} == "sparc64"
 MACHINE_CPU = ultrasparc
 . endif
@@ -289,11 +290,6 @@ MACHINE_CPU = v9 ultrasparc
 MACHINE_CPU = v9 ultrasparc ultrasparc3
 .  endif
 . endif
-.endif
-
-.if ${MACHINE_CPUARCH} == "riscv"
-# Case when TARGET_CPUTYPE is not specified in the command line
-_CPUCFLAGS = -msoft-float
 .endif
 
 .if ${MACHINE_CPUARCH} == "mips"
