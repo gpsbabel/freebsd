@@ -46,7 +46,7 @@
 #define	MACHINE		"riscv"
 #endif
 #ifndef MACHINE_ARCH
-#define	MACHINE_ARCH	"riscv"
+#define	MACHINE_ARCH	"riscv64"
 #endif
 
 #if defined(SMP) || defined(KLD_MODULE)

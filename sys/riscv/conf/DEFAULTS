@@ -3,7 +3,7 @@
 #
 # $FreeBSD$
 
-machine		riscv
+machine		riscv	riscv64
 
 # Pseudo devices.
 device		mem		# Memory and kernel memory devices

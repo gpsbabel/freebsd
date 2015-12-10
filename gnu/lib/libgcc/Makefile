@@ -55,7 +55,7 @@ LIB2FUNCS+= _fixuns${mode}si
 .endfor
 
 # Likewise double-word routines.
-.if ${TARGET_CPUARCH} != "aarch64" && ${TARGET_CPUARCH} != "arm" && ${TARGET_CPUARCH} != "riscv"
+.if ${TARGET_CPUARCH} != "aarch64" && ${TARGET_CPUARCH} != "arm" && ${TARGET_CPUARCH} != "riscv64"
 # These are implemented in an ARM specific file but will not be filtered out
 .for mode in sf df xf tf
 LIB2FUNCS+= _fix${mode}di _fixuns${mode}di
@@ -282,7 +282,7 @@ EH_OBJS_T = ${LIB2ADDEHSTATIC:R:S/$/.o/}
 EH_OBJS_P = ${LIB2ADDEHSTATIC:R:S/$/.po/}
 EH_OBJS_S = ${LIB2ADDEHSHARED:R:S/$/.So/}
 EH_CFLAGS = -fexceptions -D__GLIBC__=3 -DElfW=__ElfN
-.if ${TARGET_CPUARCH} != "riscv"
+.if ${TARGET_CPUARCH} != "riscv64"
 SOBJS    += ${EH_OBJS_S}
 .endif
 

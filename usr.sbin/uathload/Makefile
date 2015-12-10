@@ -25,7 +25,7 @@ ar5523.bin: ${.CURDIR}/../../sys/contrib/dev/uath/ar5523.bin.uu
 	uudecode -p ${.CURDIR}/../../sys/contrib/dev/uath/ar5523.bin.uu > ${.TARGET}
 
 ar5523.o: ar5523.bin
-.if ${MACHINE_ARCH} == "riscv"
+.if ${MACHINE_ARCH} == "riscv64"
 	# RISCVTODO Error: riscv64-unknown-freebsd11.0-ld: --relax and -r may not be used together
 	${LD} -b binary -d -warn-common -d -o ${.TARGET} ar5523.bin
 .else

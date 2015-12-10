@@ -145,10 +145,8 @@ _CPUCFLAGS = -march=${CPUTYPE}
 #	sb1, xlp, xlr
 _CPUCFLAGS = -march=${CPUTYPE:S/^mips//}
 . endif
-. elif ${MACHINE_ARCH} == "riscv"
-_CPUCFLAGS = -msoft-float
-# RISCVTODO: check out why that does not work
-# _CPUCFLAGS += -march="RV64I"
+. elif ${MACHINE_CPUARCH} == "riscv"
+_CPUCFLAGS = -msoft-float # -march="RV64I" # RISCVTODO
 . elif ${MACHINE_ARCH} == "sparc64"
 .  if ${CPUTYPE} == "v9"
 _CPUCFLAGS = -mcpu=v9
@@ -291,6 +289,11 @@ MACHINE_CPU = v9 ultrasparc
 MACHINE_CPU = v9 ultrasparc ultrasparc3
 .  endif
 . endif
+.endif
+
+.if ${MACHINE_CPUARCH} == "riscv"
+# If TARGET_CPUTYPE is not specified then this will add required option
+_CPUCFLAGS = -msoft-float
 .endif
 
 .if ${MACHINE_CPUARCH} == "mips"
