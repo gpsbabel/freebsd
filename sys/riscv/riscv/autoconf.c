@@ -85,7 +85,7 @@ static void
 configure_final(void *dummy)
 {
 
-	riscv_enable_intr();
+	//riscv_enable_intr();
 	cninit_finish(); 
 
 	if (bootverbose)

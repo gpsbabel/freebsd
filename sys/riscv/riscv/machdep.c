@@ -78,6 +78,7 @@ __FBSDID("$FreeBSD$");
 #include <machine/reg.h>
 #include <machine/trap.h>
 #include <machine/vmparam.h>
+#include <machine/intr.h>
 
 #include <machine/asm.h>
 
@@ -765,6 +766,8 @@ initriscv(struct riscv_bootparams *rvbp)
 	mutex_init();
 	init_param2(physmem);
 	kdb_init();
+
+	riscv_init_interrupts();
 
 	early_boot = 0;
 }

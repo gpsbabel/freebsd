@@ -2,13 +2,13 @@
  * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
  *
- * This software was developed by SRI International and the University of
- * Cambridge Computer Laboratory under DARPA/AFRL contract FA8750-10-C-0237
- * ("CTSRD"), as part of the DARPA CRASH research programme.
+ * Portions of this software were developed by SRI International and the
+ * University of Cambridge Computer Laboratory under DARPA/AFRL contract
+ * FA8750-10-C-0237 ("CTSRD"), as part of the DARPA CRASH research programme.
  *
- * This software was developed by the University of Cambridge Computer
- * Laboratory as part of the CTSRD Project, with support from the UK Higher
- * Education Innovation Fund (HEIF).
+ * Portions of this software were developed by the University of Cambridge
+ * Computer Laboratory as part of the CTSRD Project, with support from the
+ * UK Higher Education Innovation Fund (HEIF).
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,35 +30,32 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
- * $FreeBSD$
  */
 
-#ifndef _MACHINE_INTR_H_
-#define	_MACHINE_INTR_H_
+#ifndef	_MACHINE_INTR_MACHDEP_H_
+#define	_MACHINE_INTR_MACHDEP_H_
 
-int	riscv_config_intr(u_int, enum intr_trigger, enum intr_polarity);
-void	riscv_cpu_intr(struct trapframe *);
-void	riscv_dispatch_intr(u_int, struct trapframe *);
-int	riscv_enable_intr(void);
-void	riscv_mask_irq(u_int);
-void	riscv_register_root_pic(device_t, u_int);
-void	riscv_register_msi_pic(device_t);
-int	riscv_alloc_msi(device_t, int, int *);
-int	riscv_release_msi(device_t, int, int *);
-int	riscv_alloc_msix(device_t, int *);
-int	riscv_release_msix(device_t, int);
-int	riscv_map_msi(device_t, int, uint64_t *, uint32_t *);
-int	riscv_map_msix(device_t, int, uint64_t *, uint32_t *);
-int	riscv_setup_intr(const char *, driver_filter_t *, driver_intr_t,
-				void *, u_int, enum intr_type, void **);
-int	riscv_teardown_intr(void *);
-void	riscv_unmask_irq(u_int);
+#include <machine/atomic.h>
 
-#ifdef SMP
-void	riscv_init_secondary(void);
-void	riscv_setup_ipihandler(driver_filter_t *, u_int);
-void	riscv_unmask_ipi(u_int);
-#endif
+struct trapframe;
 
-#endif	/* _MACHINE_INTR_H */
+void riscv_init_interrupts(void);
+int riscv_teardown_intr(void *);
+int riscv_config_intr(u_int, enum intr_trigger, enum intr_polarity);
+int riscv_setup_intr(const char *, driver_filter_t *, driver_intr_t *,
+    void *, int, int, void **);
+void riscv_cpu_intr(struct trapframe *);
+
+typedef unsigned long* riscv_intrcnt_t;
+
+riscv_intrcnt_t riscv_intrcnt_create(const char *);
+void riscv_intrcnt_setname(riscv_intrcnt_t, const char *);
+
+static __inline void
+riscv_intrcnt_inc(riscv_intrcnt_t counter)
+{
+	if (counter)
+		atomic_add_long(counter, 1);
+	PCPU_INC(cnt.v_intr);
+}
+#endif /* !_MACHINE_INTR_MACHDEP_H_ */
