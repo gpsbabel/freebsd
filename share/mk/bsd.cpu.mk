@@ -20,7 +20,6 @@ MACHINE_CPU = mips
 MACHINE_CPU = aim
 . elif ${MACHINE_CPUARCH} == "riscv"
 MACHINE_CPU = riscv
-_CPUCFLAGS = -msoft-float
 . elif ${MACHINE_CPUARCH} == "sparc64"
 MACHINE_CPU = ultrasparc
 . endif
@@ -319,6 +318,10 @@ MACHINE_CPU += softfp
 # not a nice optimization.
 CFLAGS += -mfloat-abi=softfp
 .endif
+.endif
+
+.if ${MACHINE_CPUARCH} == "riscv"
+CFLAGS += -msoft-float
 .endif
 
 # NB: COPTFLAGS is handled in /usr/src/sys/conf/kern.pre.mk
