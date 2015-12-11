@@ -347,14 +347,13 @@ kernel-toolchains:
 # existing system is.
 #
 .if make(universe) || make(universe_kernels) || make(tinderbox) || make(targets)
-TARGETS?=amd64 arm arm64 i386 mips pc98 powerpc riscv sparc64
+TARGETS?=amd64 arm arm64 i386 mips pc98 powerpc sparc64
 _UNIVERSE_TARGETS=	${TARGETS}
 TARGET_ARCHES_arm?=	arm armeb armv6 armv6hf
 TARGET_ARCHES_arm64?=	aarch64
 TARGET_ARCHES_mips?=	mipsel mips mips64el mips64 mipsn32
 TARGET_ARCHES_powerpc?=	powerpc powerpc64
 TARGET_ARCHES_pc98?=	i386
-TARGET_ARCHES_riscv?=	riscv64
 .for target in ${TARGETS}
 TARGET_ARCHES_${target}?= ${target}
 .endfor
