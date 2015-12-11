@@ -1,9 +1,14 @@
 /*-
- * Copyright (c) 2015 The FreeBSD Foundation
+ * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
  *
- * This software was developed by Andrew Turner under
- * sponsorship from the FreeBSD Foundation.
+ * This software was developed by SRI International and the University of
+ * Cambridge Computer Laboratory under DARPA/AFRL contract FA8750-10-C-0237
+ * ("CTSRD"), as part of the DARPA CRASH research programme.
+ *
+ * This software was developed by the University of Cambridge Computer
+ * Laboratory as part of the CTSRD Project, with support from the UK Higher
+ * Education Innovation Fund (HEIF).
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,49 +30,28 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
  */
 
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD$");
 
-#include <sys/param.h>
-#include <sys/systm.h>
-#include <sys/conf.h>
-#include <sys/kernel.h>
-#include <sys/kerneldump.h>
-#include <sys/proc.h>
-#include <sys/sysctl.h>
+#include "opt_watchdog.h"
 
-#include <machine/dump.h>
+#include <sys/param.h>
+#include <sys/conf.h>
+#include <sys/kerneldump.h>
+#include <sys/sysctl.h>
+#include <sys/systm.h>
+#include <vm/vm.h>
+#include <vm/pmap.h>
 
 int do_minidump = 1;
-TUNABLE_INT("debug.minidump", &do_minidump);
-SYSCTL_INT(_debug, OID_AUTO, minidump, CTLFLAG_RW, &do_minidump, 0,
+SYSCTL_INT(_debug, OID_AUTO, minidump, CTLFLAG_RWTUN, &do_minidump, 0,
     "Enable mini crash dumps");
 
 void
-dumpsys_wbinv_all(void)
-{
-
-	printf("dumpsys_wbinv_all\n");
-}
-
-void
-dumpsys_map_chunk(vm_paddr_t pa, size_t chunk __unused, void **va)
+dumpsys_map_chunk(vm_paddr_t pa, size_t chunk, void **va)
 {
 
 	printf("dumpsys_map_chunk\n");
-	while(1);
-}
-
-/*
- * Add a header to be used by libkvm to get the va to pa delta
- */
-int
-dumpsys_write_aux_headers(struct dumperinfo *di)
-{
-
-	printf("dumpsys_map_chunk\n");
-	return (0);
 }

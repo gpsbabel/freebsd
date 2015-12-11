@@ -1,11 +1,7 @@
 /*-
  * Copyright (c) 2014 EMC Corp.
  * Author: Conrad Meyer <conrad.meyer@isilon.com>
- * Copyright (c) 2015 The FreeBSD Foundation.
  * All rights reserved.
- *
- * Portions of this software were developed by Andrew Turner
- * under sponsorship from the FreeBSD Foundation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,12 +32,10 @@
 
 #define	KERNELDUMP_ARCH_VERSION	KERNELDUMP_RISCV_VERSION
 #define	EM_VALUE		EM_RISCV
-/* XXX: I suppose 20 should be enough. */
-#define	DUMPSYS_MD_PA_NPAIRS	20
-#define	DUMPSYS_NUM_AUX_HDRS	1
 
-void dumpsys_wbinv_all(void);
-int dumpsys_write_aux_headers(struct dumperinfo *di);
+/* 20 phys_avail entry pairs correspond to 10 pa's */
+#define	DUMPSYS_MD_PA_NPAIRS	10
+#define	DUMPSYS_NUM_AUX_HDRS	0
 
 static inline void
 dumpsys_pa_init(void)
@@ -58,10 +52,24 @@ dumpsys_pa_next(struct dump_pa *p)
 }
 
 static inline void
+dumpsys_wbinv_all(void)
+{
+
+	dumpsys_gen_wbinv_all();
+}
+
+static inline void
 dumpsys_unmap_chunk(vm_paddr_t pa, size_t s, void *va)
 {
 
 	dumpsys_gen_unmap_chunk(pa, s, va);
+}
+
+static inline int
+dumpsys_write_aux_headers(struct dumperinfo *di)
+{
+
+	return (dumpsys_gen_write_aux_headers(di));
 }
 
 static inline int
