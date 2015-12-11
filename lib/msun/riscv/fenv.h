@@ -48,31 +48,24 @@ typedef	__uint64_t	fenv_t;
 typedef	__uint64_t	fexcept_t;
 
 /* Exception flags */
-#define	FE_INVALID	0x0001
-#define	FE_DIVBYZERO	0x0002
+#define	FE_INVALID	0x0010
+#define	FE_DIVBYZERO	0x0008
 #define	FE_OVERFLOW	0x0004
-#define	FE_UNDERFLOW	0x0008
-#define	FE_INEXACT	0x0010
+#define	FE_UNDERFLOW	0x0002
+#define	FE_INEXACT	0x0001
 #define	FE_ALL_EXCEPT	(FE_DIVBYZERO | FE_INEXACT | \
 			 FE_INVALID | FE_OVERFLOW | FE_UNDERFLOW)
 
 /*
  * RISC-V Rounding modes
  */
-#define	FE_TONEAREST	0x00
-#define	FE_UPWARD	0x01
-#define	FE_DOWNWARD	0x02
-#define	FE_TOWARDZERO	0x03
-
-#define	FRM_SHIFT	5
-#define	FRM_MASK	(0x7 << FRM_SHIFT)
-#define	FRM_RNE		0 /* Round to Nearest, ties to Even */
-#define	FRM_RTZ		1 /* Round towards Zero */
-#define	FRM_RDN		2 /* Round Down (towards - infinum) */
-#define	FRM_RUP		3 /* Round Up (towards + infinum) */
-#define	FRM_RMM		4 /* Round to Nearest, ties to Max Magnitude */
+#define	FE_TONEAREST	(0x00 << 5)
+#define	FE_UPWARD	(0x01 << 5)
+#define	FE_DOWNWARD	(0x02 << 5)
+#define	FE_TOWARDZERO	(0x03 << 5)
 #define	_ROUND_SHIFT	5
-#define	_ROUND_MASK	(0x7 << _ROUND_SHIFT)
+#define	_ROUND_MASK	(FE_TONEAREST | FE_DOWNWARD | \
+			 FE_UPWARD | FE_TOWARDZERO)
 
 __BEGIN_DECLS
 
@@ -81,7 +74,7 @@ extern const fenv_t	__fe_dfl_env;
 #define	FE_DFL_ENV	(&__fe_dfl_env)
 
 /* We need to be able to map status flag positions to mask flag positions */
-#define _FPUSW_SHIFT	16
+#define	_FPUSW_SHIFT	0
 #define	_ENABLE_MASK	(FE_ALL_EXCEPT << _FPUSW_SHIFT)
 
 #define	__rfs(__fpsr)	__asm __volatile("csrr %0, fcsr" : "=r" (*(__fpsr)))
