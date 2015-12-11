@@ -239,7 +239,6 @@ __DEFAULT_NO_OPTIONS+=ELFCOPY_AS_OBJCOPY
 BROKEN_OPTIONS+=PROFILE # "sorry, unimplemented: profiler support for RISC-V"
 BROKEN_OPTIONS+=TESTS   # "undefined reference to `_Unwind_Resume'"
 BROKEN_OPTIONS+=CXX     # "contents.ms:38: macro error: KE without KS or KF"
-BROKEN_OPTIONS+=RESCUE  # "chio.lo: unknown executable format"
 .endif
 # LLVM lacks support for FreeBSD 64-bit atomic operations for ARMv4/ARMv5
 .if ${__T} == "arm" || ${__T} == "armeb"
