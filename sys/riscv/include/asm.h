@@ -39,36 +39,25 @@
 
 #undef __FBSDID
 #if !defined(lint) && !defined(STRIP_FBSDID)
-#define	__FBSDID(s)     .ident s
+#define	__FBSDID(s)	.ident s
 #else
-#define	__FBSDID(s)     /* nothing */
-#endif
+#define	__FBSDID(s)	/* nothing */
+#endif /* not lint and not STRIP_FBSDID */
 
 #define	_C_LABEL(x)	x
 
 #define	ENTRY(sym)						\
 	.text; .globl sym; .type sym,@function; .align 2; sym:
+#define	END(sym) .size sym, . - sym
+
 #define	EENTRY(sym)						\
 	.globl	sym; sym:
-#define	END(sym) .size sym, . - sym
 #define	EEND(sym)
 
 #define	WEAK_REFERENCE(sym, alias)				\
 	.weak alias;						\
 	.set alias,sym
 
-#if defined(PIC)
-#define	PIC_SYM(x,y)	x ## @ ## y
-#else
-#define	PIC_SYM(x,y)	x
-#endif
-
-/*
- * Sets the trap fault handler. The exception handler will return to the
- * address in the handler register_t on a data abort or the x0 register_t to
- * clear the handler. The tmp parameter should be a register_t able to hold
- * the temporary data.
- */
 #define	SET_FAULT_HANDLER(handler, tmp)					\
 	la	tmp, pcpup;						\
 	ld	tmp, 0(tmp);						\
