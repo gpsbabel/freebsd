@@ -60,9 +60,9 @@ typedef	__uint64_t	fexcept_t;
  * RISC-V Rounding modes
  */
 #define	FE_TONEAREST	(0x00 << 5)
-#define	FE_UPWARD	(0x01 << 5)
+#define	FE_TOWARDZERO	(0x01 << 5)
 #define	FE_DOWNWARD	(0x02 << 5)
-#define	FE_TOWARDZERO	(0x03 << 5)
+#define	FE_UPWARD	(0x03 << 5)
 #define	_ROUND_SHIFT	5
 #define	_ROUND_MASK	(FE_TONEAREST | FE_DOWNWARD | \
 			 FE_UPWARD | FE_TOWARDZERO)
