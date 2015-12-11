@@ -54,18 +54,11 @@ struct trapframe {
 };
 
 /*
- * Signal frame, pushedonto the user stack
+ * Signal frame. Pushed onto user stack before calling sigcode.
  */
 struct sigframe {
-	siginfo_t       sf_si;          /* actual saved siginfo */
-	ucontext_t      sf_uc;          /* actual saved ucontext */
-};
-
-/*
- * There is no fixed frame layout, other than to be 16-byte aligned
- */
-struct frame {
-	int dummy;
+	siginfo_t	sf_si;	/* actual saved siginfo */
+	ucontext_t	sf_uc;	/* actual saved ucontext */
 };
 
 #endif /* !LOCORE */
