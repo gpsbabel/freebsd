@@ -291,7 +291,7 @@ do_trap(struct trapframe *frame)
 	esr = 0;//READ_SPECIALREG(esr_el1);
 
 	exception = (frame->tf_scause & 0xf);
-	if (frame->tf_scause & (1 << 31)) {
+	if (frame->tf_scause & EXCP_INTR) {
 		/* Interrupt */
 		riscv_cpu_intr(frame);
 		return;
@@ -384,7 +384,7 @@ do_trap_user(struct trapframe *frame)
 	exception = 0;//ESR_ELx_EXCEPTION(esr);
 
 	exception = (frame->tf_scause & 0xf);
-	if (frame->tf_scause & (1 << 31)) {
+	if (frame->tf_scause & EXCP_INTR) {
 		/* Interrupt */
 		riscv_cpu_intr(frame);
 		return;
