@@ -1,5 +1,4 @@
 /*-
- * Copyright 2001 David E. O'Brien
  * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
  *
