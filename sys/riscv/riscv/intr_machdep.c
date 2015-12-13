@@ -49,6 +49,7 @@ __FBSDID("$FreeBSD$");
 enum {
 	IRQ_SOFTWARE,
 	IRQ_TIMER,
+	IRQ_HTIF,
 	NIRQS
 };
 
@@ -212,13 +213,14 @@ riscv_cpu_intr(struct trapframe *frame)
 	//printf("riscv_cpu_intr %d\n", active_irq);
 
 	switch (active_irq) {
-	case 0:
-		/* Software interrupt. */
-	case 1:
-		/* Timer interrupt. */
+	case IRQ_SOFTWARE:
+	case IRQ_TIMER:
 		event = hardintr_events[active_irq];
-
 		//riscv_intrcnt_inc(riscv_intr_counters[NSOFT_IRQS + i]);
+		break;
+	case IRQ_HTIF:
+		/* HTIF interrupts can be only handled in machine mode */
+		panic("%s: HTIF interrupt", __func__);
 		break;
 	default:
 		event = NULL;
