@@ -46,7 +46,7 @@ int riscv_setup_intr(const char *, driver_filter_t *, driver_intr_t *,
     void *, int, int, void **);
 void riscv_cpu_intr(struct trapframe *);
 
-typedef unsigned long* riscv_intrcnt_t;
+typedef unsigned long * riscv_intrcnt_t;
 
 riscv_intrcnt_t riscv_intrcnt_create(const char *);
 void riscv_intrcnt_setname(riscv_intrcnt_t, const char *);
