@@ -216,10 +216,10 @@ riscv_cpu_intr(struct trapframe *frame)
 	case IRQ_SOFTWARE:
 	case IRQ_TIMER:
 		event = hardintr_events[active_irq];
-		//riscv_intrcnt_inc(riscv_intr_counters[NSOFT_IRQS + i]);
+		riscv_intrcnt_inc(riscv_intr_counters[active_irq]);
 		break;
 	case IRQ_HTIF:
-		/* HTIF interrupts can be only handled in machine mode */
+		/* HTIF interrupts are only handled in machine mode */
 		panic("%s: HTIF interrupt", __func__);
 		break;
 	default:
