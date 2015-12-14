@@ -37,6 +37,7 @@
 #ifndef _MACHINE_RISCVREG_H_
 #define	_MACHINE_RISCVREG_H_
 
+/* ECALLs are not RISC-V specific, we use them to request machine mode */
 #define	ECALL_MTIMECMP		0x1
 #define	ECALL_CLEAR_PENDING	0x2
 #define	ECALL_HTIF_CMD		0x3
