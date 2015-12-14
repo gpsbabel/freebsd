@@ -664,12 +664,12 @@ fake_preload_metadata(struct riscv_bootparams *rvbp __unused)
 	i += 3;
 	fake_preload[i++] = MODINFO_ADDR;
 	fake_preload[i++] = sizeof(vm_offset_t);
-	fake_preload[i++] = (uint64_t)(KERNBASE + 0x200);
+	fake_preload[i++] = (uint64_t)(KERNBASE + KERNENTRY);
 	i += 1;
 	fake_preload[i++] = MODINFO_SIZE;
 	fake_preload[i++] = sizeof(uint64_t);
 	printf("end is 0x%016lx\n", (uint64_t)&end);
-	fake_preload[i++] = (uint64_t)&end - (uint64_t)(KERNBASE + 0x200);
+	fake_preload[i++] = (uint64_t)&end - (uint64_t)(KERNBASE + KERNENTRY);
 	i += 1;
 #ifdef DDB
 #if 0
@@ -748,7 +748,7 @@ initriscv(struct riscv_bootparams *rvbp)
 
 	/* Bootstrap enough of pmap  to enter the kernel proper */
 	kernlen = (lastaddr - KERNBASE);
-	pmap_bootstrap(rvbp->kern_l1pt, 0x200, kernlen);
+	pmap_bootstrap(rvbp->kern_l1pt, KERNENTRY, kernlen);
 
 	cninit();
 

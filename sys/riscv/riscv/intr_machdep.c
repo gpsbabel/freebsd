@@ -59,7 +59,7 @@ size_t sintrcnt = sizeof(intrcnt);
 char intrnames[NIRQS * (MAXCOMLEN + 1) * 2];
 size_t sintrnames = sizeof(intrnames);
 
-static struct intr_event *hardintr_events[NIRQS];
+static struct intr_event *intr_events[NIRQS];
 static riscv_intrcnt_t riscv_intr_counters[NIRQS];
 
 static int intrcnt_index;
@@ -70,21 +70,21 @@ riscv_intrcnt_create(const char* name)
 	riscv_intrcnt_t counter;
 
 	counter = &intrcnt[intrcnt_index++];
-
 	riscv_intrcnt_setname(counter, name);
-	return counter;
+
+	return (counter);
 }
 
 void
 riscv_intrcnt_setname(riscv_intrcnt_t counter, const char *name)
 {
-	int idx;
+	int i;
 
-	idx = counter - intrcnt;
+	i = (counter - intrcnt);
 
 	KASSERT(counter != NULL, ("riscv_intrcnt_setname: NULL counter"));
 
-	snprintf(intrnames + (MAXCOMLEN + 1) * idx,
+	snprintf(intrnames + (MAXCOMLEN + 1) * i,
 	    MAXCOMLEN + 1, "%-*s", MAXCOMLEN, name);
 }
 
@@ -131,17 +131,10 @@ riscv_unmask_irq(void *source)
  * handlings
  */
 void
-riscv_init_interrupts()
+riscv_init_interrupts(void)
 {
 	char name[MAXCOMLEN + 1];
 	int i;
-
-	printf("%s\n", __func__);
-
-	/*
-	 * Initialize all available vectors so spare IRQ
-	 * would show up in systat output 
-	 */
 
 	for (i = 0; i < NIRQS; i++) {
 		snprintf(name, MAXCOMLEN + 1, "int%d:", i);
@@ -156,19 +149,17 @@ riscv_setup_intr(const char *name, driver_filter_t *filt,
 	struct intr_event *event;
 	int error;
 
-	printf("riscv_setup_intr\n");
-
 	if (irq < 0 || irq >= NIRQS)
-		panic("%s unknown intr %d", __func__, irq);
+		panic("%s: unknown intr %d", __func__, irq);
 
-	event = hardintr_events[irq];
+	event = intr_events[irq];
 	if (event == NULL) {
 		error = intr_event_create(&event, (void *)(uintptr_t)irq, 0,
 		    irq, riscv_mask_irq, riscv_unmask_irq,
 		    NULL, NULL, "int%d", irq);
 		if (error)
 			return (error);
-		hardintr_events[irq] = event;
+		intr_events[irq] = event;
 		riscv_unmask_irq((void*)(uintptr_t)irq);
 	}
 
@@ -194,7 +185,7 @@ int
 riscv_config_intr(u_int irq, enum intr_trigger trig, enum intr_polarity pol)
 {
 
-	/* TODO */
+	/* There is no configuration for interrupts */
 
 	return (0);
 }
@@ -207,15 +198,15 @@ riscv_cpu_intr(struct trapframe *frame)
 
 	critical_enter();
 
-	KASSERT(frame->tf_scause & EXCP_INTR, ("wrong frame"));
+	KASSERT(frame->tf_scause & EXCP_INTR,
+		("riscv_cpu_intr: wrong frame passed"));
 
 	active_irq = (frame->tf_scause & EXCP_MASK);
-	//printf("riscv_cpu_intr %d\n", active_irq);
 
 	switch (active_irq) {
 	case IRQ_SOFTWARE:
 	case IRQ_TIMER:
-		event = hardintr_events[active_irq];
+		event = intr_events[active_irq];
 		riscv_intrcnt_inc(riscv_intr_counters[active_irq]);
 		break;
 	case IRQ_HTIF:

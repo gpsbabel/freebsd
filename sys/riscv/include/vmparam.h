@@ -193,6 +193,7 @@
 
 #define	KERNBASE		(VM_MIN_KERNEL_ADDRESS)
 #define	USRSTACK		(VM_MAX_USER_ADDRESS)
+#define	KERNENTRY		(0x200)
 
 /*
  * How many physical pages per kmem arena virtual page.
