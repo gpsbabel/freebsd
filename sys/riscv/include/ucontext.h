@@ -44,20 +44,11 @@ struct gpregs {
 };
 
 struct fpregs {
-	__uint128_t	fp_q[32];
-	uint32_t	fp_sr;
-	uint32_t	fp_cr;
-	u_int		fp_flags;
-	u_int		fp_pad;
+	int		dummy;
 };
 
 struct __mcontext {
 	struct gpregs	mc_gpregs;
-	struct fpregs	mc_fpregs;
-	u_int		mc_flags;
-#define	_MC_FP_VALID	0x1		/* Set when mc_fpregs has valid data */
-	u_int		mc_pad;		/* Padding */
-	uint64_t	mc_spare[8];	/* Space for expansion, set to zero */
 };
 
 typedef struct __mcontext mcontext_t;

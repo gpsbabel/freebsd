@@ -54,10 +54,6 @@ __FBSDID("$FreeBSD$");
 #include <machine/pcb.h>
 #include <machine/frame.h>
 
-#ifdef VFP
-#include <machine/vfp.h>
-#endif
-
 /*
  * Finish a fork operation, with process p2 nearly set up.
  * Copy and update the pcb, set up the stack so that the child
@@ -74,18 +70,8 @@ cpu_fork(struct thread *td1, struct proc *p2, struct thread *td2, int flags)
 		return;
 
 	if (td1 == curthread) {
-		/*
-		 * Save the tpidr_el0 and the vfp state, these normally happen
-		 * in cpu_switch, but if userland changes these then forks
-		 * this may not have happened.
-		 */
-
 		__asm __volatile("mv	%0, tp" : "=&r"(val));
 		td1->td_pcb->pcb_x[PCB_TP] = val;
-#ifdef VFP
-		if ((td1->td_pcb->pcb_fpflags & PCB_FP_STARTED) != 0)
-			vfp_save_state(td1);
-#endif
 	}
 
 	pcb2 = (struct pcb *)(td2->td_kstack +
@@ -100,7 +86,7 @@ cpu_fork(struct thread *td1, struct proc *p2, struct thread *td2, int flags)
 	tf = (struct trapframe *)STACKALIGN((struct trapframe *)pcb2 - 1);
 	bcopy(td1->td_frame, tf, sizeof(*tf));
 
-	/* Carry bit clear */
+	/* Clear syscall error flag */
 	tf->tf_x[5] = 0;
 
 	/* Arguments for child */
@@ -115,7 +101,6 @@ cpu_fork(struct thread *td1, struct proc *p2, struct thread *td2, int flags)
 	td2->td_pcb->pcb_x[6] = (uintptr_t)td2;
 	td2->td_pcb->pcb_x[PCB_RA] = (uintptr_t)fork_trampoline;
 	td2->td_pcb->pcb_x[PCB_SP] = (uintptr_t)td2->td_frame;
-	td2->td_pcb->pcb_vfpcpu = UINT_MAX;
 
 	/* Setup to release spin count in fork_exit(). */
 	td2->td_md.md_spinlock_count = 1;
@@ -184,7 +169,6 @@ cpu_set_upcall(struct thread *td, struct thread *td0)
 	td->td_pcb->pcb_x[6] = (uintptr_t)td;
 	td->td_pcb->pcb_x[PCB_RA] = (uintptr_t)fork_trampoline;
 	td->td_pcb->pcb_x[PCB_SP] = (uintptr_t)td->td_frame;
-	td->td_pcb->pcb_vfpcpu = UINT_MAX;
 
 	/* Setup to release spin count in fork_exit(). */
 	td->td_md.md_spinlock_count = 1;
@@ -260,7 +244,6 @@ cpu_set_fork_handler(struct thread *td, void (*func)(void *), void *arg)
 	td->td_pcb->pcb_x[6] = (uintptr_t)arg;
 	td->td_pcb->pcb_x[PCB_RA] = (uintptr_t)fork_trampoline;
 	td->td_pcb->pcb_x[PCB_SP] = (uintptr_t)td->td_frame;
-	td->td_pcb->pcb_vfpcpu = UINT_MAX;
 }
 
 void

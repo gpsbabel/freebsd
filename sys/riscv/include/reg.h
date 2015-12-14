@@ -44,9 +44,7 @@ struct reg {
 };
 
 struct fpreg {
-	__uint128_t	fp_q[32];
-	uint32_t	fp_sr;
-	uint32_t	fp_cr;
+	int dummy;
 };
 
 struct dbreg {

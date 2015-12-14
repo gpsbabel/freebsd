@@ -2,13 +2,13 @@
  * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
  *
- * This software was developed by SRI International and the University of
- * Cambridge Computer Laboratory under DARPA/AFRL contract FA8750-10-C-0237
- * ("CTSRD"), as part of the DARPA CRASH research programme.
+ * Portions of this software were developed by SRI International and the
+ * University of Cambridge Computer Laboratory under DARPA/AFRL contract
+ * FA8750-10-C-0237 ("CTSRD"), as part of the DARPA CRASH research programme.
  *
- * This software was developed by the University of Cambridge Computer
- * Laboratory as part of the CTSRD Project, with support from the UK Higher
- * Education Innovation Fund (HEIF).
+ * Portions of this software were developed by the University of Cambridge
+ * Computer Laboratory as part of the CTSRD Project, with support from the
+ * UK Higher Education Innovation Fund (HEIF).
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -39,40 +39,25 @@
 
 #include <sys/cdefs.h>
 
-/*
- * We need to store:
- *  - A magic value to differentiate the buffers
- *  - The stack pointer
- *  - The return address
- *  - 12 general purpose registers
- *  - 12 floating point registers
- *  - The signal mask (128 bits)
- * i.e. 29 64-bit words, this can be rounded up to 32 to give us some
- * space to expand into without affecting the ABI.
- * XXX: Is this enough space for expansion?
- *
- * The registers to save are: s0 to s11, and fs0 to fs11.
- */
-#define	_JBLEN		32
+#define	_JBLEN		32	/* Magic, SP, RA, s0-11, fs0-11, sigmask */
 #define	_JB_SIGMASK	21
 
-/* This should only be needed in libc and may change */
-#ifdef __ASSEMBLER__
+#ifdef	__ASSEMBLER__
 #define	_JB_MAGIC__SETJMP	0xbe87fd8a2910af00
 #define	_JB_MAGIC_SETJMP	0xbe87fd8a2910af01
-#endif
+#endif /* !__ASSEMBLER__ */
 
-#ifndef __ASSEMBLER__
+#ifndef	__ASSEMBLER__
 /*
  * jmp_buf and sigjmp_buf are encapsulated in different structs to force
  * compile-time diagnostics for mismatches.  The structs are the same
  * internally to avoid some run-time errors for mismatches.
  */
 #if __BSD_VISIBLE || __POSIX_VISIBLE || __XSI_VISIBLE
-typedef struct _sigjmp_buf { long _sjb[_JBLEN + 1]; } sigjmp_buf[1];
+typedef	struct _sigjmp_buf { long _sjb[_JBLEN + 1]; } sigjmp_buf[1];
 #endif
 
-typedef struct _jmp_buf { long _jb[_JBLEN + 1]; } jmp_buf[1];
-#endif /* __ASSEMBLER__ */
+typedef	struct _jmp_buf { long _jb[_JBLEN + 1]; } jmp_buf[1];
+#endif	/* __ASSEMBLER__ */
 
 #endif /* !_MACHINE_SETJMP_H_ */

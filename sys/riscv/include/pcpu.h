@@ -54,8 +54,11 @@ get_pcpu(void)
 static inline struct thread *
 get_curthread(void)
 {
+	struct thread *td;
 
-	return ((struct thread *)*(uint64_t *)pcpup);
+	td = (struct thread *)*(uint64_t *)pcpup;
+
+	return (td);
 }
 
 #define	curthread get_curthread()

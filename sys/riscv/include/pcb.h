@@ -50,17 +50,7 @@ struct pcb {
 	uint64_t	pcb_x[32];
 	uint64_t	pcb_sepc;
 	vm_offset_t	pcb_l1addr;
-
-	/* Fault handler, the error value is passed in a0 */
 	vm_offset_t	pcb_onfault;
-
-	/* Place last to simplify the asm to access the rest if the struct */
-	__uint128_t	pcb_vfp[32];
-	uint32_t	pcb_fpcr;
-	uint32_t	pcb_fpsr;
-	u_int		pcb_fpflags;
-#define	PCB_FP_STARTED	0x01
-	u_int		pcb_vfpcpu;	/* Last cpu this thread ran VFP code */
 };
 
 #ifdef _KERNEL

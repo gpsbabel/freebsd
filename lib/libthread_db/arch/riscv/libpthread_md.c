@@ -1,9 +1,14 @@
 /*-
- * Copyright (c) 2014-2015 The FreeBSD Foundation
+ * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
  *
- * This software was developed by Andrew Turner under
- * sponsorship from the FreeBSD Foundation.
+ * Portions of this software were developed by SRI International and the
+ * University of Cambridge Computer Laboratory under DARPA/AFRL contract
+ * FA8750-10-C-0237 ("CTSRD"), as part of the DARPA CRASH research programme.
+ *
+ * Portions of this software were developed by the University of Cambridge
+ * Computer Laboratory as part of the CTSRD Project, with support from the
+ * UK Higher Education Innovation Fund (HEIF).
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -44,14 +49,8 @@ pt_reg_to_ucontext(const struct reg *r, ucontext_t *uc)
 	mcontext_t *mc = &uc->uc_mcontext;
 
 	memcpy(mc->mc_gpregs.gp_x, r->x, sizeof(mc->mc_gpregs.gp_x));
-	mc->mc_gpregs.gp_x[2] = r->x[2];
-	mc->mc_gpregs.gp_x[1] = r->x[1];
 	mc->mc_gpregs.gp_sepc = r->sepc;
-
-	//mc->mc_gpregs.gp_sp = r->sp;
-	//mc->mc_gpregs.gp_lr = r->lr;
-	//mc->mc_gpregs.gp_elr = r->elr;
-	//mc->mc_gpregs.gp_spsr = r->spsr;
+	mc->mc_gpregs.gp_sstatus = r->sstatus;
 }
 
 void
@@ -60,36 +59,22 @@ pt_ucontext_to_reg(const ucontext_t *uc, struct reg *r)
 	const mcontext_t *mc = &uc->uc_mcontext;
 
 	memcpy(r->x, mc->mc_gpregs.gp_x, sizeof(mc->mc_gpregs.gp_x));
-
-	r->x[1] = mc->mc_gpregs.gp_x[1];
-	r->x[2] = mc->mc_gpregs.gp_x[2];
 	r->sepc = mc->mc_gpregs.gp_sepc;
-
-	//r->sp = mc->mc_gpregs.gp_sp;
-	//r->lr = mc->mc_gpregs.gp_lr;
-	//r->elr = mc->mc_gpregs.gp_elr;
-	//r->spsr = mc->mc_gpregs.gp_spsr;
+	r->sstatus = mc->mc_gpregs.gp_sstatus;
 }
 
 void
-pt_fpreg_to_ucontext(const struct fpreg *r, ucontext_t *uc)
+pt_fpreg_to_ucontext(const struct fpreg *r __unused, ucontext_t *uc __unused)
 {
-	mcontext_t *mc = &uc->uc_mcontext;
 
-	memcpy(&mc->mc_fpregs, r, sizeof(*r));
-	mc->mc_flags |= _MC_FP_VALID;
+	/* TODO */
 }
 
 void
-pt_ucontext_to_fpreg(const ucontext_t *uc, struct fpreg *r)
+pt_ucontext_to_fpreg(const ucontext_t *uc __unused, struct fpreg *r __unused)
 {
-	const mcontext_t *mc = &uc->uc_mcontext;
 
-	if (mc->mc_flags & _MC_FP_VALID)
-		memcpy(r, &mc->mc_fpregs, sizeof(*r));
-	else
-		memset(r, 0, sizeof(*r));
-
+	/* TODO */
 }
 
 void
