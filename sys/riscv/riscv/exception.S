@@ -159,7 +159,7 @@ __FBSDID("$FreeBSD$");
 ENTRY(cpu_exception_handler_sv)
 	save_registers 1
 	mv	a0, sp
-	call	_C_LABEL(do_trap)
+	call	_C_LABEL(do_trap_supervisor)
 	load_registers 1
 	eret
 END(cpu_exception_handler_sv)
