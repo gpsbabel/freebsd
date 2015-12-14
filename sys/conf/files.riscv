@@ -34,7 +34,6 @@ riscv/riscv/machdep.c		standard
 riscv/riscv/mem.c		standard
 riscv/riscv/nexus.c		standard
 riscv/riscv/pmap.c		standard
-riscv/riscv/pic_if.m		standard
 riscv/riscv/sys_machdep.c	standard
 riscv/riscv/support.S		standard
 riscv/riscv/swtch.S		standard
