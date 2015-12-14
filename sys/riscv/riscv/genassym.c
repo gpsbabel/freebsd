@@ -1,7 +1,14 @@
 /*-
- * Copyright (c) 2004 Olivier Houchard
- * Copyright (c) 2014 Andrew Turner
+ * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
+ *
+ * Portions of this software were developed by SRI International and the
+ * University of Cambridge Computer Laboratory under DARPA/AFRL contract
+ * FA8750-10-C-0237 ("CTSRD"), as part of the DARPA CRASH research programme.
+ *
+ * Portions of this software were developed by the University of Cambridge
+ * Computer Laboratory as part of the CTSRD Project, with support from the
+ * UK Higher Education Innovation Fund (HEIF).
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,39 +30,52 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
  */
 
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD$");
-#include <sys/param.h>
-#include <sys/assym.h>
-#include <sys/pcpu.h>
-#include <sys/proc.h>
 
+#include <sys/param.h>
+#include <sys/systm.h>
+#include <sys/assym.h>
+#include <sys/proc.h>
+#include <sys/mbuf.h>
+#include <sys/vmmeter.h>
+#include <sys/bus.h>
+#include <vm/vm.h>
+#include <vm/vm_param.h>
+#include <vm/pmap.h>
+#include <vm/vm_map.h>
+
+#include <machine/vmparam.h>
+#include <machine/riscvreg.h>
 #include <machine/frame.h>
 #include <machine/pcb.h>
-#include <machine/vmparam.h>
+#include <machine/cpu.h>
+#include <machine/proc.h>
+#include <machine/cpufunc.h>
+#include <machine/pte.h>
+#include <machine/intr.h>
 
 ASSYM(KERNBASE, KERNBASE);
 ASSYM(TDF_ASTPENDING, TDF_ASTPENDING);
 ASSYM(TDF_NEEDRESCHED, TDF_NEEDRESCHED);
 
-ASSYM(PCPU_SIZE, sizeof(struct pcpu));
-ASSYM(PC_CURPCB, offsetof(struct pcpu, pc_curpcb));
-ASSYM(PC_CURTHREAD, offsetof(struct pcpu, pc_curthread));
-
-/* Size of pcb, rounded to keep stack alignment */
-ASSYM(PCB_SIZE, roundup2(sizeof(struct pcb), STACKALIGNBYTES + 1));
-ASSYM(PCB_REGS, offsetof(struct pcb, pcb_x));
-//ASSYM(PCB_SP, offsetof(struct pcb, pcb_sp));
-ASSYM(PCB_L1ADDR, offsetof(struct pcb, pcb_l1addr));
 ASSYM(PCB_ONFAULT, offsetof(struct pcb, pcb_onfault));
+ASSYM(PCB_L1ADDR, offsetof(struct pcb, pcb_l1addr));
+ASSYM(PCB_SIZE, sizeof(struct pcb));
+ASSYM(PCB_REGS, offsetof(struct pcb, pcb_x));
 
 ASSYM(SF_UC, offsetof(struct sigframe, sf_uc));
 
+ASSYM(PC_CURPCB, offsetof(struct pcpu, pc_curpcb));
+ASSYM(PC_CURTHREAD, offsetof(struct pcpu, pc_curthread));
+
 ASSYM(TD_PCB, offsetof(struct thread, td_pcb));
 ASSYM(TD_FLAGS, offsetof(struct thread, td_flags));
+ASSYM(TD_PROC, offsetof(struct thread, td_proc));
+ASSYM(TD_FRAME, offsetof(struct thread, td_frame));
+ASSYM(TD_MD, offsetof(struct thread, td_md));
 ASSYM(TD_LOCK, offsetof(struct thread, td_lock));
 
 ASSYM(TF_X, offsetof(struct trapframe, tf_x));
