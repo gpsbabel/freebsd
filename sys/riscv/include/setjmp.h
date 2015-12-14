@@ -39,7 +39,7 @@
 
 #include <sys/cdefs.h>
 
-#define	_JBLEN		32	/* SP, RA, [f]s0-11, magic val, sigmask */
+#define	_JBLEN		32	/* sp, ra, [f]s0-11, magic val, sigmask */
 #define	_JB_SIGMASK	21
 
 #ifdef	__ASSEMBLER__
