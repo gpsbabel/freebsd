@@ -62,15 +62,17 @@
 #define	EXCP_INTR_TIMER			1
 #define	EXCP_INTR_HTIF			2
 
+#define	SSTATUS_IE			(1 << 0)
+
 #define	MSTATUS_MPRV		(1 << 16)
 #define	MSTATUS_PRV_SHIFT	1
 #define	MSTATUS_PRV1_SHIFT	4
 #define	MSTATUS_PRV2_SHIFT	7
 #define	MSTATUS_PRV_MASK	(0x3 << MSTATUS_PRV_SHIFT)
-#define	MSTATUS_PRV_U		0
-#define	MSTATUS_PRV_S		1
-#define	MSTATUS_PRV_H		2
-#define	MSTATUS_PRV_M		3
+#define	MSTATUS_PRV_U		0	/* user */
+#define	MSTATUS_PRV_S		1	/* supervisor */
+#define	MSTATUS_PRV_H		2	/* hypervisor */
+#define	MSTATUS_PRV_M		3	/* machine */
 
 #define	MSTATUS_VM_SHIFT	17
 #define	MSTATUS_VM_MASK		0x1f

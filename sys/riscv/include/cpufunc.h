@@ -58,7 +58,7 @@ intr_disable(void)
 		: "=&r" (ret)
 	);
 
-	return (ret & 1);
+	return (ret & SSTATUS_IE);
 }
 
 static __inline void
@@ -76,7 +76,7 @@ intr_enable(void)
 {
 
 	__asm __volatile(
-		"csrsi sstatus, 1"
+		"csrsi sstatus, SSTATUS_IE"
 	);
 }
 
