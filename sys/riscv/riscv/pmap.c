@@ -20,8 +20,8 @@
  * the Systems Programming Group of the University of Utah Computer
  * Science Department and William Jolitz of UUNET Technologies Inc.
  *
- * This software was developed by Andrew Turner under sponsorship from
- * the FreeBSD Foundation.
+ * Portions of this software were developed by Andrew Turner under
+ * sponsorship from The FreeBSD Foundation.
  *
  * Portions of this software were developed by SRI International and the
  * University of Cambridge Computer Laboratory under DARPA/AFRL contract
