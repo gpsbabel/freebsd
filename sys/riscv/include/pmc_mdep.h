@@ -61,7 +61,7 @@ union pmc_md_pmc {
 #define	PMC_IN_KERNEL(va)		INKERNEL((va))
 #define	PMC_IN_USERSPACE(va)		((va) <= VM_MAXUSER_ADDRESS)
 #define	PMC_TRAPFRAME_TO_PC(TF)		((TF)->tf_ra)
-#define	PMC_TRAPFRAME_TO_FP(TF)		((TF)->tf_x[29])
+#define	PMC_TRAPFRAME_TO_FP(TF)		(0)	/* stub */
 
 /*
  * Prototypes
