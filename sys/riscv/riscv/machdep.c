@@ -732,10 +732,7 @@ initriscv(struct riscv_bootparams *rvbp)
 	pcpup = &__pcpu[0];
 	pcpu_init(pcpup, 0, sizeof(struct pcpu));
 
-	/*
-	 * Set the pcpu pointer with a backup in tpidr_el1 to be
-	 * loaded when entering the kernel from userland.
-	 */
+	/* Set the pcpu pointer */
 #if 0
 	/* SMP TODO: try re-use gp for pcpu pointer */
 	__asm __volatile(

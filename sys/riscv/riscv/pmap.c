@@ -189,20 +189,11 @@ __FBSDID("$FreeBSD$");
 #define PMAP_INLINE
 #endif
 
-/*
- * These are configured by the mair_el1 register. This is set up in locore.S
- */
-#define	DEVICE_MEMORY	0
-#define	UNCACHED_MEMORY	1
-#define	CACHED_MEMORY	2
-
-
 #ifdef PV_STATS
 #define PV_STAT(x)	do { x ; } while (0)
 #else
 #define PV_STAT(x)	do { } while (0)
 #endif
-
 
 #define	pmap_l2_pindex(v)	((v) >> L2_SHIFT)
 
@@ -878,6 +869,7 @@ pmap_kenter_device(vm_offset_t sva, vm_size_t size, vm_paddr_t pa)
 	while (size != 0) {
 		l3 = pmap_l3(kernel_pmap, va);
 		KASSERT(l3 != NULL, ("Invalid page table, va: 0x%lx", va));
+		panic("%s: unimplemented", __func__);
 #if 0 /* implement me */
 		pmap_load_store(l3, (pa & ~L3_OFFSET) | ATTR_DEFAULT |
 		    ATTR_IDX(DEVICE_MEMORY) | L3_PAGE);
