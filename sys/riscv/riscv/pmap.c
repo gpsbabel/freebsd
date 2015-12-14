@@ -398,7 +398,7 @@ static inline int
 pmap_page_dirty(pt_entry_t pte)
 {
 
-	return (pte & ATTR_DIRTY);
+	return (pte & PTE_DIRTY);
 }
 
 static __inline void
@@ -1366,7 +1366,7 @@ pmap_growkernel(vm_offset_t addr)
 			continue; /* try again */
 		}
 		l2 = pmap_l1_to_l2(l1, kernel_vm_end);
-		if ((pmap_load(l2) & ATTR_REF) != 0) {
+		if ((pmap_load(l2) & PTE_REF) != 0) {
 			kernel_vm_end = (kernel_vm_end + L2_SIZE) & ~L2_OFFSET;
 			if (kernel_vm_end - 1 >= kernel_map->max_offset) {
 				kernel_vm_end = kernel_map->max_offset;
@@ -1674,15 +1674,15 @@ pmap_remove_l3(pmap_t pmap, pt_entry_t *l3, vm_offset_t va,
 	old_l3 = pmap_load_clear(l3);
 	PTE_SYNC(l3);
 	pmap_invalidate_page(pmap, va);
-	if (old_l3 & ATTR_SW_WIRED)
+	if (old_l3 & PTE_SW_WIRED)
 		pmap->pm_stats.wired_count -= 1;
 	pmap_resident_count_dec(pmap, 1);
-	if (old_l3 & ATTR_SW_MANAGED) {
+	if (old_l3 & PTE_SW_MANAGED) {
 		phys = PTE_TO_PHYS(old_l3);
 		m = PHYS_TO_VM_PAGE(phys);
 		if (pmap_page_dirty(old_l3))
 			vm_page_dirty(m);
-		if (old_l3 & ATTR_REF)
+		if (old_l3 & PTE_REF)
 			vm_page_aflag_set(m, PGA_REFERENCED);
 		CHANGE_PV_LIST_LOCK_TO_VM_PAGE(lockp, m);
 		pmap_pvh_free(&m->md, pmap, va);
@@ -1838,9 +1838,9 @@ pmap_remove_all(vm_page_t m)
 		tl3 = pmap_load_clear(l3);
 		PTE_SYNC(l3);
 		pmap_invalidate_page(pmap, pv->pv_va);
-		if (tl3 & ATTR_SW_WIRED)
+		if (tl3 & PTE_SW_WIRED)
 			pmap->pm_stats.wired_count--;
-		if ((tl3 & ATTR_REF) != 0)
+		if ((tl3 & PTE_REF) != 0)
 			vm_page_aflag_set(m, PGA_REFERENCED);
 
 		/*
@@ -1974,7 +1974,7 @@ pmap_enter(pmap_t pmap, vm_offset_t va, vm_page_t m, vm_prot_t prot,
 
 	new_l3 |= (pn << PTE_PPN0_S);
 	if ((flags & PMAP_ENTER_WIRED) != 0)
-		new_l3 |= ATTR_SW_WIRED;
+		new_l3 |= PTE_SW_WIRED;
 
 	CTR2(KTR_PMAP, "pmap_enter: %.16lx -> %.16lx", va, pa);
 
@@ -2058,10 +2058,10 @@ pmap_enter(pmap_t pmap, vm_offset_t va, vm_page_t m, vm_prot_t prot,
 		 * the PT page will be also.
 		 */
 		if ((flags & PMAP_ENTER_WIRED) != 0 &&
-		    (orig_l3 & ATTR_SW_WIRED) == 0)
+		    (orig_l3 & PTE_SW_WIRED) == 0)
 			pmap->pm_stats.wired_count++;
 		else if ((flags & PMAP_ENTER_WIRED) == 0 &&
-		    (orig_l3 & ATTR_SW_WIRED) != 0)
+		    (orig_l3 & PTE_SW_WIRED) != 0)
 			pmap->pm_stats.wired_count--;
 
 		/*
@@ -2081,8 +2081,8 @@ pmap_enter(pmap_t pmap, vm_offset_t va, vm_page_t m, vm_prot_t prot,
 			/*
 			 * No, might be a protection or wiring change.
 			 */
-			if ((orig_l3 & ATTR_SW_MANAGED) != 0) {
-				new_l3 |= ATTR_SW_MANAGED;
+			if ((orig_l3 & PTE_SW_MANAGED) != 0) {
+				new_l3 |= PTE_SW_MANAGED;
 				if (pmap_is_write(new_l3))
 					vm_page_aflag_set(m, PGA_WRITEABLE);
 			}
@@ -2096,7 +2096,7 @@ pmap_enter(pmap_t pmap, vm_offset_t va, vm_page_t m, vm_prot_t prot,
 		/*
 		 * Increment the counters.
 		 */
-		if ((new_l3 & ATTR_SW_WIRED) != 0)
+		if ((new_l3 & PTE_SW_WIRED) != 0)
 			pmap->pm_stats.wired_count++;
 		pmap_resident_count_inc(pmap, 1);
 	}
@@ -2104,7 +2104,7 @@ pmap_enter(pmap_t pmap, vm_offset_t va, vm_page_t m, vm_prot_t prot,
 	 * Enter on the PV list if part of our managed memory.
 	 */
 	if ((m->oflags & VPO_UNMANAGED) == 0) {
-		new_l3 |= ATTR_SW_MANAGED;
+		new_l3 |= PTE_SW_MANAGED;
 		pv = get_pv_entry(pmap, &lock);
 		pv->pv_va = va;
 		CHANGE_PV_LIST_LOCK_TO_PHYS(&lock, pa);
@@ -2124,17 +2124,17 @@ validate:
 		opa = PTE_TO_PHYS(orig_l3);
 
 		if (opa != pa) {
-			if ((orig_l3 & ATTR_SW_MANAGED) != 0) {
+			if ((orig_l3 & PTE_SW_MANAGED) != 0) {
 				om = PHYS_TO_VM_PAGE(opa);
 				if (pmap_page_dirty(orig_l3))
 					vm_page_dirty(om);
-				if ((orig_l3 & ATTR_REF) != 0)
+				if ((orig_l3 & PTE_REF) != 0)
 					vm_page_aflag_set(om, PGA_REFERENCED);
 				CHANGE_PV_LIST_LOCK_TO_PHYS(&lock, opa);
 				pmap_pvh_free(&om->md, pmap, va);
 			}
 		} else if (pmap_page_dirty(orig_l3)) {
-			if ((orig_l3 & ATTR_SW_MANAGED) != 0)
+			if ((orig_l3 & PTE_SW_MANAGED) != 0)
 				vm_page_dirty(m);
 		}
 	} else {
@@ -2322,7 +2322,7 @@ pmap_enter_quick_locked(pmap_t pmap, vm_offset_t va, vm_page_t m,
 	 * Now validate mapping with RO protection
 	 */
 	if ((m->oflags & VPO_UNMANAGED) == 0)
-		entry |= ATTR_SW_MANAGED;
+		entry |= PTE_SW_MANAGED;
 	pmap_load_store(l3, entry);
 
 	PTE_SYNC(l3);
@@ -2387,16 +2387,16 @@ pmap_unwire(pmap_t pmap, vm_offset_t sva, vm_offset_t eva)
 		    sva += L3_SIZE) {
 			if (pmap_load(l3) == 0)
 				continue;
-			if ((pmap_load(l3) & ATTR_SW_WIRED) == 0)
+			if ((pmap_load(l3) & PTE_SW_WIRED) == 0)
 				panic("pmap_unwire: l3 %#jx is missing "
-				    "ATTR_SW_WIRED", (uintmax_t)*l3);
+				    "PTE_SW_WIRED", (uintmax_t)*l3);
 
 			/*
 			 * PG_W must be cleared atomically.  Although the pmap
 			 * lock synchronizes access to PG_W, another processor
 			 * could be setting PG_M and/or PG_A concurrently.
 			 */
-			atomic_clear_long(l3, ATTR_SW_WIRED);
+			atomic_clear_long(l3, PTE_SW_WIRED);
 			pmap->pm_stats.wired_count--;
 		}
 	}
@@ -2598,7 +2598,7 @@ restart:
 			}
 		}
 		l3 = pmap_l3(pmap, pv->pv_va);
-		if (l3 != NULL && (pmap_load(l3) & ATTR_SW_WIRED) != 0)
+		if (l3 != NULL && (pmap_load(l3) & PTE_SW_WIRED) != 0)
 			count++;
 		PMAP_UNLOCK(pmap);
 	}
@@ -2663,7 +2663,7 @@ pmap_remove_pages(pmap_t pmap)
 /*
  * We cannot remove wired pages from a process' mapping at this time
  */
-				if (tl3 & ATTR_SW_WIRED) {
+				if (tl3 & PTE_SW_WIRED) {
 					allfree = 0;
 					continue;
 				}
@@ -2758,12 +2758,12 @@ restart:
 		mask = 0;
 		value = 0;
 		if (modified) {
-			mask |= ATTR_DIRTY;
-			value |= ATTR_DIRTY;
+			mask |= PTE_DIRTY;
+			value |= PTE_DIRTY;
 		}
 		if (accessed) {
-			mask |= ATTR_REF;
-			value |= ATTR_REF;
+			mask |= PTE_REF;
+			value |= PTE_REF;
 		}
 
 #if 0
@@ -2899,7 +2899,7 @@ retry:
 			if (!atomic_cmpset_long(l3, oldl3, newl3))
 				goto retry;
 			/* TODO: use pmap_page_dirty(oldl3) ? */
-			if ((oldl3 & ATTR_REF) != 0)
+			if ((oldl3 & PTE_REF) != 0)
 				vm_page_dirty(m);
 			pmap_invalidate_page(pmap, pv->pv_va);
 		}
@@ -2976,7 +2976,7 @@ retry:
 		    ("pmap_ts_referenced: found an invalid l2 table"));
 
 		l3 = pmap_l2_to_l3(l2, pv->pv_va);
-		if ((pmap_load(l3) & ATTR_REF) != 0) {
+		if ((pmap_load(l3) & PTE_REF) != 0) {
 			if (safe_to_clear_referenced(pmap, pmap_load(l3))) {
 				/*
 				 * TODO: We don't handle the access flag
@@ -2984,7 +2984,7 @@ retry:
 				 * the exception handler.
 				 */
 				panic("RISCVTODO: safe_to_clear_referenced\n");
-			} else if ((pmap_load(l3) & ATTR_SW_WIRED) == 0) {
+			} else if ((pmap_load(l3) & PTE_SW_WIRED) == 0) {
 				/*
 				 * Wired pages cannot be paged out so
 				 * doing accessed bit emulation for

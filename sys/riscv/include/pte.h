@@ -63,14 +63,12 @@ typedef	uint64_t	pt_entry_t;		/* page table entry */
 #define	Ln_ENTRIES	(1 << 9)
 #define	Ln_ADDR_MASK	(Ln_ENTRIES - 1)
 
-#define	ATTR_MASK	0x3ff
 /* Bits 9:7 are reserved for software */
-#define	ATTR_SW_MANAGED	(1UL << 8)
-#define	ATTR_SW_WIRED	(1UL << 7)
-#define	ATTR_DIRTY	(1 << 6) /* Virtual page is written */
-#define	ATTR_REF	(1 << 5) /* Virtual page is referenced */
-
-#define	PTE_VALID	(1 << 0)	/* Valid */
+#define	PTE_SW_MANAGED	(1 << 8)
+#define	PTE_SW_WIRED	(1 << 7)
+#define	PTE_DIRTY	(1 << 6) /* Virtual page is written */
+#define	PTE_REF		(1 << 5) /* Virtual page is referenced */
+#define	PTE_VALID	(1 << 0) /* Virtual page is valid */
 #define	PTE_TYPE_S	1
 #define	PTE_TYPE_M	(0xf << PTE_TYPE_S)
 #define	PTE_TYPE_PTR	0
