@@ -207,7 +207,9 @@ riscv_cpu_intr(struct trapframe *frame)
 	case IRQ_SOFTWARE:
 	case IRQ_TIMER:
 		event = intr_events[active_irq];
-		riscv_intrcnt_inc(riscv_intr_counters[active_irq]);
+		/* Update counters */
+		atomic_add_long(riscv_intr_counters[active_irq], 1);
+		PCPU_INC(cnt.v_intr);
 		break;
 	case IRQ_HTIF:
 		/* HTIF interrupts are only handled in machine mode */

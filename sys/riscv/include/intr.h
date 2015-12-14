@@ -51,11 +51,4 @@ typedef unsigned long * riscv_intrcnt_t;
 riscv_intrcnt_t riscv_intrcnt_create(const char *);
 void riscv_intrcnt_setname(riscv_intrcnt_t, const char *);
 
-static __inline void
-riscv_intrcnt_inc(riscv_intrcnt_t counter)
-{
-	if (counter)
-		atomic_add_long(counter, 1);
-	PCPU_INC(cnt.v_intr);
-}
 #endif /* !_MACHINE_INTR_MACHDEP_H_ */
