@@ -63,7 +63,8 @@ atomic_add_32(volatile uint32_t *p, uint32_t val)
 
 	__asm __volatile("amoadd.w zero, %1, %0"
 			: "+A" (*p)
-			: "r" (val));
+			: "r" (val)
+			: "memory");
 }
 
 static __inline void
@@ -72,7 +73,8 @@ atomic_subtract_32(volatile uint32_t *p, uint32_t val)
 
 	__asm __volatile("amoadd.w zero, %1, %0"
 			: "+A" (*p)
-			: "r" (-val));
+			: "r" (-val)
+			: "memory");
 }
 
 static __inline void
@@ -81,7 +83,8 @@ atomic_set_32(volatile uint32_t *p, uint32_t val)
 
 	__asm __volatile("amoor.w zero, %1, %0"
 			: "+A" (*p)
-			: "r" (val));
+			: "r" (val)
+			: "memory");
 }
 
 static __inline void
@@ -89,8 +92,9 @@ atomic_clear_32(volatile uint32_t *p, uint32_t val)
 {
 
 	__asm __volatile("amoand.w zero, %1, %0"
-		: "+A" (*p)
-		: "r" (~val));
+			: "+A" (*p)
+			: "r" (~val)
+			: "memory");
 }
 
 static __inline int
@@ -110,7 +114,8 @@ atomic_cmpset_32(volatile uint32_t *p, uint32_t cmpval, uint32_t newval)
 			"bnez %1, 0b\n"
 		"1:"
 			: "=&r" (tmp), "=&r" (res), "+A" (*p)
-			: "rJ" (cmpval), "rJ" (newval));
+			: "rJ" (cmpval), "rJ" (newval)
+			: "memory");
 
 	return (!res);
 }
@@ -122,7 +127,8 @@ atomic_fetchadd_32(volatile uint32_t *p, uint32_t val)
 
 	__asm __volatile("amoadd.w %0, %2, %1"
 			: "=&r" (ret), "+A" (*p)
-			: "r" (val));
+			: "r" (val)
+			: "memory");
 
 	return (ret);
 }
@@ -138,7 +144,7 @@ atomic_readandclear_32(volatile uint32_t *p)
 	__asm __volatile("amoswap.w %0, %2, %1"
 			: "=&r"(ret), "+A" (*p)
 			: "r" (val)
-	);
+			: "memory");
 
 	return (ret);
 }
@@ -218,7 +224,8 @@ atomic_add_64(volatile uint64_t *p, uint64_t val)
 
 	__asm __volatile("amoadd.d zero, %1, %0"
 			: "+A" (*p)
-			: "r" (val));
+			: "r" (val)
+			: "memory");
 }
 
 static __inline void
@@ -227,7 +234,8 @@ atomic_subtract_64(volatile uint64_t *p, uint64_t val)
 
 	__asm __volatile("amoadd.d zero, %1, %0"
 			: "+A" (*p)
-			: "r" (-val));
+			: "r" (-val)
+			: "memory");
 }
 
 static __inline void
@@ -235,8 +243,9 @@ atomic_set_64(volatile uint64_t *p, uint64_t val)
 {
 
 	__asm __volatile("amoor.d zero, %1, %0"
-		: "+A" (*p)
-		: "r" (val));
+			: "+A" (*p)
+			: "r" (val)
+			: "memory");
 }
 
 static __inline void
@@ -244,8 +253,9 @@ atomic_clear_64(volatile uint64_t *p, uint64_t val)
 {
 
 	__asm __volatile("amoand.d zero, %1, %0"
-		: "+A" (*p)
-		: "r" (~val));
+			: "+A" (*p)
+			: "r" (~val)
+			: "memory");
 }
 
 static __inline int
@@ -265,7 +275,8 @@ atomic_cmpset_64(volatile uint64_t *p, uint64_t cmpval, uint64_t newval)
 			"bnez %1, 0b\n"
 		"1:"
 			: "=&r" (tmp), "=&r" (res), "+A" (*p)
-			: "rJ" (cmpval), "rJ" (newval));
+			: "rJ" (cmpval), "rJ" (newval)
+			: "memory");
 
 	return (!res);
 }
@@ -277,7 +288,8 @@ atomic_fetchadd_64(volatile uint64_t *p, uint64_t val)
 
 	__asm __volatile("amoadd.d %0, %2, %1"
 			: "=&r" (ret), "+A" (*p)
-			: "r" (val));
+			: "r" (val)
+			: "memory");
 
 	return (ret);
 }
@@ -293,7 +305,7 @@ atomic_readandclear_64(volatile uint64_t *p)
 	__asm __volatile("amoswap.d %0, %2, %1"
 			: "=&r"(ret), "+A" (*p)
 			: "r" (val)
-	);
+			: "memory");
 
 	return (ret);
 }
@@ -306,7 +318,7 @@ atomic_swap_64(volatile uint64_t *p, uint64_t val)
 	__asm __volatile("amoswap.d %0, %2, %1"
 			: "=&r"(old), "+A" (*p)
 			: "r" (val)
-	);
+			: "memory");
 
 	return (old);
 }
