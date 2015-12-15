@@ -76,7 +76,6 @@ __END_DECLS
 #define	DBL_HAS_SUBNORM	1
 #endif /* __ISO_C_VISIBLE >= 2011 */
 
-#if 1
 #define LDBL_MANT_DIG	DBL_MANT_DIG
 #define LDBL_EPSILON	((long double)DBL_EPSILON)
 #define LDBL_DIG	DBL_DIG
@@ -92,8 +91,7 @@ __END_DECLS
 #define	LDBL_HAS_SUBNORM DBL_HAS_SUBNORM
 #endif /* __ISO_C_VISIBLE >= 2011 */
 
-#else /* RISCVTODO: use this */
-
+#if 0 /* RISCVTODO */
 #define	LDBL_MANT_DIG	113
 #define	LDBL_EPSILON	1.925929944387235853055977942584927319E-34L
 #define	LDBL_DIG	33
