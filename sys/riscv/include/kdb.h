@@ -29,8 +29,6 @@
 #ifndef _MACHINE_KDB_H_
 #define _MACHINE_KDB_H_
 
-#include <machine/frame.h>
-#include <machine/psl.h>
 #include <machine/cpufunc.h>
 
 #define	KDB_STOPPEDPCB(pc)	&stoppcbs[pc->pc_cpuid]
