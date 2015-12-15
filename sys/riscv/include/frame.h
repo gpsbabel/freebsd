@@ -46,7 +46,13 @@
  * NOTE: keep this structure in sync with struct reg and struct mcontext.
  */
 struct trapframe {
-	uint64_t tf_x[32];
+	uint64_t tf_ra;
+	uint64_t tf_sp;
+	uint64_t tf_gp;
+	uint64_t tf_tp;
+	uint64_t tf_t[7];
+	uint64_t tf_s[12];
+	uint64_t tf_a[8];
 	uint64_t tf_sepc;
 	uint64_t tf_sstatus;
 	uint64_t tf_sbadaddr;

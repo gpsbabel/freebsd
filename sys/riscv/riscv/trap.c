@@ -89,9 +89,9 @@ cpu_fetch_syscall_args(struct thread *td, struct syscall_args *sa)
 
 	nap = 8;
 	p = td->td_proc;
-	ap = &td->td_frame->tf_x[10];
+	ap = &td->td_frame->tf_a[0];
 
-	sa->code = td->td_frame->tf_x[5];
+	sa->code = td->td_frame->tf_t[0];
 
 	if (sa->code == SYS_syscall || sa->code == SYS___syscall) {
 		sa->code = *ap++;
@@ -123,9 +123,14 @@ dump_regs(struct trapframe *frame)
 {
 	int i;
 
-	for (i = 0; i < 32; i++) {
-		printf("x[%d] == 0x%016lx\n", i, frame->tf_x[i]);
-	}
+	for (i = 0; i < 7; i++)
+		printf("t[%d] == 0x%016lx\n", i, frame->tf_t[i]);
+
+	for (i = 0; i < 12; i++)
+		printf("s[%d] == 0x%016lx\n", i, frame->tf_s[i]);
+
+	for (i = 0; i < 8; i++)
+		printf("a[%d] == 0x%016lx\n", i, frame->tf_a[i]);
 
 	printf("sepc == 0x%016lx\n", frame->tf_sepc);
 	printf("sstatus == 0x%016lx\n", frame->tf_sstatus);
@@ -227,7 +232,7 @@ data_abort(struct trapframe *frame, int lower)
 		} else {
 			if (td->td_intr_nesting_level == 0 &&
 			    pcb->pcb_onfault != 0) {
-				frame->tf_x[10] = error;
+				frame->tf_a[0] = error;
 				frame->tf_sepc = pcb->pcb_onfault;
 				return;
 			}

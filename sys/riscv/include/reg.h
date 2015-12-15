@@ -38,7 +38,13 @@
 #define	_MACHINE_REG_H_
 
 struct reg {
-	uint64_t x[32];
+	uint64_t ra;
+	uint64_t sp;
+	uint64_t gp;
+	uint64_t tp;
+	uint64_t t[7];
+	uint64_t s[12];
+	uint64_t a[8];
 	uint64_t sepc;
 	uint64_t sstatus;
 };

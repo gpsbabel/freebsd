@@ -48,7 +48,13 @@ pt_reg_to_ucontext(const struct reg *r, ucontext_t *uc)
 {
 	mcontext_t *mc = &uc->uc_mcontext;
 
-	memcpy(mc->mc_gpregs.gp_x, r->x, sizeof(mc->mc_gpregs.gp_x));
+	memcpy(mc->mc_gpregs.gp_t, r->t, sizeof(mc->mc_gpregs.gp_t));
+	memcpy(mc->mc_gpregs.gp_s, r->s, sizeof(mc->mc_gpregs.gp_s));
+	memcpy(mc->mc_gpregs.gp_a, r->a, sizeof(mc->mc_gpregs.gp_a));
+	mc->mc_gpregs.gp_ra = r->ra;
+	mc->mc_gpregs.gp_sp = r->sp;
+	mc->mc_gpregs.gp_gp = r->gp;
+	mc->mc_gpregs.gp_tp = r->tp;
 	mc->mc_gpregs.gp_sepc = r->sepc;
 	mc->mc_gpregs.gp_sstatus = r->sstatus;
 }
@@ -58,7 +64,13 @@ pt_ucontext_to_reg(const ucontext_t *uc, struct reg *r)
 {
 	const mcontext_t *mc = &uc->uc_mcontext;
 
-	memcpy(r->x, mc->mc_gpregs.gp_x, sizeof(mc->mc_gpregs.gp_x));
+	memcpy(r->t, mc->mc_gpregs.gp_t, sizeof(mc->mc_gpregs.gp_t));
+	memcpy(r->s, mc->mc_gpregs.gp_s, sizeof(mc->mc_gpregs.gp_s));
+	memcpy(r->a, mc->mc_gpregs.gp_a, sizeof(mc->mc_gpregs.gp_a));
+	r->ra = mc->mc_gpregs.gp_ra;
+	r->sp = mc->mc_gpregs.gp_sp;
+	r->gp = mc->mc_gpregs.gp_gp;
+	r->tp = mc->mc_gpregs.gp_tp;
 	r->sepc = mc->mc_gpregs.gp_sepc;
 	r->sstatus = mc->mc_gpregs.gp_sstatus;
 }

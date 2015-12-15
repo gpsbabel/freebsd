@@ -40,11 +40,11 @@
 #include <machine/atomic.h>
 #include <machine/frame.h>
 
-#define	TRAPF_PC(tfp)		((tfp)->tf_x[1])
+#define	TRAPF_PC(tfp)		((tfp)->tf_ra)
 #define	TRAPF_USERMODE(tfp)	(((tfp)->tf_sepc & (1ul << 63)) == 0)
 
-#define	cpu_getstack(td)	((td)->td_frame->tf_x[2])
-#define	cpu_setstack(td, sp)	((td)->td_frame->tf_x[2] = (sp))
+#define	cpu_getstack(td)	((td)->td_frame->tf_sp)
+#define	cpu_setstack(td, sp)	((td)->td_frame->tf_sp = (sp))
 #define	cpu_spinwait()		/* nothing */
 
 #ifdef _KERNEL

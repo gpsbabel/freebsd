@@ -41,13 +41,14 @@
 
 struct trapframe;
 
-#define	PCB_RA		1
-#define	PCB_SP		2
-#define	PCB_GP		3
-#define	PCB_TP		4
-
 struct pcb {
-	uint64_t	pcb_x[32];
+	uint64_t	pcb_ra;
+	uint64_t	pcb_sp;
+	uint64_t	pcb_gp;
+	uint64_t	pcb_tp;
+	uint64_t	pcb_t[7];
+	uint64_t	pcb_s[12];
+	uint64_t	pcb_a[8];
 	uint64_t	pcb_sepc;
 	vm_offset_t	pcb_l1addr;	/* L1 page tables base address */
 	vm_offset_t	pcb_onfault;

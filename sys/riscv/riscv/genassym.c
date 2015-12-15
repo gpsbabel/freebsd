@@ -64,7 +64,13 @@ ASSYM(TDF_NEEDRESCHED, TDF_NEEDRESCHED);
 ASSYM(PCB_ONFAULT, offsetof(struct pcb, pcb_onfault));
 ASSYM(PCB_L1ADDR, offsetof(struct pcb, pcb_l1addr));
 ASSYM(PCB_SIZE, sizeof(struct pcb));
-ASSYM(PCB_REGS, offsetof(struct pcb, pcb_x));
+ASSYM(PCB_RA, offsetof(struct pcb, pcb_ra));
+ASSYM(PCB_SP, offsetof(struct pcb, pcb_sp));
+ASSYM(PCB_GP, offsetof(struct pcb, pcb_gp));
+ASSYM(PCB_TP, offsetof(struct pcb, pcb_tp));
+ASSYM(PCB_T, offsetof(struct pcb, pcb_t));
+ASSYM(PCB_S, offsetof(struct pcb, pcb_s));
+ASSYM(PCB_A, offsetof(struct pcb, pcb_a));
 
 ASSYM(SF_UC, offsetof(struct sigframe, sf_uc));
 
@@ -78,4 +84,14 @@ ASSYM(TD_FRAME, offsetof(struct thread, td_frame));
 ASSYM(TD_MD, offsetof(struct thread, td_md));
 ASSYM(TD_LOCK, offsetof(struct thread, td_lock));
 
-ASSYM(TF_X, offsetof(struct trapframe, tf_x));
+ASSYM(TF_RA, offsetof(struct trapframe, tf_ra));
+ASSYM(TF_SP, offsetof(struct trapframe, tf_sp));
+ASSYM(TF_GP, offsetof(struct trapframe, tf_gp));
+ASSYM(TF_TP, offsetof(struct trapframe, tf_tp));
+ASSYM(TF_T, offsetof(struct trapframe, tf_t));
+ASSYM(TF_S, offsetof(struct trapframe, tf_s));
+ASSYM(TF_A, offsetof(struct trapframe, tf_a));
+ASSYM(TF_SEPC, offsetof(struct trapframe, tf_sepc));
+ASSYM(TF_SBADADDR, offsetof(struct trapframe, tf_sbadaddr));
+ASSYM(TF_SCAUSE, offsetof(struct trapframe, tf_scause));
+ASSYM(TF_SSTATUS, offsetof(struct trapframe, tf_sstatus));

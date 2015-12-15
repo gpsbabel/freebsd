@@ -71,7 +71,7 @@ cpu_fork(struct thread *td1, struct proc *p2, struct thread *td2, int flags)
 
 	if (td1 == curthread) {
 		__asm __volatile("mv	%0, tp" : "=&r"(val));
-		td1->td_pcb->pcb_x[PCB_TP] = val;
+		td1->td_pcb->pcb_tp = val;
 	}
 
 	pcb2 = (struct pcb *)(td2->td_kstack +
@@ -87,20 +87,20 @@ cpu_fork(struct thread *td1, struct proc *p2, struct thread *td2, int flags)
 	bcopy(td1->td_frame, tf, sizeof(*tf));
 
 	/* Clear syscall error flag */
-	tf->tf_x[5] = 0;
+	tf->tf_t[0] = 0;
 
 	/* Arguments for child */
-	tf->tf_x[10] = 0;
-	tf->tf_x[11] = 0;
+	tf->tf_a[0] = 0;
+	tf->tf_a[1] = 0;
 	/* TODO: tf->tf_sstatus = ? */
 
 	td2->td_frame = tf;
 
 	/* Set the return value registers for fork() */
-	td2->td_pcb->pcb_x[5] = (uintptr_t)fork_return;
-	td2->td_pcb->pcb_x[6] = (uintptr_t)td2;
-	td2->td_pcb->pcb_x[PCB_RA] = (uintptr_t)fork_trampoline;
-	td2->td_pcb->pcb_x[PCB_SP] = (uintptr_t)td2->td_frame;
+	td2->td_pcb->pcb_t[0] = (uintptr_t)fork_return;
+	td2->td_pcb->pcb_t[1] = (uintptr_t)td2;
+	td2->td_pcb->pcb_ra = (uintptr_t)fork_trampoline;
+	td2->td_pcb->pcb_sp = (uintptr_t)td2->td_frame;
 
 	/* Setup to release spin count in fork_exit(). */
 	td2->td_md.md_spinlock_count = 1;
@@ -135,9 +135,9 @@ cpu_set_syscall_retval(struct thread *td, int error)
 
 	switch (error) {
 	case 0:
-		frame->tf_x[10] = td->td_retval[0];
-		frame->tf_x[11] = td->td_retval[1];
-		frame->tf_x[5] = 0;		/* syscall succeeded */
+		frame->tf_a[0] = td->td_retval[0];
+		frame->tf_a[1] = td->td_retval[1];
+		frame->tf_t[0] = 0;		/* syscall succeeded */
 		break;
 	case ERESTART:
 		frame->tf_sepc -= 4;
@@ -145,8 +145,8 @@ cpu_set_syscall_retval(struct thread *td, int error)
 	case EJUSTRETURN:
 		break;
 	default:
-		frame->tf_x[10] = error;
-		frame->tf_x[5] = 1;		/* syscall error */
+		frame->tf_a[0] = error;
+		frame->tf_t[0] = 1;		/* syscall error */
 		break;
 	}
 }
@@ -165,10 +165,10 @@ cpu_set_upcall(struct thread *td, struct thread *td0)
 	bcopy(td0->td_frame, td->td_frame, sizeof(struct trapframe));
 	bcopy(td0->td_pcb, td->td_pcb, sizeof(struct pcb));
 
-	td->td_pcb->pcb_x[5] = (uintptr_t)fork_return;
-	td->td_pcb->pcb_x[6] = (uintptr_t)td;
-	td->td_pcb->pcb_x[PCB_RA] = (uintptr_t)fork_trampoline;
-	td->td_pcb->pcb_x[PCB_SP] = (uintptr_t)td->td_frame;
+	td->td_pcb->pcb_t[0] = (uintptr_t)fork_return;
+	td->td_pcb->pcb_t[1] = (uintptr_t)td;
+	td->td_pcb->pcb_ra = (uintptr_t)fork_trampoline;
+	td->td_pcb->pcb_sp = (uintptr_t)td->td_frame;
 
 	/* Setup to release spin count in fork_exit(). */
 	td->td_md.md_spinlock_count = 1;
@@ -186,9 +186,9 @@ cpu_set_upcall_kse(struct thread *td, void (*entry)(void *), void *arg,
 {
 	struct trapframe *tf = td->td_frame;
 
-	tf->tf_x[2] = STACKALIGN(stack->ss_sp + stack->ss_size);
+	tf->tf_sp = STACKALIGN(stack->ss_sp + stack->ss_size);
 	tf->tf_sepc = (register_t)entry;
-	tf->tf_x[10] = (register_t)arg;
+	tf->tf_a[0] = (register_t)arg;
 }
 
 int
@@ -200,7 +200,7 @@ cpu_set_user_tls(struct thread *td, void *tls_base)
 		return (EINVAL);
 
 	pcb = td->td_pcb;
-	pcb->pcb_x[PCB_TP] = (register_t)tls_base;
+	pcb->pcb_tp = (register_t)tls_base;
 
 	return (0);
 }
@@ -240,10 +240,10 @@ void
 cpu_set_fork_handler(struct thread *td, void (*func)(void *), void *arg)
 {
 
-	td->td_pcb->pcb_x[5] = (uintptr_t)func;
-	td->td_pcb->pcb_x[6] = (uintptr_t)arg;
-	td->td_pcb->pcb_x[PCB_RA] = (uintptr_t)fork_trampoline;
-	td->td_pcb->pcb_x[PCB_SP] = (uintptr_t)td->td_frame;
+	td->td_pcb->pcb_t[0] = (uintptr_t)func;
+	td->td_pcb->pcb_t[1] = (uintptr_t)arg;
+	td->td_pcb->pcb_ra = (uintptr_t)fork_trampoline;
+	td->td_pcb->pcb_sp = (uintptr_t)td->td_frame;
 }
 
 void

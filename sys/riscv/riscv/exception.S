@@ -41,39 +41,42 @@ __FBSDID("$FreeBSD$");
 #include <machine/riscvreg.h>
 
 .macro save_registers el
-	addi	sp, sp, -288
-	/* x0 is hard-wired zero */
-	sd	x1, (TF_X + 1 * 8)(sp)
-	/* sd	x2, (TF_X + 2 * 8)(sp) */
-	sd	x3, (TF_X + 3 * 8)(sp)
-	sd	x4, (TF_X + 4 * 8)(sp)
-	sd	x5, (TF_X + 5 * 8)(sp)
-	sd	x6, (TF_X + 6 * 8)(sp)
-	sd	x7, (TF_X + 7 * 8)(sp)
-	sd	x8, (TF_X + 8 * 8)(sp)
-	sd	x9, (TF_X + 9 * 8)(sp)
-	sd	x10, (TF_X + 10 * 8)(sp)
-	sd	x11, (TF_X + 11 * 8)(sp)
-	sd	x12, (TF_X + 12 * 8)(sp)
-	sd	x13, (TF_X + 13 * 8)(sp)
-	sd	x14, (TF_X + 14 * 8)(sp)
-	sd	x15, (TF_X + 15 * 8)(sp)
-	sd	x16, (TF_X + 16 * 8)(sp)
-	sd	x17, (TF_X + 17 * 8)(sp)
-	sd	x18, (TF_X + 18 * 8)(sp)
-	sd	x19, (TF_X + 19 * 8)(sp)
-	sd	x20, (TF_X + 20 * 8)(sp)
-	sd	x21, (TF_X + 21 * 8)(sp)
-	sd	x22, (TF_X + 22 * 8)(sp)
-	sd	x23, (TF_X + 23 * 8)(sp)
-	sd	x24, (TF_X + 24 * 8)(sp)
-	sd	x25, (TF_X + 25 * 8)(sp)
-	sd	x26, (TF_X + 26 * 8)(sp)
-	sd	x27, (TF_X + 27 * 8)(sp)
-	sd	x28, (TF_X + 28 * 8)(sp)
-	sd	x29, (TF_X + 29 * 8)(sp)
-	sd	x30, (TF_X + 30 * 8)(sp)
-	sd	x31, (TF_X + 31 * 8)(sp)
+	addi	sp, sp, -280
+
+	sd	ra, (TF_RA)(sp)
+	//sd	sp, (TF_SP)(sp)
+	sd	gp, (TF_GP)(sp)
+	sd	tp, (TF_TP)(sp)
+
+	sd	t0, (TF_T + 0 * 8)(sp)
+	sd	t1, (TF_T + 1 * 8)(sp)
+	sd	t2, (TF_T + 2 * 8)(sp)
+	sd	t3, (TF_T + 3 * 8)(sp)
+	sd	t4, (TF_T + 4 * 8)(sp)
+	sd	t5, (TF_T + 5 * 8)(sp)
+	sd	t6, (TF_T + 6 * 8)(sp)
+
+	sd	s0, (TF_S + 0 * 8)(sp)
+	sd	s1, (TF_S + 1 * 8)(sp)
+	sd	s2, (TF_S + 2 * 8)(sp)
+	sd	s3, (TF_S + 3 * 8)(sp)
+	sd	s4, (TF_S + 4 * 8)(sp)
+	sd	s5, (TF_S + 5 * 8)(sp)
+	sd	s6, (TF_S + 6 * 8)(sp)
+	sd	s7, (TF_S + 7 * 8)(sp)
+	sd	s8, (TF_S + 8 * 8)(sp)
+	sd	s9, (TF_S + 9 * 8)(sp)
+	sd	s10, (TF_S + 10 * 8)(sp)
+	sd	s11, (TF_S + 11 * 8)(sp)
+
+	sd	a0, (TF_A + 0 * 8)(sp)
+	sd	a1, (TF_A + 1 * 8)(sp)
+	sd	a2, (TF_A + 2 * 8)(sp)
+	sd	a3, (TF_A + 3 * 8)(sp)
+	sd	a4, (TF_A + 4 * 8)(sp)
+	sd	a5, (TF_A + 5 * 8)(sp)
+	sd	a6, (TF_A + 6 * 8)(sp)
+	sd	a7, (TF_A + 7 * 8)(sp)
 
 	/* XXX: panic - spin if stack is not kernel one */
 .if \el == 1	/* kernel */
@@ -85,75 +88,77 @@ __FBSDID("$FreeBSD$");
 
 .if \el == 1
 	/* Store kernel sp */
-	sd	x2, (TF_X + 2 * 8)(sp)
+	sd	sp, (TF_SP)(sp)
 .else
 	/* Store user sp */
 	csrr	t0, sscratch
-	sd	t0, (TF_X + 2 * 8)(sp)
+	sd	t0, (TF_SP)(sp)
 .endif
 	li	t0, 0
 	csrw	sscratch, t0
 
 	csrr	t0, sepc
-	sd	t0, 256(sp)
+	sd	t0, (TF_SEPC)(sp)
 
 	csrr	t0, sstatus
-	sd	t0, 264(sp)
+	sd	t0, (TF_SSTATUS)(sp)
 
 	csrr	t0, sbadaddr
-	sd	t0, 272(sp)
+	sd	t0, (TF_SBADADDR)(sp)
 
 	csrr	t0, scause
-	sd	t0, 280(sp)
+	sd	t0, (TF_SCAUSE)(sp)
 .endm
 
 .macro load_registers el
-	ld	t0, 264(sp)
+	ld	t0, (TF_SSTATUS)(sp)
 	csrw	sstatus, t0
 
-	ld	t0, 256(sp)
+	ld	t0, (TF_SEPC)(sp)
 	csrw	sepc, t0
 
 .if \el == 0
 	/* Load user sp */
-	ld	t0, (TF_X + 2 * 8)(sp)
+	ld	t0, (TF_SP)(sp)
 	csrw	sscratch, t0
 .endif
 
-	/* x0 is hard-wired zero */
-	ld	x1, (TF_X + 1 * 8)(sp)
-	/* x2 is sp */
-	ld	x3, (TF_X + 3 * 8)(sp)
-	ld	x4, (TF_X + 4 * 8)(sp)
-	ld	x5, (TF_X + 5 * 8)(sp)
-	ld	x6, (TF_X + 6 * 8)(sp)
-	ld	x7, (TF_X + 7 * 8)(sp)
-	ld	x8, (TF_X + 8 * 8)(sp)
-	ld	x9, (TF_X + 9 * 8)(sp)
-	ld	x10, (TF_X + 10 * 8)(sp)
-	ld	x11, (TF_X + 11 * 8)(sp)
-	ld	x12, (TF_X + 12 * 8)(sp)
-	ld	x13, (TF_X + 13 * 8)(sp)
-	ld	x14, (TF_X + 14 * 8)(sp)
-	ld	x15, (TF_X + 15 * 8)(sp)
-	ld	x16, (TF_X + 16 * 8)(sp)
-	ld	x17, (TF_X + 17 * 8)(sp)
-	ld	x18, (TF_X + 18 * 8)(sp)
-	ld	x19, (TF_X + 19 * 8)(sp)
-	ld	x20, (TF_X + 20 * 8)(sp)
-	ld	x21, (TF_X + 21 * 8)(sp)
-	ld	x22, (TF_X + 22 * 8)(sp)
-	ld	x23, (TF_X + 23 * 8)(sp)
-	ld	x24, (TF_X + 24 * 8)(sp)
-	ld	x25, (TF_X + 25 * 8)(sp)
-	ld	x26, (TF_X + 26 * 8)(sp)
-	ld	x27, (TF_X + 27 * 8)(sp)
-	ld	x28, (TF_X + 28 * 8)(sp)
-	ld	x29, (TF_X + 29 * 8)(sp)
-	ld	x30, (TF_X + 30 * 8)(sp)
-	ld	x31, (TF_X + 31 * 8)(sp)
+	ld	ra, (TF_RA)(sp)
+	//ld	sp, (TF_SP)(sp)
+	ld	gp, (TF_GP)(sp)
+	ld	tp, (TF_TP)(sp)
 
-	addi	sp, sp, 288
+	ld	t0, (TF_T + 0 * 8)(sp)
+	ld	t1, (TF_T + 1 * 8)(sp)
+	ld	t2, (TF_T + 2 * 8)(sp)
+	ld	t3, (TF_T + 3 * 8)(sp)
+	ld	t4, (TF_T + 4 * 8)(sp)
+	ld	t5, (TF_T + 5 * 8)(sp)
+	ld	t6, (TF_T + 6 * 8)(sp)
+
+	ld	s0, (TF_S + 0 * 8)(sp)
+	ld	s1, (TF_S + 1 * 8)(sp)
+	ld	s2, (TF_S + 2 * 8)(sp)
+	ld	s3, (TF_S + 3 * 8)(sp)
+	ld	s4, (TF_S + 4 * 8)(sp)
+	ld	s5, (TF_S + 5 * 8)(sp)
+	ld	s6, (TF_S + 6 * 8)(sp)
+	ld	s7, (TF_S + 7 * 8)(sp)
+	ld	s8, (TF_S + 8 * 8)(sp)
+	ld	s9, (TF_S + 9 * 8)(sp)
+	ld	s10, (TF_S + 10 * 8)(sp)
+	ld	s11, (TF_S + 11 * 8)(sp)
+
+	ld	a0, (TF_A + 0 * 8)(sp)
+	ld	a1, (TF_A + 1 * 8)(sp)
+	ld	a2, (TF_A + 2 * 8)(sp)
+	ld	a3, (TF_A + 3 * 8)(sp)
+	ld	a4, (TF_A + 4 * 8)(sp)
+	ld	a5, (TF_A + 5 * 8)(sp)
+	ld	a6, (TF_A + 6 * 8)(sp)
+	ld	a7, (TF_A + 7 * 8)(sp)
+
+	addi	sp, sp, 280
 .endm
 
 ENTRY(cpu_exception_handler_sv)

@@ -166,8 +166,14 @@ fill_regs(struct thread *td, struct reg *regs)
 	frame = td->td_frame;
 	regs->sepc = frame->tf_sepc;
 	regs->sstatus = frame->tf_sstatus;
+	regs->ra = frame->tf_ra;
+	regs->sp = frame->tf_sp;
+	regs->gp = frame->tf_gp;
+	regs->tp = frame->tf_tp;
 
-	memcpy(regs->x, frame->tf_x, sizeof(regs->x));
+	memcpy(regs->t, frame->tf_t, sizeof(regs->t));
+	memcpy(regs->s, frame->tf_s, sizeof(regs->s));
+	memcpy(regs->a, frame->tf_a, sizeof(regs->a));
 
 	return (0);
 }
@@ -180,8 +186,14 @@ set_regs(struct thread *td, struct reg *regs)
 	frame = td->td_frame;
 	frame->tf_sepc = regs->sepc;
 	frame->tf_sstatus = regs->sstatus;
+	frame->tf_ra = regs->ra;
+	frame->tf_sp = regs->sp;
+	frame->tf_gp = regs->gp;
+	frame->tf_tp = regs->tp;
 
-	memcpy(frame->tf_x, regs->x, sizeof(frame->tf_x));
+	memcpy(frame->tf_t, regs->t, sizeof(frame->tf_t));
+	memcpy(frame->tf_s, regs->s, sizeof(frame->tf_s));
+	memcpy(frame->tf_a, regs->a, sizeof(frame->tf_a));
 
 	return (0);
 }
@@ -253,35 +265,44 @@ exec_setregs(struct thread *td, struct image_params *imgp, u_long stack)
 	 * cpu_set_syscall_retval to copy the value. We also
 	 * need to set td_retval for the cases where we do.
 	 */
-	tf->tf_x[10] = td->td_retval[0] = stack;
-	tf->tf_x[2] = STACKALIGN(stack);
-	tf->tf_x[1] = imgp->entry_addr;
+	tf->tf_a[0] = td->td_retval[0] = stack;
+	tf->tf_sp = STACKALIGN(stack);
+	tf->tf_ra = imgp->entry_addr;
 	tf->tf_sepc = imgp->entry_addr;
 }
 
 /* Sanity check these are the same size, they will be memcpy'd to and fro */
-CTASSERT(sizeof(((struct trapframe *)0)->tf_x) ==
-    sizeof((struct gpregs *)0)->gp_x);
-CTASSERT(sizeof(((struct trapframe *)0)->tf_x) ==
-    sizeof((struct reg *)0)->x);
+CTASSERT(sizeof(((struct trapframe *)0)->tf_a) ==
+    sizeof((struct gpregs *)0)->gp_a);
+CTASSERT(sizeof(((struct trapframe *)0)->tf_s) ==
+    sizeof((struct gpregs *)0)->gp_s);
+CTASSERT(sizeof(((struct trapframe *)0)->tf_t) ==
+    sizeof((struct gpregs *)0)->gp_t);
+CTASSERT(sizeof(((struct trapframe *)0)->tf_a) ==
+    sizeof((struct reg *)0)->a);
+CTASSERT(sizeof(((struct trapframe *)0)->tf_s) ==
+    sizeof((struct reg *)0)->s);
+CTASSERT(sizeof(((struct trapframe *)0)->tf_t) ==
+    sizeof((struct reg *)0)->t);
 
 int
 get_mcontext(struct thread *td, mcontext_t *mcp, int clear_ret)
 {
 	struct trapframe *tf = td->td_frame;
 
-	memcpy(&mcp->mc_gpregs.gp_x[1], &tf->tf_x[1],
-	    sizeof(mcp->mc_gpregs.gp_x[1]) * (nitems(mcp->mc_gpregs.gp_x) - 1));
+	memcpy(mcp->mc_gpregs.gp_t, tf->tf_t, sizeof(mcp->mc_gpregs.gp_t));
+	memcpy(mcp->mc_gpregs.gp_s, tf->tf_s, sizeof(mcp->mc_gpregs.gp_s));
+	memcpy(mcp->mc_gpregs.gp_a, tf->tf_a, sizeof(mcp->mc_gpregs.gp_a));
 
 	if (clear_ret & GET_MC_CLEAR_RET) {
-		mcp->mc_gpregs.gp_x[10] = 0;
-		mcp->mc_gpregs.gp_x[5] = 0; /* clear syscall error */
-	} else {
-		mcp->mc_gpregs.gp_x[10] = tf->tf_x[10];
+		mcp->mc_gpregs.gp_a[0] = 0;
+		mcp->mc_gpregs.gp_t[0] = 0; /* clear syscall error */
 	}
 
-	mcp->mc_gpregs.gp_x[2] = tf->tf_x[2]; /* sp */
-	mcp->mc_gpregs.gp_x[1] = tf->tf_x[1]; /* ra */
+	mcp->mc_gpregs.gp_ra = tf->tf_ra;
+	mcp->mc_gpregs.gp_sp = tf->tf_sp;
+	mcp->mc_gpregs.gp_gp = tf->tf_gp;
+	mcp->mc_gpregs.gp_tp = tf->tf_tp;
 	mcp->mc_gpregs.gp_sepc = tf->tf_sepc;
 	mcp->mc_gpregs.gp_sstatus = tf->tf_sstatus;
 
@@ -295,8 +316,14 @@ set_mcontext(struct thread *td, mcontext_t *mcp)
 
 	tf = td->td_frame;
 
-	memcpy(tf->tf_x, mcp->mc_gpregs.gp_x, sizeof(tf->tf_x));
+	memcpy(tf->tf_t, mcp->mc_gpregs.gp_t, sizeof(tf->tf_t));
+	memcpy(tf->tf_s, mcp->mc_gpregs.gp_s, sizeof(tf->tf_s));
+	memcpy(tf->tf_a, mcp->mc_gpregs.gp_a, sizeof(tf->tf_a));
 
+	tf->tf_ra = mcp->mc_gpregs.gp_ra;
+	tf->tf_sp = mcp->mc_gpregs.gp_sp;
+	tf->tf_gp = mcp->mc_gpregs.gp_gp;
+	tf->tf_tp = mcp->mc_gpregs.gp_tp;
 	tf->tf_sepc = mcp->mc_gpregs.gp_sepc;
 	tf->tf_sstatus = mcp->mc_gpregs.gp_sstatus;
 
@@ -447,9 +474,16 @@ void
 makectx(struct trapframe *tf, struct pcb *pcb)
 {
 
-	memcpy(pcb->pcb_x, tf->tf_x, sizeof(tf->tf_x));
+	memcpy(pcb->pcb_t, tf->tf_t, sizeof(tf->tf_t));
+	memcpy(pcb->pcb_s, tf->tf_s, sizeof(tf->tf_s));
+	memcpy(pcb->pcb_a, tf->tf_a, sizeof(tf->tf_a));
 
+	pcb->pcb_ra = tf->tf_ra;
+	pcb->pcb_sp = tf->tf_sp;
+	pcb->pcb_gp = tf->tf_gp;
+	pcb->pcb_tp = tf->tf_tp;
 	pcb->pcb_sepc = tf->tf_sepc;
+	//pcb->pcb_sstatus = tf->tf_sstatus;
 }
 
 void
@@ -472,7 +506,7 @@ sendsig(sig_t catcher, ksiginfo_t *ksi, sigset_t *mask)
 	mtx_assert(&psp->ps_mtx, MA_OWNED);
 
 	tf = td->td_frame;
-	onstack = sigonstack(tf->tf_x[2]);
+	onstack = sigonstack(tf->tf_sp);
 
 	CTR4(KTR_SIG, "sendsig: td=%p (%s) catcher=%p sig=%d", td, p->p_comm,
 	    catcher, sig);
@@ -486,7 +520,7 @@ sendsig(sig_t catcher, ksiginfo_t *ksi, sigset_t *mask)
 		td->td_sigstk.ss_flags |= SS_ONSTACK;
 #endif
 	} else {
-		fp = (struct sigframe *)td->td_frame->tf_x[2];
+		fp = (struct sigframe *)td->td_frame->tf_sp;
 	}
 
 	/* Make room, keeping the stack aligned */
@@ -512,13 +546,13 @@ sendsig(sig_t catcher, ksiginfo_t *ksi, sigset_t *mask)
 		sigexit(td, SIGILL);
 	}
 
-	tf->tf_x[10] = sig;
-	tf->tf_x[11] = (register_t)&fp->sf_si;
-	tf->tf_x[12] = (register_t)&fp->sf_uc;
+	tf->tf_a[0] = sig;
+	tf->tf_a[1] = (register_t)&fp->sf_si;
+	tf->tf_a[2] = (register_t)&fp->sf_uc;
 
 	tf->tf_sepc = (register_t)catcher;
-	tf->tf_x[2] = (register_t)fp;
-	tf->tf_x[1] = (register_t)(PS_STRINGS - *(p->p_sysent->sv_szsigcode));
+	tf->tf_sp = (register_t)fp;
+	tf->tf_ra = (register_t)(PS_STRINGS - *(p->p_sysent->sv_szsigcode));
 
 	CTR3(KTR_SIG, "sendsig: return td=%p pc=%#x sp=%#x", td, tf->tf_elr,
 	    tf->tf_sp);

@@ -38,7 +38,13 @@
 #define	_MACHINE_UCONTEXT_H_
 
 struct gpregs {
-	unsigned long long gp_x[32];
+	unsigned long long gp_ra;
+	unsigned long long gp_sp;
+	unsigned long long gp_gp;
+	unsigned long long gp_tp;
+	unsigned long long gp_t[7];
+	unsigned long long gp_s[12];
+	unsigned long long gp_a[8];
 	unsigned long long gp_sepc;
 	unsigned long long gp_sstatus;
 };

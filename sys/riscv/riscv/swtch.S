@@ -61,28 +61,28 @@ ENTRY(cpu_throw)
 	sfence.vm
 
 	/* ra, sp, gp, tp */
-	ld	x1, (PCB_REGS + 1 * 8)(x13)
-	ld	x2, (PCB_REGS + 2 * 8)(x13)
-	ld	x3, (PCB_REGS + 3 * 8)(x13)
-	ld	x4, (PCB_REGS + 4 * 8)(x13)
+	ld	ra, (PCB_RA)(x13)
+	ld	sp, (PCB_SP)(x13)
+	ld	gp, (PCB_GP)(x13)
+	ld	tp, (PCB_TP)(x13)
 
 	/* we use these in fork_trampoline */
 	//ld	x5, (PCB_REGS + 5 * 8)(x13)
 	//ld	x6, (PCB_REGS + 6 * 8)(x13)
 
 	/* s0 - s11 */
-	ld	x8, (PCB_REGS + 8 * 8)(x13)
-	ld	x9, (PCB_REGS + 9 * 8)(x13)
-	ld	x18, (PCB_REGS + 18 * 8)(x13)
-	ld	x19, (PCB_REGS + 19 * 8)(x13)
-	ld	x20, (PCB_REGS + 20 * 8)(x13)
-	ld	x21, (PCB_REGS + 21 * 8)(x13)
-	ld	x22, (PCB_REGS + 22 * 8)(x13)
-	ld	x23, (PCB_REGS + 23 * 8)(x13)
-	ld	x24, (PCB_REGS + 24 * 8)(x13)
-	ld	x25, (PCB_REGS + 25 * 8)(x13)
-	ld	x26, (PCB_REGS + 26 * 8)(x13)
-	ld	x27, (PCB_REGS + 27 * 8)(x13)
+	ld	s0, (PCB_S + 0 * 8)(x13)
+	ld	s1, (PCB_S + 1 * 8)(x13)
+	ld	s2, (PCB_S + 2 * 8)(x13)
+	ld	s3, (PCB_S + 3 * 8)(x13)
+	ld	s4, (PCB_S + 4 * 8)(x13)
+	ld	s5, (PCB_S + 5 * 8)(x13)
+	ld	s6, (PCB_S + 6 * 8)(x13)
+	ld	s7, (PCB_S + 7 * 8)(x13)
+	ld	s8, (PCB_S + 8 * 8)(x13)
+	ld	s9, (PCB_S + 9 * 8)(x13)
+	ld	s10, (PCB_S + 10 * 8)(x13)
+	ld	s11, (PCB_S + 11 * 8)(x13)
 
 	ret
 
@@ -167,28 +167,28 @@ ENTRY(cpu_switch)
 	/* Store the callee-saved registers */
 
 	/* ra, sp, gp, tp */
-	sd	x1, (PCB_REGS + 1 * 8)(x13)
-	sd	x2, (PCB_REGS + 2 * 8)(x13)
-	sd	x3, (PCB_REGS + 3 * 8)(x13)
-	sd	x4, (PCB_REGS + 4 * 8)(x13)
+	sd	ra, (PCB_RA)(x13)
+	sd	sp, (PCB_SP)(x13)
+	sd	gp, (PCB_GP)(x13)
+	sd	tp, (PCB_TP)(x13)
 
 	/* we use these in fork_trampoline */
-	sd	x5, (PCB_REGS + 5 * 8)(x13)
-	sd	x6, (PCB_REGS + 6 * 8)(x13)
+	sd	t0, (PCB_T + 0 * 8)(x13)
+	sd	t1, (PCB_T + 1 * 8)(x13)
 
 	/* s0 - s11 */
-	sd	x8, (PCB_REGS + 8 * 8)(x13)
-	sd	x9, (PCB_REGS + 9 * 8)(x13)
-	sd	x18, (PCB_REGS + 18 * 8)(x13)
-	sd	x19, (PCB_REGS + 19 * 8)(x13)
-	sd	x20, (PCB_REGS + 20 * 8)(x13)
-	sd	x21, (PCB_REGS + 21 * 8)(x13)
-	sd	x22, (PCB_REGS + 22 * 8)(x13)
-	sd	x23, (PCB_REGS + 23 * 8)(x13)
-	sd	x24, (PCB_REGS + 24 * 8)(x13)
-	sd	x25, (PCB_REGS + 25 * 8)(x13)
-	sd	x26, (PCB_REGS + 26 * 8)(x13)
-	sd	x27, (PCB_REGS + 27 * 8)(x13)
+	sd	s0, (PCB_S + 0 * 8)(x13)
+	sd	s1, (PCB_S + 1 * 8)(x13)
+	sd	s2, (PCB_S + 2 * 8)(x13)
+	sd	s3, (PCB_S + 3 * 8)(x13)
+	sd	s4, (PCB_S + 4 * 8)(x13)
+	sd	s5, (PCB_S + 5 * 8)(x13)
+	sd	s6, (PCB_S + 6 * 8)(x13)
+	sd	s7, (PCB_S + 7 * 8)(x13)
+	sd	s8, (PCB_S + 8 * 8)(x13)
+	sd	s9, (PCB_S + 9 * 8)(x13)
+	sd	s10, (PCB_S + 10 * 8)(x13)
+	sd	s11, (PCB_S + 11 * 8)(x13)
 
 	/* And the old stack pointer */
 	//sd	sp, PCB_SP(t0)
@@ -230,28 +230,28 @@ ENTRY(cpu_switch)
 	//msr	tpidr_el0, t2
 
 	/* ra, sp, gp, tp */
-	ld	x1, (PCB_REGS + 1 * 8)(x13)
-	ld	x2, (PCB_REGS + 2 * 8)(x13)
-	ld	x3, (PCB_REGS + 3 * 8)(x13)
-	ld	x4, (PCB_REGS + 4 * 8)(x13)
+	ld	ra, (PCB_RA)(x13)
+	ld	sp, (PCB_SP)(x13)
+	ld	gp, (PCB_GP)(x13)
+	ld	tp, (PCB_TP)(x13)
 
 	/* We use these in fork_trampoline */
-	ld	x5, (PCB_REGS + 5 * 8)(x13)
-	ld	x6, (PCB_REGS + 6 * 8)(x13)
+	ld	t0, (PCB_T + 0 * 8)(x13)
+	ld	t1, (PCB_T + 1 * 8)(x13)
 
 	/* s0 - s11 */
-	ld	x8, (PCB_REGS + 8 * 8)(x13)
-	ld	x9, (PCB_REGS + 9 * 8)(x13)
-	ld	x18, (PCB_REGS + 18 * 8)(x13)
-	ld	x19, (PCB_REGS + 19 * 8)(x13)
-	ld	x20, (PCB_REGS + 20 * 8)(x13)
-	ld	x21, (PCB_REGS + 21 * 8)(x13)
-	ld	x22, (PCB_REGS + 22 * 8)(x13)
-	ld	x23, (PCB_REGS + 23 * 8)(x13)
-	ld	x24, (PCB_REGS + 24 * 8)(x13)
-	ld	x25, (PCB_REGS + 25 * 8)(x13)
-	ld	x26, (PCB_REGS + 26 * 8)(x13)
-	ld	x27, (PCB_REGS + 27 * 8)(x13)
+	ld	s0, (PCB_S + 0 * 8)(x13)
+	ld	s1, (PCB_S + 1 * 8)(x13)
+	ld	s2, (PCB_S + 2 * 8)(x13)
+	ld	s3, (PCB_S + 3 * 8)(x13)
+	ld	s4, (PCB_S + 4 * 8)(x13)
+	ld	s5, (PCB_S + 5 * 8)(x13)
+	ld	s6, (PCB_S + 6 * 8)(x13)
+	ld	s7, (PCB_S + 7 * 8)(x13)
+	ld	s8, (PCB_S + 8 * 8)(x13)
+	ld	s9, (PCB_S + 9 * 8)(x13)
+	ld	s10, (PCB_S + 10 * 8)(x13)
+	ld	s11, (PCB_S + 11 * 8)(x13)
 
 	ret
 #if 0
@@ -378,7 +378,7 @@ ENTRY(fork_trampoline)
 	//ld	sp, (0)(sp)
 
 	/* Restore epc */
-	ld	t0, 256(sp)
+	ld	t0, (TF_SEPC)(sp)
 	csrw	sepc, t0
 
 	/* Restore sstatus */
@@ -393,41 +393,44 @@ ENTRY(fork_trampoline)
 	//ld	x3, (TF_X + 3 * 8)(sp)
 	//ld	x4, (TF_X + 4 * 8)(sp)
 
-	ld	x5, (TF_X + 5 * 8)(sp)
-	ld	x6, (TF_X + 6 * 8)(sp)
-	ld	x7, (TF_X + 7 * 8)(sp)
-	ld	x8, (TF_X + 8 * 8)(sp)
-	ld	x9, (TF_X + 9 * 8)(sp)
-	ld	x10, (TF_X + 10 * 8)(sp)
-	ld	x11, (TF_X + 11 * 8)(sp)
-	ld	x12, (TF_X + 12 * 8)(sp)
-	ld	x13, (TF_X + 13 * 8)(sp)
-	ld	x14, (TF_X + 14 * 8)(sp)
-	ld	x15, (TF_X + 15 * 8)(sp)
-	ld	x16, (TF_X + 16 * 8)(sp)
-	ld	x17, (TF_X + 17 * 8)(sp)
-	ld	x18, (TF_X + 18 * 8)(sp)
-	ld	x19, (TF_X + 19 * 8)(sp)
-	ld	x20, (TF_X + 20 * 8)(sp)
-	ld	x21, (TF_X + 21 * 8)(sp)
-	ld	x22, (TF_X + 22 * 8)(sp)
-	ld	x23, (TF_X + 23 * 8)(sp)
-	ld	x24, (TF_X + 24 * 8)(sp)
-	ld	x25, (TF_X + 25 * 8)(sp)
-	ld	x26, (TF_X + 26 * 8)(sp)
-	ld	x27, (TF_X + 27 * 8)(sp)
-	ld	x28, (TF_X + 28 * 8)(sp)
-	ld	x29, (TF_X + 29 * 8)(sp)
-	ld	x30, (TF_X + 30 * 8)(sp)
-	ld	x31, (TF_X + 31 * 8)(sp)
+	ld	t0, (TF_T + 0 * 8)(sp)
+	ld	t1, (TF_T + 1 * 8)(sp)
+	ld	t2, (TF_T + 2 * 8)(sp)
+	ld	t3, (TF_T + 3 * 8)(sp)
+	ld	t4, (TF_T + 4 * 8)(sp)
+	ld	t5, (TF_T + 5 * 8)(sp)
+	ld	t6, (TF_T + 6 * 8)(sp)
 
-	ld	ra, (TF_X + 1 * 8)(sp)
+	ld	s0, (TF_S + 0 * 8)(sp)
+	ld	s1, (TF_S + 1 * 8)(sp)
+	ld	s2, (TF_S + 2 * 8)(sp)
+	ld	s3, (TF_S + 3 * 8)(sp)
+	ld	s4, (TF_S + 4 * 8)(sp)
+	ld	s5, (TF_S + 5 * 8)(sp)
+	ld	s6, (TF_S + 6 * 8)(sp)
+	ld	s7, (TF_S + 7 * 8)(sp)
+	ld	s8, (TF_S + 8 * 8)(sp)
+	ld	s9, (TF_S + 9 * 8)(sp)
+	ld	s10, (TF_S + 10 * 8)(sp)
+	ld	s11, (TF_S + 11 * 8)(sp)
+
+	ld	a0, (TF_A + 0 * 8)(sp)
+	ld	a1, (TF_A + 1 * 8)(sp)
+	ld	a2, (TF_A + 2 * 8)(sp)
+	ld	a3, (TF_A + 3 * 8)(sp)
+	ld	a4, (TF_A + 4 * 8)(sp)
+	ld	a5, (TF_A + 5 * 8)(sp)
+	ld	a6, (TF_A + 6 * 8)(sp)
+	ld	a7, (TF_A + 7 * 8)(sp)
+
+	ld	ra, (TF_RA)(sp)
 
 	/* Save kernel stack so we can use it doing a user trap */
 	csrw	sscratch, sp
 
 	/* Load user sp */
-	ld	sp, (TF_X + 2 * 8)(sp)
+	ld	sp, (TF_SP)(sp)
+
 	/*
 	 * TODO: interrupt can happen here, between ld and eret.
 	 * It will came to supervisor handler
