@@ -38,23 +38,31 @@
 #define	_MACHINE_UCONTEXT_H_
 
 struct gpregs {
-	unsigned long long gp_ra;
-	unsigned long long gp_sp;
-	unsigned long long gp_gp;
-	unsigned long long gp_tp;
-	unsigned long long gp_t[7];
-	unsigned long long gp_s[12];
-	unsigned long long gp_a[8];
-	unsigned long long gp_sepc;
-	unsigned long long gp_sstatus;
+	__register_t	gp_ra;
+	__register_t	gp_sp;
+	__register_t	gp_gp;
+	__register_t	gp_tp;
+	__register_t	gp_t[7];
+	__register_t	gp_s[12];
+	__register_t	gp_a[8];
+	__register_t	gp_sepc;
+	__register_t	gp_sstatus;
 };
 
 struct fpregs {
-	int		dummy;
+	__uint64_t	fp_x[32];
+	__uint64_t	fp_fcsr;
+	int		fp_flags;
+	int		pad;
 };
 
 struct __mcontext {
 	struct gpregs	mc_gpregs;
+	struct fpregs	mc_fpregs;
+	int		mc_flags;
+#define	_MC_FP_VALID	0x1		/* Set when mc_fpregs has valid data */
+	int		mc_pad;
+	__uint64_t	mc_spare[8];	/* Space for expansion */
 };
 
 typedef struct __mcontext mcontext_t;
