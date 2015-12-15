@@ -36,7 +36,7 @@
 #define	ALT_STACK_SIZE	128
 
 #define	PCPU_MD_FIELDS							\
-	char __pad[121]
+	char __pad[129]
 
 #ifdef _KERNEL
 
