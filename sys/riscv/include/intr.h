@@ -35,8 +35,6 @@
 #ifndef	_MACHINE_INTR_MACHDEP_H_
 #define	_MACHINE_INTR_MACHDEP_H_
 
-#include <machine/atomic.h>
-
 struct trapframe;
 
 void riscv_init_interrupts(void);
