@@ -46,7 +46,7 @@ struct reg {
 	uint64_t s[12];		/* saved registers */
 	uint64_t a[8];		/* function arguments */
 	uint64_t sepc;		/* exception program counter */
-	uint64_t sstatus;
+	uint64_t sstatus;	/* status register */
 };
 
 struct fpreg {
