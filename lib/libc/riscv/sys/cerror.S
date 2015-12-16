@@ -1,6 +1,14 @@
 /*-
- * Copyright (c) 2014 Andrew Turner
+ * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
+ *
+ * Portions of this software were developed by SRI International and the
+ * University of Cambridge Computer Laboratory under DARPA/AFRL contract
+ * FA8750-10-C-0237 ("CTSRD"), as part of the DARPA CRASH research programme.
+ *
+ * Portions of this software were developed by the University of Cambridge
+ * Computer Laboratory as part of the CTSRD Project, with support from the
+ * UK Higher Education Innovation Fund (HEIF).
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -22,7 +30,6 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
  */
 
 #include <machine/asm.h>
@@ -39,15 +46,5 @@ ENTRY(cerror)
 	li	a0, -1
 	li	a1, -1
 	addi	sp, sp, 16
-
-	//sub	sp, sp, #16
-	//stp	x0, lr, [sp]
-	//bl	_C_LABEL(__error)
-	//ldp	x1, lr, [sp]
-	//str	x1, [x0]
-	//movn	x0, #0
-	//movn	x1, #0
-	//add	sp, sp, #16
-
 	ret
 END(cerror)
