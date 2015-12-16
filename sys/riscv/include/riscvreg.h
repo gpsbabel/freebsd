@@ -63,6 +63,8 @@
 #define	EXCP_INTR_HTIF			2
 
 #define	SSTATUS_IE			(1 << 0)
+#define	SSTATUS_PIE			(1 << 3)
+#define	SSTATUS_PS			(1 << 4)
 
 #define	MSTATUS_MPRV		(1 << 16)
 #define	MSTATUS_PRV_SHIFT	1

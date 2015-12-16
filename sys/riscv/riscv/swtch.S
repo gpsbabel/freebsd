@@ -36,6 +36,7 @@
 #include "opt_sched.h"
 
 #include <machine/asm.h>
+#include <machine/riscvreg.h>
 
 __FBSDID("$FreeBSD$");
 
@@ -202,7 +203,7 @@ ENTRY(fork_trampoline)
 	csrw	sepc, t0
 
 	/* Restore sstatus */
-	li	t0, (1 << 3)
+	li	t0, SSTATUS_PIE
 	csrw	sstatus, t0
 
 	/* Restore the registers */
