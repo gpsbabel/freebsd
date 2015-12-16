@@ -162,15 +162,12 @@ END(subyte)
  * int suword16(volatile void *, int)
  */
 ENTRY(suword16)
-	call	panic
-#if 0
-	adr	x6, fsu_fault		/* Load the fault handler */
-	SET_FAULT_HANDLER(x6, x2)	/* And set it */
-	strh	w1, [x0]		/* Try storing the data */
-	SET_FAULT_HANDLER(xzr, x2)	/* Reset the fault handler */
-	mov	x0, #0			/* Success */
+	la	a6, fsu_fault		/* Load the fault handler */
+	SET_FAULT_HANDLER(a6, a2)	/* And set it */
+	sh	a1, 0(a0)		/* Try storing the data */
+	SET_FAULT_HANDLER(x0, a2)	/* Reset the fault handler */
+	li	a0, 0			/* Success */
 	ret				/* Return */
-#endif
 END(suword16)
 
 /*
@@ -190,12 +187,12 @@ END(suword32)
  */
 ENTRY(suword)
 EENTRY(suword64)
-	la	a6, fsu_fault
-	SET_FAULT_HANDLER(a6, a2)
-	sd	a1, 0(a0)
-	SET_FAULT_HANDLER(x0, a2)
-	li	a0, 0
-	ret
+	la	a6, fsu_fault		/* Load the fault handler */
+	SET_FAULT_HANDLER(a6, a2)	/* And set it */
+	sd	a1, 0(a0)		/* Try storing the data */
+	SET_FAULT_HANDLER(x0, a2)	/* Reset the fault handler */
+	li	a0, 0			/* Success */
+	ret				/* Return */
 EEND(suword64)
 END(suword)
 
