@@ -372,10 +372,10 @@ allocate_initial_tls(Obj_Entry *objs)
 	Elf_Addr **tp;
 
 	/*
-	* Fix the size of the static TLS block by using the maximum
-	* offset allocated so far and adding a bit for dynamic modules to
-	* use.
-	*/
+	 * Fix the size of the static TLS block by using the maximum
+	 * offset allocated so far and adding a bit for dynamic modules to
+	 * use.
+	 */
 	tls_static_space = tls_last_offset + tls_last_size +
 	    RTLD_STATIC_TLS_EXTRA;
 
