@@ -90,44 +90,35 @@ END(casueword)
  * int fubyte(volatile const void *)
  */
 ENTRY(fubyte)
-	call	panic
-#if 0
-	adr	x6, fsu_fault		/* Load the fault handler */
-	SET_FAULT_HANDLER(x6, x1)	/* And set it */
-	ldrb	w0, [x0]		/* Try loading the data */
-	SET_FAULT_HANDLER(xzr, x1)	/* Reset the fault handler */
+	la	a6, fsu_fault		/* Load the fault handler */
+	SET_FAULT_HANDLER(a6, a1)	/* And set it */
+	lb	a0, 0(a0)		/* Try loading the data */
+	SET_FAULT_HANDLER(x0, a1)	/* Reset the fault handler */
 	ret				/* Return */
-#endif
 END(fubyte)
 
 /*
  * int fuword(volatile const void *)
  */
 ENTRY(fuword16)
-	call	panic
-#if 0
-	adr	x6, fsu_fault		/* Load the fault handler */
-	SET_FAULT_HANDLER(x6, x1)	/* And set it */
-	ldrh	w0, [x0]		/* Try loading the data */
-	SET_FAULT_HANDLER(xzr, x1)	/* Reset the fault handler */
+	la	a6, fsu_fault		/* Load the fault handler */
+	SET_FAULT_HANDLER(a6, a1)	/* And set it */
+	lh	a0, 0(a0)		/* Try loading the data */
+	SET_FAULT_HANDLER(x0, a1)	/* Reset the fault handler */
 	ret				/* Return */
-#endif
 END(fuword16)
 
 /*
  * int32_t fueword32(volatile const void *, int32_t *)
  */
 ENTRY(fueword32)
-	call	panic
-#if 0
-	adr	x6, fsu_fault		/* Load the fault handler */
-	SET_FAULT_HANDLER(x6, x2)	/* And set it */
-	ldr	w0, [x0]		/* Try loading the data */
-	SET_FAULT_HANDLER(xzr, x2)	/* Reset the fault handler */
-	str	w0, [x1]		/* Save the data in kernel space */
-	mov	w0, #0			/* Success */
+	la	a6, fsu_fault		/* Load the fault handler */
+	SET_FAULT_HANDLER(a6, a2)	/* And set it */
+	lw	a0, 0(a0)		/* Try loading the data */
+	SET_FAULT_HANDLER(x0, a2)	/* Reset the fault handler */
+	sw	a0, 0(a1)		/* Save the data in kernel space */
+	li	a0, 0			/* Success */
 	ret				/* Return */
-#endif
 END(fueword32)
 
 /*
@@ -206,12 +197,9 @@ END(suword)
  * Special handler so the trap code knows not to sleep.
  */
 ENTRY(fsu_intr_fault)
-	call	panic
-#if 0
-	SET_FAULT_HANDLER(xzr, x1)	/* Reset the handler function */
-	mov	x0, #-1
+	SET_FAULT_HANDLER(x0, a1)	/* Reset the handler function */
+	li	a0, -1
 	ret
-#endif
 END(fsu_fault)
 
 /*
