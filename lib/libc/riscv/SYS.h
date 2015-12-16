@@ -38,7 +38,7 @@
 #include <machine/asm.h>
 
 #define	_SYSCALL(name)						\
-	li	x5, SYS_ ## name;				\
+	li	t0, SYS_ ## name;				\
 	ecall
 
 #define	SYSCALL(name)						\
