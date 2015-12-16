@@ -43,6 +43,7 @@ __FBSDID("$FreeBSD$");
  * void cpu_throw(struct thread *old, struct thread *new)
  */
 ENTRY(cpu_throw)
+	/* Load pcpu */
 	la	x14, pcpup
 	ld	x14, 0(x14)
 	/* Store the new curthread */
@@ -57,20 +58,17 @@ ENTRY(cpu_throw)
 	ld	t0, PCB_L1ADDR(x13)
 	csrw	sptbr0, t0
 
-	/* Invalidate the TLB */
+	/* TODO: Invalidate the TLB */
+
 	sfence.vm
 
-	/* ra, sp, gp, tp */
+	/* Load registers */
 	ld	ra, (PCB_RA)(x13)
 	ld	sp, (PCB_SP)(x13)
 	ld	gp, (PCB_GP)(x13)
 	ld	tp, (PCB_TP)(x13)
 
-	/* we use these in fork_trampoline */
-	//ld	x5, (PCB_REGS + 5 * 8)(x13)
-	//ld	x6, (PCB_REGS + 6 * 8)(x13)
-
-	/* s0 - s11 */
+	/* s[0-11] */
 	ld	s0, (PCB_S + 0 * 8)(x13)
 	ld	s1, (PCB_S + 1 * 8)(x13)
 	ld	s2, (PCB_S + 2 * 8)(x13)
@@ -83,59 +81,8 @@ ENTRY(cpu_throw)
 	ld	s9, (PCB_S + 9 * 8)(x13)
 	ld	s10, (PCB_S + 10 * 8)(x13)
 	ld	s11, (PCB_S + 11 * 8)(x13)
-
 	ret
 
-	//la	a0, .Lcpu_throw_panic_str
-	//call	panic
-#if 0
-#ifdef VFP
-	/* Backup the new thread pointer around a call to C code */
-	mov	x19, x1
-	bl	vfp_discard
-	mov	x1, x19
-#endif
-
-	/* Store the new curthread */
-	str	x1, [x18, #PC_CURTHREAD]
-	/* And the new pcb */
-	ldr	x4, [x1, #TD_PCB]
-	str	x4, [x18, #PC_CURPCB]
-
-	/*
-	 * TODO: We may need to flush the cache here.
-	 */
-
-	/* Switch to the new pmap */
-	ldr	x5, [x4, #PCB_L1ADDR]
-	msr	ttbr0_el1, x5
-	isb
-
-	/* Invalidate the TLB */
-	dsb	sy
-	tlbi	vmalle1is
-	dsb	sy
-	isb
-
-	/* Restore the registers */
-	ldp	x5, x6, [x4, #PCB_SP]
-	mov	sp, x5
-	msr	tpidr_el0, x6
-	ldp	x8, x9, [x4, #PCB_REGS + 8 * 8]
-	ldp	x10, x11, [x4, #PCB_REGS + 10 * 8]
-	ldp	x12, x13, [x4, #PCB_REGS + 12 * 8]
-	ldp	x14, x15, [x4, #PCB_REGS + 14 * 8]
-	ldp	x16, x17, [x4, #PCB_REGS + 16 * 8]
-	ldr	     x19, [x4, #PCB_REGS + 19 * 8]
-	ldp	x20, x21, [x4, #PCB_REGS + 20 * 8]
-	ldp	x22, x23, [x4, #PCB_REGS + 22 * 8]
-	ldp	x24, x25, [x4, #PCB_REGS + 24 * 8]
-	ldp	x26, x27, [x4, #PCB_REGS + 26 * 8]
-	ldp	x28, x29, [x4, #PCB_REGS + 28 * 8]
-	ldr	x30, [x4, #PCB_REGS + 30 * 8]
-
-	ret
-#endif
 .Lcpu_throw_panic_str:
 	.asciz "cpu_throw: %p\0"
 END(cpu_throw)
@@ -149,10 +96,7 @@ END(cpu_throw)
  * x3 to x7, x16 and x17 are caller saved
  */
 ENTRY(cpu_switch)
-	//la	a0, .Lcpu_switch_panic_str
-	//li	a1, 0x61
-	//call	panic
-
+	/* Load pcpu */
 	la	x14, pcpup
 	ld	x14, 0(x14)
 	/* Store the new curthread */
@@ -165,18 +109,16 @@ ENTRY(cpu_switch)
 	ld	x13, TD_PCB(a0)
 
 	/* Store the callee-saved registers */
-
-	/* ra, sp, gp, tp */
 	sd	ra, (PCB_RA)(x13)
 	sd	sp, (PCB_SP)(x13)
 	sd	gp, (PCB_GP)(x13)
 	sd	tp, (PCB_TP)(x13)
 
-	/* we use these in fork_trampoline */
+	/* We use these in fork_trampoline */
 	sd	t0, (PCB_T + 0 * 8)(x13)
 	sd	t1, (PCB_T + 1 * 8)(x13)
 
-	/* s0 - s11 */
+	/* s[0-11] */
 	sd	s0, (PCB_S + 0 * 8)(x13)
 	sd	s1, (PCB_S + 1 * 8)(x13)
 	sd	s2, (PCB_S + 2 * 8)(x13)
@@ -189,9 +131,6 @@ ENTRY(cpu_switch)
 	sd	s9, (PCB_S + 9 * 8)(x13)
 	sd	s10, (PCB_S + 10 * 8)(x13)
 	sd	s11, (PCB_S + 11 * 8)(x13)
-
-	/* And the old stack pointer */
-	//sd	sp, PCB_SP(t0)
 
 	/*
 	 * Restore the saved context.
@@ -207,29 +146,19 @@ ENTRY(cpu_switch)
 
 	/* Switch to the new pmap */
 	ld	t0, PCB_L1ADDR(x13)
-#if 0
-	beqz	t0, 1f
-	bgtz	t0, 2f
-1:
-	la	a0, .Lcpu_switch_panic_str
-	//li	a1, 0x65
-	call	panic
-2:
-#endif
 	csrw	sptbr0, t0
 
-	/* Invalidate the TLB */
+	/* TODO: Invalidate the TLB */
+
 	sfence.vm
 
 	/* Release the old thread */
 	sd	a2, TD_LOCK(a0)
+#if defined(SCHED_ULE) && defined(SMP)
+	/* TODO */
+#endif
 
 	/* Restore the registers */
-	//ld	x2, (PCB_SP)(t0)
-	//mv	sp, t1
-	//msr	tpidr_el0, t2
-
-	/* ra, sp, gp, tp */
 	ld	ra, (PCB_RA)(x13)
 	ld	sp, (PCB_SP)(x13)
 	ld	gp, (PCB_GP)(x13)
@@ -239,7 +168,7 @@ ENTRY(cpu_switch)
 	ld	t0, (PCB_T + 0 * 8)(x13)
 	ld	t1, (PCB_T + 1 * 8)(x13)
 
-	/* s0 - s11 */
+	/* s[0-11] */
 	ld	s0, (PCB_S + 0 * 8)(x13)
 	ld	s1, (PCB_S + 1 * 8)(x13)
 	ld	s2, (PCB_S + 2 * 8)(x13)
@@ -252,103 +181,7 @@ ENTRY(cpu_switch)
 	ld	s9, (PCB_S + 9 * 8)(x13)
 	ld	s10, (PCB_S + 10 * 8)(x13)
 	ld	s11, (PCB_S + 11 * 8)(x13)
-
 	ret
-#if 0
-	/* Store the new curthread */
-	str	x1, [x18, #PC_CURTHREAD]
-	/* And the new pcb */
-	ldr	x4, [x1, #TD_PCB]
-	str	x4, [x18, #PC_CURPCB]
-
-	/*
-	 * Save the old context.
-	 */
-	ldr	x4, [x0, #TD_PCB]
-
-	/* Store the callee-saved registers */
-	stp	x8, x9, [x4, #PCB_REGS + 8 * 8]
-	stp	x10, x11, [x4, #PCB_REGS + 10 * 8]
-	stp	x12, x13, [x4, #PCB_REGS + 12 * 8]
-	stp	x14, x15, [x4, #PCB_REGS + 14 * 8]
-	stp	x16, x17, [x4, #PCB_REGS + 16 * 8]
-	stp	x18, x19, [x4, #PCB_REGS + 18 * 8]
-	stp	x20, x21, [x4, #PCB_REGS + 20 * 8]
-	stp	x22, x23, [x4, #PCB_REGS + 22 * 8]
-	stp	x24, x25, [x4, #PCB_REGS + 24 * 8]
-	stp	x26, x27, [x4, #PCB_REGS + 26 * 8]
-	stp	x28, x29, [x4, #PCB_REGS + 28 * 8]
-	str	x30, [x4, #PCB_REGS + 30 * 8]
-	/* And the old stack pointer */
-	mov	x5, sp
-	mrs	x6, tpidr_el0
-	stp	x5, x6, [x4, #PCB_SP]
-
-#ifdef VFP
-	mov	x19, x0
-	mov	x20, x1
-	mov	x21, x2
-	bl	vfp_save_state
-	mov	x2, x21
-	mov	x1, x20
-	mov	x0, x19
-#endif
-
-	/*
-	 * Restore the saved context.
-	 */
-	ldr	x4, [x1, #TD_PCB]
-
-	/*
-	 * TODO: We may need to flush the cache here if switching
-	 * to a user process.
-	 */
-
-	/* Switch to the new pmap */
-	ldr	x5, [x4, #PCB_L1ADDR]
-	msr	ttbr0_el1, x5
-	isb
-
-	/* Invalidate the TLB */
-	dsb	sy
-	tlbi	vmalle1is
-	dsb	sy
-	isb
-
-	/* Release the old thread */
-	str	x2, [x0, #TD_LOCK]
-#if defined(SCHED_ULE) && defined(SMP)
-	/* Read the value in blocked_lock */
-	ldr	x0, =_C_LABEL(blocked_lock)
-	ldr	x1, [x0]
-	/* Load curthread */
-	ldr	x2, [x18, #PC_CURTHREAD]
-1:
-	ldr	x3, [x2, #TD_LOCK]
-	cmp	x3, x1
-	b.eq	1b
-#endif
-
-	/* Restore the registers */
-	ldp	x5, x6, [x4, #PCB_SP]
-	mov	sp, x5
-	msr	tpidr_el0, x6
-	ldp	x8, x9, [x4, #PCB_REGS + 8 * 8]
-	ldp	x10, x11, [x4, #PCB_REGS + 10 * 8]
-	ldp	x12, x13, [x4, #PCB_REGS + 12 * 8]
-	ldp	x14, x15, [x4, #PCB_REGS + 14 * 8]
-	ldp	x16, x17, [x4, #PCB_REGS + 16 * 8]
-	ldr	     x19, [x4, #PCB_REGS + 19 * 8]
-	ldp	x20, x21, [x4, #PCB_REGS + 20 * 8]
-	ldp	x22, x23, [x4, #PCB_REGS + 22 * 8]
-	ldp	x24, x25, [x4, #PCB_REGS + 24 * 8]
-	ldp	x26, x27, [x4, #PCB_REGS + 26 * 8]
-	ldp	x28, x29, [x4, #PCB_REGS + 28 * 8]
-	ldr	x30, [x4, #PCB_REGS + 30 * 8]
-
-	str	xzr, [x4, #PCB_REGS + 18 * 8]
-	ret
-#endif
 .Lcpu_switch_panic_str:
 	.asciz "cpu_switch: %p\0"
 END(cpu_switch)
@@ -356,43 +189,23 @@ END(cpu_switch)
 /*
  * fork_exit(void (*callout)(void *, struct trapframe *), void *arg,
  *  struct trapframe *frame)
- *
  */
 
 ENTRY(fork_trampoline)
-	//la	a0, .Lcpu_switch_panic_str
-	//li	a1, 0x62
-	//call	panic
-
 	mv	a0, x5
 	mv	a1, x6
 	mv	a2, sp
 	call	_C_LABEL(fork_exit)
 
-	//la	a0, .Lcpu_switch_panic_str
-	//li	a1, 0x63
-	//call	panic
-
-	/* Restore sp and ra */
-	//ld	ra, (8)(sp)
-	//ld	sp, (0)(sp)
-
-	/* Restore epc */
+	/* Restore exception program counter */
 	ld	t0, (TF_SEPC)(sp)
 	csrw	sepc, t0
 
 	/* Restore sstatus */
-	// sstatus is zero at this point
-	//ld	t0, 264(sp)
-	//csrw	sstatus, t0
-
 	li	t0, (1 << 3)
 	csrw	sstatus, t0
 
-	/* Restore the registers other than sp and ra */
-	//ld	x3, (TF_X + 3 * 8)(sp)
-	//ld	x4, (TF_X + 4 * 8)(sp)
-
+	/* Restore the registers */
 	ld	t0, (TF_T + 0 * 8)(sp)
 	ld	t1, (TF_T + 1 * 8)(sp)
 	ld	t2, (TF_T + 2 * 8)(sp)
@@ -423,18 +236,17 @@ ENTRY(fork_trampoline)
 	ld	a6, (TF_A + 6 * 8)(sp)
 	ld	a7, (TF_A + 7 * 8)(sp)
 
-	ld	ra, (TF_RA)(sp)
-
 	/* Save kernel stack so we can use it doing a user trap */
 	csrw	sscratch, sp
 
-	/* Load user sp */
+	/* Load user ra and sp */
+	ld	ra, (TF_RA)(sp)
 	ld	sp, (TF_SP)(sp)
 
 	/*
 	 * TODO: interrupt can happen here, between ld and eret.
-	 * It will came to supervisor handler
-	 * with user stack causing some panic.
+	 * It can came to supervisor handler with user stack
+	 * causing some panic.
 	 * Need to disable interrupts before changing sp.
 	 */
 	eret
