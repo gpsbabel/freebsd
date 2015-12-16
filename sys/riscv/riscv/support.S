@@ -247,43 +247,51 @@ ENTRY(suswintr)
 END(suswintr)
 
 ENTRY(setjmp)
-	call	panic
-#if 0
 	/* Store the stack pointer */
-	mov	x8, sp
-	str	x8, [x0]
+	sd	sp, 0(a0)
+	addi	a0, a0, 8
 
-	/* Store the general purpose registers and lr */
-	stp	x19, x20, [x0], #16
-	stp	x21, x22, [x0], #16
-	stp	x23, x24, [x0], #16
-	stp	x25, x26, [x0], #16
-	stp	x27, x28, [x0], #16
-	stp	x29, lr, [x0], #16
+	/* Store the general purpose registers and ra */
+	sd	s0, (0 * 8)(a0)
+	sd	s1, (1 * 8)(a0)
+	sd	s2, (2 * 8)(a0)
+	sd	s3, (3 * 8)(a0)
+	sd	s4, (4 * 8)(a0)
+	sd	s5, (5 * 8)(a0)
+	sd	s6, (6 * 8)(a0)
+	sd	s7, (7 * 8)(a0)
+	sd	s8, (8 * 8)(a0)
+	sd	s9, (9 * 8)(a0)
+	sd	s10, (10 * 8)(a0)
+	sd	s11, (11 * 8)(a0)
+	sd	ra, (12 * 8)(a0)
 
 	/* Return value */
-	mov	x0, #0
+	li	a0, 0
 	ret
-#endif
 END(setjmp)
 
 ENTRY(longjmp)
-	call	panic
-#if 0
 	/* Restore the stack pointer */
-	ldr	x8, [x0], #8
-	mov	sp, x8
+	ld	sp, 0(a0)
+	addi	a0, a0, 8
 
 	/* Restore the general purpose registers and lr */
-	ldp	x19, x20, [x0], #16
-	ldp	x21, x22, [x0], #16
-	ldp	x23, x24, [x0], #16
-	ldp	x25, x26, [x0], #16
-	ldp	x27, x28, [x0], #16
-	ldp	x29, lr, [x0], #16
+	ld	s0, (0 * 8)(a0)
+	ld	s1, (1 * 8)(a0)
+	ld	s2, (2 * 8)(a0)
+	ld	s3, (3 * 8)(a0)
+	ld	s4, (4 * 8)(a0)
+	ld	s5, (5 * 8)(a0)
+	ld	s6, (6 * 8)(a0)
+	ld	s7, (7 * 8)(a0)
+	ld	s8, (8 * 8)(a0)
+	ld	s9, (9 * 8)(a0)
+	ld	s10, (10 * 8)(a0)
+	ld	s11, (11 * 8)(a0)
+	ld	ra, (12 * 8)(a0)
 
 	/* Load the return value */
-	mov	x0, x1
+	mv	a0, a1
 	ret
-#endif
 END(longjmp)
