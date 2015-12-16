@@ -2,13 +2,13 @@
  * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
  *
- * This software was developed by SRI International and the University of
- * Cambridge Computer Laboratory under DARPA/AFRL contract FA8750-10-C-0237
- * ("CTSRD"), as part of the DARPA CRASH research programme.
+ * Portions of this software were developed by SRI International and the
+ * University of Cambridge Computer Laboratory under DARPA/AFRL contract
+ * FA8750-10-C-0237 ("CTSRD"), as part of the DARPA CRASH research programme.
  *
- * This software was developed by the University of Cambridge Computer
- * Laboratory as part of the CTSRD Project, with support from the UK Higher
- * Education Innovation Fund (HEIF).
+ * Portions of this software were developed by the University of Cambridge
+ * Computer Laboratory as part of the CTSRD Project, with support from the
+ * UK Higher Education Innovation Fund (HEIF).
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -47,10 +47,8 @@ __FBSDID("$FreeBSD$");
 #include <sys/param.h>
 #include <sys/systm.h>
 #include <sys/bus.h>
-#include <sys/cons.h>
 #include <sys/kernel.h>
-
-#include <machine/intr.h>
+#include <sys/cons.h>
 
 static void	configure_first(void *);
 static void	configure(void *);
@@ -69,7 +67,7 @@ static void
 configure_first(void *dummy)
 {
 
-	/* nexus0 is the top of the device tree */
+	/* nexus0 is the top of the riscv device tree */
 	device_add_child(root_bus, "nexus", 0);
 }
 
@@ -85,7 +83,8 @@ static void
 configure_final(void *dummy)
 {
 
-	//riscv_enable_intr();
+	intr_enable();
+
 	cninit_finish(); 
 
 	if (bootverbose)
