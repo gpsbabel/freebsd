@@ -76,7 +76,7 @@ intr_enable(void)
 {
 
 	__asm __volatile(
-		"csrsi sstatus, SSTATUS_IE"
+		"csrsi sstatus, 1"
 	);
 }
 
