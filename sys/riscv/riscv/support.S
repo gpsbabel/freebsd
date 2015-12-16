@@ -52,38 +52,30 @@ END(fsu_fault)
  * int casueword32(volatile uint32_t *, uint32_t, uint32_t *, uint32_t)
  */
 ENTRY(casueword32)
-	call	panic
-#if 0
-	adr	x6, fsu_fault		/* Load the fault handler */
-	SET_FAULT_HANDLER(x6, x4)	/* And set it */
-1:	ldxr	w4, [x0]		/* Load-exclusive the data */
-	cmp	w4, w1			/* Compare */
-	b.ne	2f			/* Not equal, exit */
-	stxr	w5, w3, [x0]		/* Store the new data */
-	cbnz	w5, 1b			/* Retry on failure */
-2:	SET_FAULT_HANDLER(xzr, x5)	/* Reset the fault handler */
-	str	w4, [x2]		/* Store the read data */
+	la	a6, fsu_fault		/* Load the fault handler */
+	SET_FAULT_HANDLER(a6, a4)	/* And set it */
+1:	lr.w	a4, 0(a0)		/* Load-exclusive the data */
+	bne	a4, a1, 2f		/* If not equal then exit */
+	sc.w	a5, a3, 0(a0)		/* Store the new data */
+	bnez	a5, 1b			/* Retry on failure */
+2:	SET_FAULT_HANDLER(x0, a5)	/* Reset the fault handler */
+	sw	a4, 0(a2)		/* Store the read data */
 	ret				/* Return */
-#endif
 END(casueword32)
 
 /*
  * int casueword(volatile u_long *, u_long, u_long *, u_long)
  */
 ENTRY(casueword)
-	call	panic
-#if 0
-	adr	x6, fsu_fault		/* Load the fault handler */
-	SET_FAULT_HANDLER(x6, x4)	/* And set it */
-1:	ldxr	x4, [x0]		/* Load-exclusive the data */
-	cmp	x4, x1			/* Compare */
-	b.ne	2f			/* Not equal, exit */
-	stxr	w5, x3, [x0]		/* Store the new data */
-	cbnz	w5, 1b			/* Retry on failure */
-2:	SET_FAULT_HANDLER(xzr, x5)	/* Reset the fault handler */
-	str	x4, [x2]		/* Store the read data */
+	la	a6, fsu_fault		/* Load the fault handler */
+	SET_FAULT_HANDLER(a6, a4)	/* And set it */
+1:	lr.d	a4, 0(a0)		/* Load-exclusive the data */
+	bne	a4, a1, 2f		/* If not equal then exit */
+	sc.d	a5, a3, 0(a0)		/* Store the new data */
+	bnez	a5, 1b			/* Retry on failure */
+2:	SET_FAULT_HANDLER(x0, a5)	/* Reset the fault handler */
+	sd	a4, 0(a2)		/* Store the read data */
 	ret				/* Return */
-#endif
 END(casueword)
 
 /*
