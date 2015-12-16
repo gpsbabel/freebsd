@@ -1,16 +1,15 @@
 /*-
- * Copyright (c) 2014 The FreeBSD Foundation.
- * Copyright (c) 2014 Andrew Turner.
- * Copyright (c) 2001 Jake Burkholder.
- * Copyright (c) 2000 Eduardo Horvath.
- * Copyright (c) 1999 The NetBSD Foundation, Inc.
+ * Copyright 1996-1998 John D. Polstra.
+ * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
  *
- * This code is derived from software contributed to The NetBSD Foundation
- * by Paul Kranenburg.
+ * Portions of this software were developed by SRI International and the
+ * University of Cambridge Computer Laboratory under DARPA/AFRL contract
+ * FA8750-10-C-0237 ("CTSRD"), as part of the DARPA CRASH research programme.
  *
- * This software was developed by Andrew Turner under
- * sponsorship from the FreeBSD Foundation.
+ * Portions of this software were developed by the University of Cambridge
+ * Computer Laboratory as part of the CTSRD Project, with support from the
+ * UK Higher Education Innovation Fund (HEIF).
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -21,19 +20,17 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY THE NETBSD FOUNDATION, INC. AND CONTRIBUTORS
- * ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
- * TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE FOUNDATION OR CONTRIBUTORS
- * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- *	from: NetBSD: mdreloc.c,v 1.42 2008/04/28 20:23:04 martin Exp
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
  */
 
 #include <sys/cdefs.h>
@@ -53,14 +50,13 @@ __FBSDID("$FreeBSD$");
 #include <sys/vnode.h>
 
 #include <vm/vm.h>
+#include <vm/pmap.h>
 #include <vm/vm_param.h>
 
 #include <machine/elf.h>
 #include <machine/md_var.h>
 
-#include "linker_if.h"
-
-static struct sysentvec elf64_freebsd_sysvec = {
+struct sysentvec elf64_freebsd_sysvec = {
 	.sv_size	= SYS_MAXSYSCALL,
 	.sv_table	= sysent,
 	.sv_mask	= 0,
@@ -80,8 +76,8 @@ static struct sysentvec elf64_freebsd_sysvec = {
 	.sv_maxuser	= VM_MAXUSER_ADDRESS,
 	.sv_usrstack	= USRSTACK,
 	.sv_psstrings	= PS_STRINGS,
-	.sv_stackprot	= VM_PROT_READ | VM_PROT_WRITE,
-	.sv_copyout_strings = exec_copyout_strings,
+	.sv_stackprot	= VM_PROT_ALL,
+	.sv_copyout_strings	= exec_copyout_strings,
 	.sv_setregs	= exec_setregs,
 	.sv_fixlimit	= NULL,
 	.sv_maxssiz	= NULL,
@@ -90,7 +86,9 @@ static struct sysentvec elf64_freebsd_sysvec = {
 	.sv_fetch_syscall_args = cpu_fetch_syscall_args,
 	.sv_syscallnames = syscallnames,
 	.sv_schedtail	= NULL,
+	.sv_thread_detach = NULL,
 };
+INIT_SYSENTVEC(elf64_sysvec, &elf64_freebsd_sysvec);
 
 static Elf64_Brandinfo freebsd_brand_info = {
 	.brand		= ELFOSABI_FREEBSD,
@@ -105,7 +103,8 @@ static Elf64_Brandinfo freebsd_brand_info = {
 };
 
 SYSINIT(elf64, SI_SUB_EXEC, SI_ORDER_FIRST,
-    (sysinit_cfunc_t)elf64_insert_brand_entry, &freebsd_brand_info);
+	(sysinit_cfunc_t) elf64_insert_brand_entry,
+	&freebsd_brand_info);
 
 static Elf64_Brandinfo freebsd_brand_oinfo = {
 	.brand		= ELFOSABI_FREEBSD,
@@ -120,30 +119,38 @@ static Elf64_Brandinfo freebsd_brand_oinfo = {
 };
 
 SYSINIT(oelf64, SI_SUB_EXEC, SI_ORDER_ANY,
-    (sysinit_cfunc_t)elf64_insert_brand_entry, &freebsd_brand_oinfo);
+	(sysinit_cfunc_t) elf64_insert_brand_entry,
+	&freebsd_brand_oinfo);
 
 void
-elf64_dump_thread(struct thread *td __unused, void *dst __unused,
-    size_t *off __unused)
+elf64_dump_thread(struct thread *td, void *dst, size_t *off)
 {
 
-}
-
-int
-elf_reloc_local(linker_file_t lf, Elf_Addr relocbase, const void *data,
-    int type, elf_lookup_fn lookup __unused)
-{
-
-	panic("elf_reloc_local");
 }
 
 /* Process one elf relocation with addend. */
+static int
+elf_reloc_internal(linker_file_t lf, Elf_Addr relocbase, const void *data,
+    int type, int local, elf_lookup_fn lookup)
+{
+
+	panic("elf_reloc_internal");
+}
+
 int
 elf_reloc(linker_file_t lf, Elf_Addr relocbase, const void *data, int type,
     elf_lookup_fn lookup)
 {
 
-	panic("elf_reloc");
+	return (elf_reloc_internal(lf, relocbase, data, type, 0, lookup));
+}
+
+int
+elf_reloc_local(linker_file_t lf, Elf_Addr relocbase, const void *data,
+    int type, elf_lookup_fn lookup)
+{
+
+	return (elf_reloc_internal(lf, relocbase, data, type, 1, lookup));
 }
 
 int
