@@ -218,29 +218,23 @@ END(fsu_fault)
  * int fuswintr(void *)
  */
 ENTRY(fuswintr)
-	call	panic
-#if 0
-	adr	x6, fsu_intr_fault	/* Load the fault handler */
-	SET_FAULT_HANDLER(x6, x1)	/* And set it */
-	ldr	w0, [x0]		/* Try loading the data */
-	SET_FAULT_HANDLER(xzr, x1)	/* Reset the fault handler */
+	la	a6, fsu_intr_fault	/* Load the fault handler */
+	SET_FAULT_HANDLER(a6, a1)	/* And set it */
+	lw	a0, 0(a0)		/* Try loading the data */
+	SET_FAULT_HANDLER(x0, x1)	/* Reset the fault handler */
 	ret				/* Return */
-#endif
 END(fuswintr)
 
 /*
  * int suswintr(void *base, int word)
  */
 ENTRY(suswintr)
-	call	panic
-#if 0
-	adr	x6, fsu_intr_fault	/* Load the fault handler */
-	SET_FAULT_HANDLER(x6, x2)	/* And set it */
-	str	w1, [x0]		/* Try storing the data */
-	SET_FAULT_HANDLER(xzr, x2)	/* Reset the fault handler */
-	mov	x0, #0			/* Success */
+	la	a6, fsu_intr_fault	/* Load the fault handler */
+	SET_FAULT_HANDLER(a6, a2)	/* And set it */
+	sw	a1, 0(a0)		/* Try storing the data */
+	SET_FAULT_HANDLER(x0, a2)	/* Reset the fault handler */
+	li	a0, 0			/* Success */
 	ret				/* Return */
-#endif
 END(suswintr)
 
 ENTRY(setjmp)
@@ -273,7 +267,7 @@ ENTRY(longjmp)
 	ld	sp, 0(a0)
 	addi	a0, a0, 8
 
-	/* Restore the general purpose registers and lr */
+	/* Restore the general purpose registers and ra */
 	ld	s0, (0 * 8)(a0)
 	ld	s1, (1 * 8)(a0)
 	ld	s2, (2 * 8)(a0)
