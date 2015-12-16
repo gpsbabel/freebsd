@@ -78,13 +78,15 @@ __FBSDID("$FreeBSD$");
 	sd	a6, (TF_A + 6 * 8)(sp)
 	sd	a7, (TF_A + 7 * 8)(sp)
 
-	/* XXX: panic - spin if stack is not kernel one */
+#if 0
+	/* XXX: temporary test: spin if stack is not kernel one */
 .if \el == 1	/* kernel */
 	mv	t0, sp
 	srli	t0, t0, 63
 1:
 	beqz	t0, 1b
 .endif
+#endif
 
 .if \el == 1
 	/* Store kernel sp */
@@ -96,16 +98,12 @@ __FBSDID("$FreeBSD$");
 .endif
 	li	t0, 0
 	csrw	sscratch, t0
-
 	csrr	t0, sepc
 	sd	t0, (TF_SEPC)(sp)
-
 	csrr	t0, sstatus
 	sd	t0, (TF_SSTATUS)(sp)
-
 	csrr	t0, sbadaddr
 	sd	t0, (TF_SBADADDR)(sp)
-
 	csrr	t0, scause
 	sd	t0, (TF_SCAUSE)(sp)
 .endm
