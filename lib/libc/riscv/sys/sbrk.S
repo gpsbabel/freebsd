@@ -1,9 +1,14 @@
 /*-
- * Copyright (c) 2014 The FreeBSD Foundation
+ * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
  *
- * This software was developed by Andrew Turner under
- * sponsorship from the FreeBSD Foundation.
+ * Portions of this software were developed by SRI International and the
+ * University of Cambridge Computer Laboratory under DARPA/AFRL contract
+ * FA8750-10-C-0237 ("CTSRD"), as part of the DARPA CRASH research programme.
+ *
+ * Portions of this software were developed by the University of Cambridge
+ * Computer Laboratory as part of the CTSRD Project, with support from the
+ * UK Higher Education Innovation Fund (HEIF).
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -50,29 +55,22 @@ ENTRY(_sbrk)
 
 	/* Load the address of curbrk */
 	la	a3, curbrk
-	//adrp	x3, curbrk
 
 	/* Get the current brk address */
 	ld	a2, 0(a3)
-	//ldr	x2, [x3, :lo12:curbrk]
 
 	/* Calculate the new value */
 	add	a0, a0, a2
 	mv	a4, a0
-	//add	x0, x2, x0
-	//mov	x4, x0
 
-	/* Update for this value, will overwrite x0 and x1 */
+	/* Update for this value, will overwrite a0 and a1 */
 	_SYSCALL(break)
 	bnez	t0, cerror
-	//b.cs	cerror
 
 	/* Load the old value to return */
 	ld	a0, 0(a3)
-	//ldr	x0, [x3, :lo12:curbrk]
 
 	/* Store the new curbrk value */
-	//str	x4, [x3, :lo12:curbrk]
 	sd	a4, 0(a3)
 
 	ret

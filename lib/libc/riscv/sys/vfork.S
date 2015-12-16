@@ -1,6 +1,14 @@
 /*-
- * Copyright (c) 2014 Andrew Turner
+ * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
+ *
+ * Portions of this software were developed by SRI International and the
+ * University of Cambridge Computer Laboratory under DARPA/AFRL contract
+ * FA8750-10-C-0237 ("CTSRD"), as part of the DARPA CRASH research programme.
+ *
+ * Portions of this software were developed by the University of Cambridge
+ * Computer Laboratory as part of the CTSRD Project, with support from the
+ * UK Higher Education Innovation Fund (HEIF).
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -22,7 +30,6 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
  */
 
 #include <machine/asm.h>
@@ -33,18 +40,12 @@ ENTRY(__sys_vfork)
 	WEAK_REFERENCE(__sys_vfork, vfork)
 	WEAK_REFERENCE(__sys_vfork, _vfork)
 	mv	a2, ra
-	//mov	x2, lr
 
 	_SYSCALL(vfork)
 	bnez	t0, cerror
 	addi	a1, a1, -1
 	and	a0, a0, a1
 	mv	ra, a2
-
-	//b.cs	cerror
-	//sub	x1, x1, #1
-	//and	x0, x0, x1
-	//mov	lr, x2
 
 	ret
 END(__sys_vfork)

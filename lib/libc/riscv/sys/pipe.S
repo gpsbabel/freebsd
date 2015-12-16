@@ -1,9 +1,14 @@
 /*-
- * Copyright (c) 2014 The FreeBSD Foundation
+ * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
  *
- * This software was developed by Andrew Turner under
- * sponsorship from the FreeBSD Foundation.
+ * Portions of this software were developed by SRI International and the
+ * University of Cambridge Computer Laboratory under DARPA/AFRL contract
+ * FA8750-10-C-0237 ("CTSRD"), as part of the DARPA CRASH research programme.
+ *
+ * Portions of this software were developed by the University of Cambridge
+ * Computer Laboratory as part of the CTSRD Project, with support from the
+ * UK Higher Education Innovation Fund (HEIF).
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -37,21 +42,16 @@ ENTRY(__sys_pipe)
 
 	/* Backup the pointer passed to us */
 	mv	a2, a0
-	//mov	x2, x0
 
 	/* Make the syscall */
 	_SYSCALL(pipe)
 	bnez	t0, cerror
-	//b.cs	cerror
 
 	/* Store the result */
 	sw	a0, 0(a2)
 	sw	a1, 4(a2)
-	//str	w0, [x2, #0]
-	//str	w1, [x2, #4]
 
 	/* Return */
 	li	a0, 0
-	//mov	x0, #0
 	ret
 END(__sys_pipe)
