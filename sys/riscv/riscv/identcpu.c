@@ -78,7 +78,7 @@ struct cpu_implementers {
 /*
  * Per-implementer table of (PartNum, CPU Name) pairs.
  */
-/* UCB */
+/* UC Berkeley */
 static const struct cpu_parts cpu_parts_ucb[] = {
 	{ CPU_PART_RV32I,	"RV32I" },
 	{ CPU_PART_RV32E,	"RV32E" },

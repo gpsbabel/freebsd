@@ -46,7 +46,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/cpu.h>
 #include <sys/exec.h>
 #include <sys/imgact.h>
-#include <sys/kdb.h> 
+#include <sys/kdb.h>
 #include <sys/kernel.h>
 #include <sys/limits.h>
 #include <sys/linker.h>
@@ -483,7 +483,6 @@ makectx(struct trapframe *tf, struct pcb *pcb)
 	pcb->pcb_gp = tf->tf_gp;
 	pcb->pcb_tp = tf->tf_tp;
 	pcb->pcb_sepc = tf->tf_sepc;
-	//pcb->pcb_sstatus = tf->tf_sstatus;
 }
 
 void
