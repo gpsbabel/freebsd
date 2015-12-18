@@ -177,11 +177,9 @@ _start:
 	/* Clear BSS  */
 	la	a0, _C_LABEL(__bss_start)
 	la	s1, _C_LABEL(_end)
-	//li	s9, (PAGE_SIZE * KSTACK_PAGES)
-	//add	s1, s1, s9
 1:
-	sb	zero, 0(a0)
-	addi	a0, a0, 1
+	sd	zero, 0(a0)
+	addi	a0, a0, 8
 	bltu	a0, s1, 1b
 
 	/* Fill riscv_bootparams */
