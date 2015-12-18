@@ -121,15 +121,19 @@ cpu_fetch_syscall_args(struct thread *td, struct syscall_args *sa)
 static void
 dump_regs(struct trapframe *frame)
 {
+	int n;
 	int i;
 
-	for (i = 0; i < 7; i++)
+	n = (sizeof(frame->tf_t) / sizeof(frame->tf_t[0]));
+	for (i = 0; i < n; i++)
 		printf("t[%d] == 0x%016lx\n", i, frame->tf_t[i]);
 
-	for (i = 0; i < 12; i++)
+	n = (sizeof(frame->tf_s) / sizeof(frame->tf_s[0]));
+	for (i = 0; i < n; i++)
 		printf("s[%d] == 0x%016lx\n", i, frame->tf_s[i]);
 
-	for (i = 0; i < 8; i++)
+	n = (sizeof(frame->tf_a) / sizeof(frame->tf_a[0]));
+	for (i = 0; i < n; i++)
 		printf("a[%d] == 0x%016lx\n", i, frame->tf_a[i]);
 
 	printf("sepc == 0x%016lx\n", frame->tf_sepc);
