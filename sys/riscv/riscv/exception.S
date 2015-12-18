@@ -199,8 +199,8 @@ user_trap:
 	la	t2, _C_LABEL(cpu_exception_handler_user)
 
 	csrr    t0, mcause
-	bltz    t0, .Linterrupt
-	j	.Lexit_mrts
+	bltz    t0, interrupt
+	j	exit_mrts
 
 supervisor_trap:
 	/* Save state */
@@ -217,13 +217,13 @@ supervisor_trap:
 	la	t2, _C_LABEL(cpu_exception_handler_sv)
 
 	csrr	t0, mcause
-	bltz	t0, .Linterrupt
+	bltz	t0, interrupt
 
 	li	t1, EXCP_SMODE_ENV_CALL
-	beq	t0, t1, .Lhandle_trap_in_machine_mode
-	j	.Lexit_mrts
+	beq	t0, t1, machine_call
+	j	exit_mrts
 
-.Linterrupt:
+interrupt:
 	/* Type of interrupt ? */
 	csrr	t0, mcause
 	andi	t0, t0, 3
@@ -242,7 +242,7 @@ software_interrupt:
 	/* Clear supervisor software interrupt */
 	//li	t0, MIP_SSIP
 	//csrc	mip, t0
-	j	.Lexit_mrts
+	j	exit_mrts
 
 timer_interrupt:
 	/* Disable machine timer interrupts */
@@ -270,11 +270,11 @@ timer_interrupt:
 	li	t1, (SR_IE1 | (MSTATUS_PRV_S << MSTATUS_PRV1_SHIFT))
 	beq	t0, t1, 1f
 
-	j	.Lexit
+	j	exit
 
 1:
 	/* Serve a trap in supervisor mode */
-	j	.Lexit_mrts
+	j	exit_mrts
 
 htif_interrupt:
 1:
@@ -311,12 +311,11 @@ htif_interrupt:
 	csrs	mip, t0
 
 3:
-	j	.Lexit
+	j	exit
 
-.Lhandle_trap_in_machine_mode:
-	/* Save mepc, point to the next instr */
+machine_call:
 	csrr	t1, mepc
-	addi	t1, t1, 4		/* Next instruction */
+	addi	t1, t1, 4	/* Next instruction in t1 */
 	li	t4, ECALL_HTIF_CMD
 	beq	t5, t4, htif_cmd
 	li	t4, ECALL_HTIF_GET_ENTRY
@@ -329,15 +328,15 @@ htif_interrupt:
 	beq	t5, t4, mcpuid_get
 	li	t4, ECALL_MIMPID_GET
 	beq	t5, t4, mimpid_get
-	j	.Lexit_next_instr
+	j	exit_next_instr
 
 mcpuid_get:
 	csrr	t6, mcpuid
-	j	.Lexit_next_instr
+	j	exit_next_instr
 
 mimpid_get:
 	csrr	t6, mimpid
-	j	.Lexit_next_instr
+	j	exit_next_instr
 
 htif_get_entry:
 	li	t6, 0		/* preset return value */
@@ -355,14 +354,14 @@ htif_get_entry:
 	sd	t4, 0(t0)
 1:
 	/* Exit. Result is stored in t6 */
-	j	.Lexit_next_instr
+	j	exit_next_instr
 
 htif_cmd:
 	mv	t0, t6
 1:
 	csrrw	t0, mtohost, t0
 	bnez	t0, 1b
-	j	.Lexit_next_instr
+	j	exit_next_instr
 
 set_mtimecmp:
 	csrr	t2, stime
@@ -372,20 +371,20 @@ set_mtimecmp:
 	/* Enable interrupts */
 	li	t0, (MIE_MTIE | MIE_STIE)
 	csrs	mie, t0
-	j	.Lexit_next_instr
+	j	exit_next_instr
 
 clear_pending:
 	li      t0, MIP_STIP
 	csrc    mip, t0
-	j	.Lexit_next_instr
+	j	exit_next_instr
 
 /*
  * Trap exit functions
  */
-.Lexit_next_instr:
+exit_next_instr:
 	/* Next instruction is in t1 */
 	csrw    mepc, t1
-.Lexit:
+exit:
 	/* Restore state */
 	ld	t0, (8 * 0)(sp)
 	ld	t1, (8 * 1)(sp)
@@ -401,7 +400,7 @@ clear_pending:
 /*
  * Redirect to supervisor
  */
-.Lexit_mrts:
+exit_mrts:
 	/* Setup exception handler */
 	li	t1, KERNBASE
 	add	t2, t2, t1
