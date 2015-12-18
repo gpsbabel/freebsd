@@ -181,19 +181,6 @@ END(cpu_exception_handler_user)
 /*
  * Trap handlers
  */
-
-#define	HANDLE_SUPERVISOR_TRAP_IN_MACHINE_MODE 0 \
-    | (0 << (31 - 0)) /* IF misaligned */           \
-    | (0 << (31 - 1)) /* IF fault */                \
-    | (1 << (31 - 2)) /* illegal instruction */     \
-    | (0 << (31 - 3)) /* breakpoint */              \
-    | (1 << (31 - 4)) /* load misaligned */         \
-    | (0 << (31 - 5)) /* load fault */              \
-    | (1 << (31 - 6)) /* store misaligned */        \
-    | (0 << (31 - 7)) /* store fault */             \
-    | (0 << (31 - 8)) /* user environment call */   \
-    | (1 << (31 - 9)) /* super environment call */
-
 	.text
 bad_trap:
 	j bad_trap
@@ -232,9 +219,8 @@ supervisor_trap:
 	csrr	t0, mcause
 	bltz	t0, .Linterrupt
 
-	li	t1, HANDLE_SUPERVISOR_TRAP_IN_MACHINE_MODE
-	sllw	t1, t1, t0
-	bltz	t1, .Lhandle_trap_in_machine_mode
+	li	t1, EXCP_SMODE_ENV_CALL
+	beq	t0, t1, .Lhandle_trap_in_machine_mode
 	j	.Lexit_mrts
 
 .Linterrupt:
@@ -284,7 +270,7 @@ timer_interrupt:
 	li	t1, (SR_IE1 | (MSTATUS_PRV_S << MSTATUS_PRV1_SHIFT))
 	beq	t0, t1, 1f
 
-	j	.Lexit_no_mepc
+	j	.Lexit
 
 1:
 	/* Serve a trap in supervisor mode */
@@ -325,7 +311,7 @@ htif_interrupt:
 	csrs	mip, t0
 
 3:
-	j	.Lexit_no_mepc
+	j	.Lexit
 
 .Lhandle_trap_in_machine_mode:
 	/* Save mepc, point to the next instr */
@@ -343,15 +329,15 @@ htif_interrupt:
 	beq	t5, t4, mcpuid_get
 	li	t4, ECALL_MIMPID_GET
 	beq	t5, t4, mimpid_get
-	j	.Lexit
+	j	.Lexit_next_instr
 
 mcpuid_get:
 	csrr	t6, mcpuid
-	j	.Lexit
+	j	.Lexit_next_instr
 
 mimpid_get:
 	csrr	t6, mimpid
-	j	.Lexit
+	j	.Lexit_next_instr
 
 htif_get_entry:
 	li	t6, 0		/* preset return value */
@@ -369,14 +355,14 @@ htif_get_entry:
 	sd	t4, 0(t0)
 1:
 	/* Exit. Result is stored in t6 */
-	j	.Lexit
+	j	.Lexit_next_instr
 
 htif_cmd:
 	mv	t0, t6
 1:
 	csrrw	t0, mtohost, t0
 	bnez	t0, 1b
-	j	.Lexit
+	j	.Lexit_next_instr
 
 set_mtimecmp:
 	csrr	t2, stime
@@ -386,20 +372,20 @@ set_mtimecmp:
 	/* Enable interrupts */
 	li	t0, (MIE_MTIE | MIE_STIE)
 	csrs	mie, t0
-	j	.Lexit
+	j	.Lexit_next_instr
 
 clear_pending:
 	li      t0, MIP_STIP
 	csrc    mip, t0
-	j	.Lexit
+	j	.Lexit_next_instr
 
 /*
  * Trap exit functions
  */
-.Lexit:
+.Lexit_next_instr:
 	/* Next instruction is in t1 */
 	csrw    mepc, t1
-.Lexit_no_mepc:
+.Lexit:
 	/* Restore state */
 	ld	t0, (8 * 0)(sp)
 	ld	t1, (8 * 1)(sp)

@@ -295,7 +295,7 @@ do_trap_user(struct trapframe *frame)
 	case EXCP_INSTR_ACCESS_FAULT:
 		data_abort(frame, 1);
 		break;
-	case EXCP_ENV_CALL:
+	case EXCP_UMODE_ENV_CALL:
 		frame->tf_sepc += 4;	/* Next instruction */
 		svc_handler(frame);
 		break;
