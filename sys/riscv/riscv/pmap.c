@@ -349,21 +349,6 @@ pmap_is_write(pt_entry_t entry)
 	if (entry & (1 << PTE_TYPE_S))
 		return (1);
 
-#if 0
-	if ((entry & PTE_TYPE_M) == (PTE_TYPE_SRWX << PTE_TYPE_S))
-		return 1;
-	if ((entry & PTE_TYPE_M) == (PTE_TYPE_SRWX << PTE_TYPE_S))
-		return 1;
-	if ((entry & PTE_TYPE_M) == (PTE_TYPE_SRWURWX << PTE_TYPE_S))
-		return 1;
-	if ((entry & PTE_TYPE_M) == (PTE_TYPE_SURW << PTE_TYPE_S))
-		return 1;
-	if ((entry & PTE_TYPE_M) == (PTE_TYPE_SURWX << PTE_TYPE_S))
-		return 1;
-	if ((entry & PTE_TYPE_M) == (PTE_TYPE_SRW << PTE_TYPE_S))
-		return 1;
-#endif
-
 	return (0);
 }
 
