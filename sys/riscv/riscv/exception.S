@@ -44,7 +44,6 @@ __FBSDID("$FreeBSD$");
 	addi	sp, sp, -280
 
 	sd	ra, (TF_RA)(sp)
-	//sd	sp, (TF_SP)(sp)
 	sd	gp, (TF_GP)(sp)
 	sd	tp, (TF_TP)(sp)
 
@@ -122,7 +121,6 @@ __FBSDID("$FreeBSD$");
 .endif
 
 	ld	ra, (TF_RA)(sp)
-	//ld	sp, (TF_SP)(sp)
 	ld	gp, (TF_GP)(sp)
 	ld	tp, (TF_TP)(sp)
 
@@ -199,7 +197,7 @@ user_trap:
 	la	t2, _C_LABEL(cpu_exception_handler_user)
 
 	csrr    t0, mcause
-	bltz    t0, interrupt
+	bltz    t0, machine_interrupt
 	j	exit_mrts
 
 supervisor_trap:
@@ -217,13 +215,13 @@ supervisor_trap:
 	la	t2, _C_LABEL(cpu_exception_handler_sv)
 
 	csrr	t0, mcause
-	bltz	t0, interrupt
+	bltz	t0, machine_interrupt
 
 	li	t1, EXCP_SMODE_ENV_CALL
-	beq	t0, t1, machine_call
+	beq	t0, t1, supervisor_call
 	j	exit_mrts
 
-interrupt:
+machine_interrupt:
 	/* Type of interrupt ? */
 	csrr	t0, mcause
 	andi	t0, t0, 3
@@ -239,9 +237,7 @@ interrupt:
 	j	1b
 
 software_interrupt:
-	/* Clear supervisor software interrupt */
-	//li	t0, MIP_SSIP
-	//csrc	mip, t0
+	/* Redirect to supervisor */
 	j	exit_mrts
 
 timer_interrupt:
@@ -253,7 +249,7 @@ timer_interrupt:
 	li	t0, MIP_MTIP
 	csrc	mip, t0
 
-	/* Post supervisor interrupt */
+	/* Post supervisor software interrupt */
 	li	t0, MIP_STIP
 	csrs	mip, t0
 
@@ -294,7 +290,7 @@ htif_interrupt:
 	j	3f
 
 2:
-	/* put entry */
+	/* Save entry */
 	la	t0, htif_ring_cursor
 	beqz	t0, 3f		/* not initialized */
 	ld	t0, 0(t0)	/* load struct */
@@ -302,7 +298,7 @@ htif_interrupt:
 	li	t4, 1
 	sd	t4, 8(t0)	/* mark used */
 	ld	t4, 16(t0)	/* take next */
-	/* update cursor */
+	/* Update cursor */
 	la	t0, htif_ring_cursor
 	sd	t4, 0(t0)
 
@@ -313,7 +309,7 @@ htif_interrupt:
 3:
 	j	exit
 
-machine_call:
+supervisor_call:
 	csrr	t1, mepc
 	addi	t1, t1, 4	/* Next instruction in t1 */
 	li	t4, ECALL_HTIF_CMD
@@ -349,7 +345,6 @@ htif_get_entry:
 	sd	t4, 8(t0)	/* mark free */
 	sd	t4, 0(t0)	/* free entry, just in case */
 	ld	t4, 16(t0)	/* take next */
-	/* update ring_last */
 	la	t0, htif_ring_last
 	sd	t4, 0(t0)
 1:
