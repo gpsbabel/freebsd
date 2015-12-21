@@ -88,7 +88,7 @@ void _rtld_bind_start(void);
 #define calculate_tls_offset(prev_offset, prev_size, size, align) \
     round(prev_offset + prev_size, align)
 #define calculate_tls_end(off, size)    ((off) + (size))
- 
+
 typedef struct {
 	unsigned long ti_module;
 	unsigned long ti_offset;
