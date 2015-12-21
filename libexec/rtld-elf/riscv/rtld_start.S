@@ -88,7 +88,7 @@ ENTRY(_rtld_bind_start)
 	sd	fa7, (8 * 7)(sp)
 #endif
 
-	/* Each rela item has 3 entriesso we need reloff = 3 * index */
+	/* Reloc offset is 3x of the .got.plt offset */
 	slli	a1, t1, 1	/* Mult items by 2 */
 	add	a1, a1, t1	/* Plus item */
 

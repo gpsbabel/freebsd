@@ -1,6 +1,14 @@
 /*-
- * Copyright (c) 1999, 2000 John D. Polstra.
+ * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
+ *
+ * Portions of this software were developed by SRI International and the
+ * University of Cambridge Computer Laboratory under DARPA/AFRL contract
+ * FA8750-10-C-0237 ("CTSRD"), as part of the DARPA CRASH research programme.
+ *
+ * Portions of this software were developed by the University of Cambridge
+ * Computer Laboratory as part of the CTSRD Project, with support from the
+ * UK Higher Education Innovation Fund (HEIF).
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -77,9 +85,9 @@ void _rtld_bind_start(void);
 /*
  * TLS
  */
-#define TLS_TP_OFFSET	0x0
-#define TLS_DTV_OFFSET	0x800
-#define TLS_TCB_SIZE	16
+#define	TLS_TP_OFFSET	0x0
+#define	TLS_DTV_OFFSET	0x800
+#define	TLS_TCB_SIZE	16
 
 #define round(size, align) \
     (((size) + (align) - 1) & ~((align) - 1))
