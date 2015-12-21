@@ -36,8 +36,8 @@
 __FBSDID("$FreeBSD$");
 
 ENTRY(_ctx_start)
-	jalr	x8		/* Call func from makecontext */
-	mv	a0, x9		/* Load ucp saved in makecontext */
+	jalr	s0		/* Call func from makecontext */
+	mv	a0, s1		/* Load ucp saved in makecontext */
 	call	_C_LABEL(ctx_done)
 	call	_C_LABEL(abort)
 END(_ctx_start)

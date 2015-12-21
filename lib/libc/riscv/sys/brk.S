@@ -56,34 +56,24 @@ ENTRY(_brk)
 	/* Load the address of minbrk */
 	la	a3, minbrk
 	ld	a2, 0(a3)
-	//adrp	x3, minbrk
-	//ldr	x2, [x3, :lo12:minbrk]
 
 	/* Validate the address */
 	bge	a0, a2, 1f
-	//cmp	x0, x2
-	//b.ge	1f
 	/* Invalid, set it to the minimum */
 	mv	a0, a2
-	//mov	x0, x2
 
 	/* Backup the new address */
-//1:	mov	x4, x0
 1:	mv	a4, a0
 
-	/* Update for this value, will overwrite x0 and x1 */
+	/* Update for this value, will overwrite a0 and a1 */
 	_SYSCALL(break)
 	bnez	t0, cerror
-	//b.cs	cerror
 
 	/* Store the new curbrk value */
 	la	a2, curbrk
-	//adrp	x2, curbrk
-	//str	x4, [x2, :lo12:curbrk]
+	sd	a4, 0(a2)
 
 	/* Return success */
 	li	a0, 0
-	//mov	x0, #0
 	ret
-
 END(_brk)
