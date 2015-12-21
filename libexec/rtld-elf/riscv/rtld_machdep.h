@@ -1,4 +1,5 @@
 /*-
+ * Copyright (c) 1999, 2000 John D. Polstra.
  * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
  *
