@@ -41,16 +41,10 @@ __FBSDID("$FreeBSD$");
  */
 
 ENTRY(.rtld_start)
-	mv	x8, a0		/* Put ps_strings in a callee-saved register */
-	mv	x9, sp		/* And the stack pointer */
+	mv	s0, a0		/* Put ps_strings in a callee-saved register */
+	mv	s1, sp		/* And the stack pointer */
 
-	/* Handle the old style stack */
-	/* TODO: Remove this when the kernel correctly aligns the stack */
-	//bnez	a0, 1f
-	//mv	a0, sp		/* sp points to the args */
-	//andi	sp, a0, ~0xf	/* Align the stack as needed */
-
-1:	addi	sp, sp, -16	/* Make room for obj_main & exit proc */
+	addi	sp, sp, -16	/* Make room for obj_main & exit proc */
 
 	mv	a1, sp		/* exit_proc */
 	addi	a2, a1, 8	/* obj_main */
@@ -59,50 +53,17 @@ ENTRY(.rtld_start)
 
 	ld	a2, 0(sp)	/* Load cleanup */
 	ld	a1, 8(sp)	/* Load obj_main */
-	mv	a0, x8		/* Restore ps_strings */
-	mv	sp, x9		/* Restore the stack pointer */
+	mv	a0, s0		/* Restore ps_strings */
+	mv	sp, s1		/* Restore the stack pointer */
 	jr	t0		/* Jump to the entry point */
-
-#if 0
-	mov	x19, x0		/* Put ps_strings in a callee-saved register */
-	mov	x20, sp		/* And the stack pointer */
-
-	/* Handle the old style stack */
-	/* TODO: Remove this when the kernel correctly aligns the stack */
-	cbnz	x0, 1f
-	mov	x0, sp		/* sp points to the args */
-	and	sp, x0, #~0xf	/* Align the stack as needed */
-
-1:	sub	sp, sp, #16	/* Make room for obj_main & exit proc */
-
-	mov	x1, sp		/* exit_proc */
-	add	x2, x1, #8	/* obj_main */
-	bl	_rtld		/* Call the loader */
-	mov	x8, x0		/* Backup the entry point */
-
-	ldr	x2, [sp]	/* Load cleanup */
-	ldr	x1, [sp, #8]	/* Load obj_main */
-	mov	x0, x19		/* Restore ps_strings */
-	mov	sp, x20		/* Restore the stack pointer */
-	br	x8		/* Jump to the entry point */
-#endif
 END(.rtld_start)
 
 /*
- * sp + 0 = &GOT[x + 3]
- * sp + 8 = RA
- * x16 = &GOT[2]
- * x17 = &_rtld_bind_start
- */
-
-/* netbsd hint
  * t0 = obj pointer
  * t1 = reloc offset
  */
 
 ENTRY(_rtld_bind_start)
-	//mv	t1, sp
-
 	/* Save the arguments */
 	addi	sp, sp, -72
 	sd	a0, (8 * 0)(sp)
@@ -115,21 +76,27 @@ ENTRY(_rtld_bind_start)
 	sd	a7, (8 * 7)(sp)
 	sd	ra, (8 * 8)(sp)
 
+#if 0
 	/* Save any floating-point arguments */
+	sd	fa0, (8 * 0)(sp)
+	sd	fa1, (8 * 1)(sp)
+	sd	fa2, (8 * 2)(sp)
+	sd	fa3, (8 * 3)(sp)
+	sd	fa4, (8 * 4)(sp)
+	sd	fa5, (8 * 5)(sp)
+	sd	fa6, (8 * 6)(sp)
+	sd	fa7, (8 * 7)(sp)
+#endif
 
 	/* Each rela item has 3 entriesso we need reloff = 3 * index */
-	slli	a1, t1, 1
-	add	a1, a1, t1
+	slli	a1, t1, 1	/* Mult items by 2 */
+	add	a1, a1, t1	/* Plus item */
 
 	/* Load obj */
 	mv	a0, t0
 
 	/* Call into rtld */
 	jal	_rtld_bind
-
-	/* Restore the registers saved by the plt code */
-	//ld	
-	//ldp	xzr, x30, [sp, #(5 * 16 + 4 * 32)]
 
 	/* Backup the address to branch to */
 	mv	t0, a0
@@ -146,61 +113,6 @@ ENTRY(_rtld_bind_start)
 	ld	ra, (8 * 8)(sp)
 	addi	sp, sp, 72
 
-	/* And the part of the stack the plt entry handled */
-	//addi	sp, sp, 16
-
 	/* Call into the correct function */
 	jr	t0
-#if 0
-	mov	x17, sp
-
-	/* Save the arguments */
-	stp	x0, x1, [sp, #-16]!
-	stp	x2, x3, [sp, #-16]!
-	stp	x4, x5, [sp, #-16]!
-	stp	x6, x7, [sp, #-16]!
-	stp	x8, xzr, [sp, #-16]!
-
-	/* Save any floating-point arguments */
-	stp	q0, q1, [sp, #-32]!
-	stp	q2, q3, [sp, #-32]!
-	stp	q4, q5, [sp, #-32]!
-	stp	q6, q7, [sp, #-32]!
-
-	/* Calculate reloff */
-	ldr	x2, [x17, #0]	/* Get the address of the entry */
-	sub	x1, x2, x16	/* Find its offset */
-	sub	x1, x1, #8	/* Adjust for x16 not being at offset 0 */
-	/* Each rela item has 3 entriesso we need reloff = 3 * index */
-	lsl	x3, x1, #1	/* x3 = 2 * offset */
-	add	x1, x1, x3	/* x1 = x3 + offset = 3 * offset */
-
-	/* Load obj */
-	ldr	x0, [x16, #-8]
-
-	/* Call into rtld */
-	bl	_rtld_bind
-
-	/* Restore the registers saved by the plt code */
-	ldp	xzr, x30, [sp, #(5 * 16 + 4 * 32)]
-
-	/* Backup the address to branch to */
-	mov	x16, x0
-
-	/* restore the arguments */
-	ldp	q6, q7, [sp], #32
-	ldp	q4, q5, [sp], #32
-	ldp	q2, q3, [sp], #32
-	ldp	q0, q1, [sp], #32
-	ldp	x8, xzr, [sp], #16
-	ldp	x6, x7, [sp], #16
-	ldp	x4, x5, [sp], #16
-	ldp	x2, x3, [sp], #16
-	ldp	x0, x1, [sp], #16
-	/* And the part of the stack the plt entry handled */
-	add	sp, sp, #16
-
-	/* Call into the correct function */
-	br	x16
-#endif
 END(_rtld_bind_start)

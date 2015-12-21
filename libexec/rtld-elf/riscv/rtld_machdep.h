@@ -77,7 +77,6 @@ void _rtld_bind_start(void);
 /*
  * TLS
  */
-
 #define TLS_TP_OFFSET	0x0
 #define TLS_DTV_OFFSET	0x800
 #define TLS_TCB_SIZE	16
