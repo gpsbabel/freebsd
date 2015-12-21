@@ -62,7 +62,6 @@ ENTRY(_setjmp)
 	addi	a0, a0, 104
 
 #ifndef _STANDALONE
-
 #if 0
 	/* Store the vfp registers */
 	fsd	fs0, (0 * 8)(a0)
@@ -78,7 +77,6 @@ ENTRY(_setjmp)
 	fsd	fs10, (10 * 8)(a0)
 	fsd	fs11, (11 * 8)(a0)
 #endif
-
 #endif
 
 	/* Return value */
@@ -101,7 +99,7 @@ ENTRY(_longjmp)
 	mv	sp, t0
 	addi	a0, a0, 16
 
-	/* Restore the general purpose registers and lr */
+	/* Restore the general purpose registers and ra */
 	ld	s0, (0 * 8)(a0)
 	ld	s1, (1 * 8)(a0)
 	ld	s2, (2 * 8)(a0)
@@ -114,11 +112,10 @@ ENTRY(_longjmp)
 	ld	s9, (9 * 8)(a0)
 	ld	s10, (10 * 8)(a0)
 	ld	s11, (11 * 8)(a0)
-	ld	x1, (12 * 8)(a0)	/* ra */
+	ld	ra, (12 * 8)(a0)
 	addi	a0, a0, 104
 
 #ifndef _STANDALONE
-
 #if 0
 	/* Restore the vfp registers */
 	fld	fs0, (0 * 8)(a0)
@@ -134,7 +131,6 @@ ENTRY(_longjmp)
 	fld	fs10, (10 * 8)(a0)
 	fld	fs11, (11 * 8)(a0)
 #endif
-
 #endif
 
 	/* Load the return value */

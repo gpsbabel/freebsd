@@ -42,26 +42,15 @@ ENTRY(setjmp)
 	sd	a0, 0(sp)
 	sd	ra, 8(sp)
 
-	//sub	sp, sp, #16
-	//stp	x0, lr, [sp]
-
 	/* Store the signal mask */
 	addi	a2, a0, (_JB_SIGMASK * 8)	/* oset */
 	li	a1, 0				/* set */
 	li	a0, 1				/* SIG_BLOCK */
 	jal	sigprocmask
 
-	//add	x2, x0, #(_JB_SIGMASK * 8)	/* oset */
-	//mov	x1, #0				/* set */
-	//mov	x0, #1				/* SIG_BLOCK */
-	//bl	sigprocmask
-
 	ld	a0, 0(sp)
 	ld	ra, 8(sp)
 	addi	sp, sp, 16
-
-	//ldp	x0, lr, [sp]
-	//add	sp, sp, #16
 
 	/* Store the magic value and stack pointer */
 	la	t0, .Lmagic
@@ -70,7 +59,7 @@ ENTRY(setjmp)
 	sd	sp, (1 * 8)(a0)
 	addi	a0, a0, 16
 
-	/* Store the general purpose registers and lr */
+	/* Store the general purpose registers and ra */
 	sd	s0, (0 * 8)(a0)
 	sd	s1, (1 * 8)(a0)
 	sd	s2, (2 * 8)(a0)
@@ -83,11 +72,11 @@ ENTRY(setjmp)
 	sd	s9, (9 * 8)(a0)
 	sd	s10, (10 * 8)(a0)
 	sd	s11, (11 * 8)(a0)
-	sd	x1, (12 * 8)(a0)	/* ra */
+	sd	ra, (12 * 8)(a0)
 	addi	a0, a0, 104
 
-	/* Store the vfp registers */
 #if 0
+	/* Store the vfp registers */
 	fsd	fs0, (0 * 8)(a0)
 	fsd	fs1, (1 * 8)(a0)
 	fsd	fs2, (2 * 8)(a0)
@@ -101,25 +90,6 @@ ENTRY(setjmp)
 	fsd	fs10, (10 * 8)(a0)
 	fsd	fs11, (11 * 8)(a0)
 #endif
-
-	/* Store the magic value and stack pointer */
-	//ldr	x8, .Lmagic
-	//mov	x9, sp
-	//stp	x8, x9, [x0], #16
-
-	/* Store the general purpose registers and lr */
-	//stp	x19, x20, [x0], #16
-	//stp	x21, x22, [x0], #16
-	//stp	x23, x24, [x0], #16
-	//stp	x25, x26, [x0], #16
-	//stp	x27, x28, [x0], #16
-	//stp	x29, lr, [x0], #16
-
-	/* Store the vfp registers */
-	//stp	d8, d9, [x0], #16
-	//stp	d10, d11, [x0], #16
-	//stp	d12, d13, [x0], #16
-	//stp	d14, d15, [x0]
 
 	/* Return value */
 	li	a0, 0
@@ -135,29 +105,16 @@ ENTRY(longjmp)
 	sd	ra, (1 * 8)(sp)
 	sd	a1, (2 * 8)(sp)
 
-	//sub	sp, sp, #32
-	//stp	x0, lr, [sp]
-	//str	x1, [sp, #16]
-
 	/* Restore the signal mask */
 	li	a2, 0				/* oset */
 	addi	a1, a0, (_JB_SIGMASK * 8)	/* set */
 	li	a0, 3				/* SIG_BLOCK */
 	jal	sigprocmask
 
-	//mov	x2, #0				/* oset */
-	//add	x1, x0, #(_JB_SIGMASK * 8)	/* set */
-	//mov	x0, #3				/* SIG_BLOCK */
-	//bl	sigprocmask
-
 	ld	a1, (2 * 8)(sp)
 	ld	ra, (1 * 8)(sp)
 	ld	a0, (0 * 8)(sp)
 	addi	sp, sp, 32
-
-	//ldr	x1, [sp, #16]
-	//ldp	x0, lr, [sp]
-	//add	sp, sp, #32
 
 	/* Check the magic value */
 	ld	t0, 0(a0)
@@ -170,7 +127,7 @@ ENTRY(longjmp)
 	mv	sp, t0
 	addi	a0, a0, 16
 
-	/* Restore the general purpose registers and lr */
+	/* Restore the general purpose registers and ra */
 	ld	s0, (0 * 8)(a0)
 	ld	s1, (1 * 8)(a0)
 	ld	s2, (2 * 8)(a0)
@@ -183,11 +140,11 @@ ENTRY(longjmp)
 	ld	s9, (9 * 8)(a0)
 	ld	s10, (10 * 8)(a0)
 	ld	s11, (11 * 8)(a0)
-	ld	x1, (12 * 8)(a0)	/* ra */
+	ld	ra, (12 * 8)(a0)
 	addi	a0, a0, 104
 
-	/* Restore the vfp registers */
 #if 0
+	/* Restore the vfp registers */
 	fld	fs0, (0 * 8)(a0)
 	fld	fs1, (1 * 8)(a0)
 	fld	fs2, (2 * 8)(a0)
@@ -201,30 +158,6 @@ ENTRY(longjmp)
 	fld	fs10, (10 * 8)(a0)
 	fld	fs11, (11 * 8)(a0)
 #endif
-
-	/* Check the magic value */
-	//ldr	x8, [x0], #8
-	//ldr	x9, .Lmagic
-	//cmp	x8, x9
-	//b.ne	botch
-
-	/* Restore the stack pointer */
-	//ldr	x8, [x0], #8
-	//mov	sp, x8
-
-	/* Restore the general purpose registers and lr */
-	//ldp	x19, x20, [x0], #16
-	//ldp	x21, x22, [x0], #16
-	//ldp	x23, x24, [x0], #16
-	//ldp	x25, x26, [x0], #16
-	//ldp	x27, x28, [x0], #16
-	//ldp	x29, lr, [x0], #16
-
-	/* Restore the vfp registers */
-	//ldp	d8, d9, [x0], #16
-	//ldp	d10, d11, [x0], #16
-	//ldp	d12, d13, [x0], #16
-	//ldp	d14, d15, [x0]
 
 	/* Load the return value */
 	mv	a0, a1
