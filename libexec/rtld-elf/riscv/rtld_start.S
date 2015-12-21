@@ -76,6 +76,7 @@ ENTRY(_rtld_bind_start)
 	sd	ra, (8 * 8)(sp)
 
 #if 0
+	/* RISCVTODO VFP */
 	/* Save any floating-point arguments */
 	sd	fa0, (8 * 0)(sp)
 	sd	fa1, (8 * 1)(sp)
