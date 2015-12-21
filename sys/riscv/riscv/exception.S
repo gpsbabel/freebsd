@@ -157,6 +157,27 @@ __FBSDID("$FreeBSD$");
 	addi	sp, sp, 280
 .endm
 
+.macro	do_ast
+	/* TODO: disable interrupts here ? */
+1:
+	la	a1, pcpup
+	ld	a1, 0(a1)
+	ld	a1, PC_CURTHREAD(a1)
+	lw	a2, TD_FLAGS(a1)
+
+	li	a3, (TDF_ASTPENDING|TDF_NEEDRESCHED)
+	and	a2, a2, a3
+	beqz	a2, 2f
+
+	/* handle the ast */
+	mv	a0, sp
+	call	_C_LABEL(ast)
+
+	/* Re-check for new ast scheduled */
+	j	1b
+2:
+.endm
+
 ENTRY(cpu_exception_handler_sv)
 	save_registers 1
 	mv	a0, sp
