@@ -62,7 +62,6 @@ END(.rtld_start)
  * t0 = obj pointer
  * t1 = reloc offset
  */
-
 ENTRY(_rtld_bind_start)
 	/* Save the arguments */
 	addi	sp, sp, -72
