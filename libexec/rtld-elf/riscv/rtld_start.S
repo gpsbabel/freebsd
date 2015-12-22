@@ -101,6 +101,19 @@ ENTRY(_rtld_bind_start)
 	/* Backup the address to branch to */
 	mv	t0, a0
 
+#if 0
+	/* RISCVTODO VFP */
+	/* Restore floating-point arguments */
+	ld	fa0, (8 * 0)(sp)
+	ld	fa1, (8 * 1)(sp)
+	ld	fa2, (8 * 2)(sp)
+	ld	fa3, (8 * 3)(sp)
+	ld	fa4, (8 * 4)(sp)
+	ld	fa5, (8 * 5)(sp)
+	ld	fa6, (8 * 6)(sp)
+	ld	fa7, (8 * 7)(sp)
+#endif
+
 	/* restore the arguments */
 	ld	a0, (8 * 0)(sp)
 	ld	a1, (8 * 1)(sp)
