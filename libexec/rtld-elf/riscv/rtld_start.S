@@ -80,13 +80,13 @@ ENTRY(_rtld_bind_start)
 	/* Save any floating-point arguments */
 	addi	sp, sp, -128
 	fsq	fa0, (16 * 0)(sp)
-	fsq	fa0, (16 * 1)(sp)
-	fsq	fa0, (16 * 2)(sp)
-	fsq	fa0, (16 * 3)(sp)
-	fsq	fa0, (16 * 4)(sp)
-	fsq	fa0, (16 * 5)(sp)
-	fsq	fa0, (16 * 6)(sp)
-	fsq	fa0, (16 * 7)(sp)
+	fsq	fa1, (16 * 1)(sp)
+	fsq	fa2, (16 * 2)(sp)
+	fsq	fa3, (16 * 3)(sp)
+	fsq	fa4, (16 * 4)(sp)
+	fsq	fa5, (16 * 5)(sp)
+	fsq	fa6, (16 * 6)(sp)
+	fsq	fa7, (16 * 7)(sp)
 #endif
 
 	/* Reloc offset is 3x of the .got.plt offset */
@@ -106,13 +106,13 @@ ENTRY(_rtld_bind_start)
 	/* RISCVTODO VFP */
 	/* Restore floating-point arguments */
 	flq	fa0, (16 * 0)(sp)
-	flq	fa0, (16 * 1)(sp)
-	flq	fa0, (16 * 2)(sp)
-	flq	fa0, (16 * 3)(sp)
-	flq	fa0, (16 * 4)(sp)
-	flq	fa0, (16 * 5)(sp)
-	flq	fa0, (16 * 6)(sp)
-	flq	fa0, (16 * 7)(sp)
+	flq	fa1, (16 * 1)(sp)
+	flq	fa2, (16 * 2)(sp)
+	flq	fa3, (16 * 3)(sp)
+	flq	fa4, (16 * 4)(sp)
+	flq	fa5, (16 * 5)(sp)
+	flq	fa6, (16 * 6)(sp)
+	flq	fa7, (16 * 7)(sp)
 	addi	sp, sp, 128
 #endif
 
