@@ -178,13 +178,13 @@ __FBSDID("$FreeBSD$");
 2:
 .endm
 
-ENTRY(cpu_exception_handler_sv)
+ENTRY(cpu_exception_handler_supervisor)
 	save_registers 1
 	mv	a0, sp
 	call	_C_LABEL(do_trap_supervisor)
 	load_registers 1
 	eret
-END(cpu_exception_handler_sv)
+END(cpu_exception_handler_supervisor)
 
 ENTRY(cpu_exception_handler_user)
 	csrrw	sp, sscratch, sp
@@ -233,7 +233,7 @@ supervisor_trap:
 	sd	t5, (8 * 5)(sp)
 	sd	a0, (8 * 7)(sp)
 
-	la	t2, _C_LABEL(cpu_exception_handler_sv)
+	la	t2, _C_LABEL(cpu_exception_handler_supervisor)
 
 	csrr	t0, mcause
 	bltz	t0, machine_interrupt
