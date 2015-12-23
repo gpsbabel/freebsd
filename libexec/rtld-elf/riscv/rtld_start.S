@@ -64,7 +64,7 @@ END(.rtld_start)
  */
 ENTRY(_rtld_bind_start)
 	/* Save the arguments and ra */
-	addi	sp, sp, -72
+	addi	sp, sp, -(8 * 25)
 	sd	a0, (8 * 0)(sp)
 	sd	a1, (8 * 1)(sp)
 	sd	a2, (8 * 2)(sp)
@@ -74,19 +74,17 @@ ENTRY(_rtld_bind_start)
 	sd	a6, (8 * 6)(sp)
 	sd	a7, (8 * 7)(sp)
 	sd	ra, (8 * 8)(sp)
-
 #if 0
 	/* RISCVTODO VFP */
 	/* Save any floating-point arguments */
-	addi	sp, sp, -128
-	fsq	fa0, (16 * 0)(sp)
-	fsq	fa1, (16 * 1)(sp)
-	fsq	fa2, (16 * 2)(sp)
-	fsq	fa3, (16 * 3)(sp)
-	fsq	fa4, (16 * 4)(sp)
-	fsq	fa5, (16 * 5)(sp)
-	fsq	fa6, (16 * 6)(sp)
-	fsq	fa7, (16 * 7)(sp)
+	fsq	fa0, (8 * 9)(sp)
+	fsq	fa1, (8 * 11)(sp)
+	fsq	fa2, (8 * 13)(sp)
+	fsq	fa3, (8 * 15)(sp)
+	fsq	fa4, (8 * 17)(sp)
+	fsq	fa5, (8 * 19)(sp)
+	fsq	fa6, (8 * 21)(sp)
+	fsq	fa7, (8 * 23)(sp)
 #endif
 
 	/* Reloc offset is 3x of the .got.plt offset */
@@ -102,20 +100,6 @@ ENTRY(_rtld_bind_start)
 	/* Backup the address to branch to */
 	mv	t0, a0
 
-#if 0
-	/* RISCVTODO VFP */
-	/* Restore floating-point arguments */
-	flq	fa0, (16 * 0)(sp)
-	flq	fa1, (16 * 1)(sp)
-	flq	fa2, (16 * 2)(sp)
-	flq	fa3, (16 * 3)(sp)
-	flq	fa4, (16 * 4)(sp)
-	flq	fa5, (16 * 5)(sp)
-	flq	fa6, (16 * 6)(sp)
-	flq	fa7, (16 * 7)(sp)
-	addi	sp, sp, 128
-#endif
-
 	/* Restore the arguments and ra */
 	ld	a0, (8 * 0)(sp)
 	ld	a1, (8 * 1)(sp)
@@ -126,7 +110,19 @@ ENTRY(_rtld_bind_start)
 	ld	a6, (8 * 6)(sp)
 	ld	a7, (8 * 7)(sp)
 	ld	ra, (8 * 8)(sp)
-	addi	sp, sp, 72
+#if 0
+	/* RISCVTODO VFP */
+	/* Restore floating-point arguments */
+	flq	fa0, (8 * 9)(sp)
+	flq	fa1, (8 * 11)(sp)
+	flq	fa2, (8 * 13)(sp)
+	flq	fa3, (8 * 15)(sp)
+	flq	fa4, (8 * 17)(sp)
+	flq	fa5, (8 * 19)(sp)
+	flq	fa6, (8 * 21)(sp)
+	flq	fa7, (8 * 23)(sp)
+#endif
+	addi	sp, sp, (8 * 25)
 
 	/* Call into the correct function */
 	jr	t0
