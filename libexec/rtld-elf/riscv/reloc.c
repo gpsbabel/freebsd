@@ -60,7 +60,7 @@ set_gp(Obj_Entry *obj)
 	uint64_t gp;
 	int res;
 
-	asm volatile("mv    %0, gp" : "=r"(old));
+	__asm __volatile("mv    %0, gp" : "=r"(old));
 
 	symlook_init(&req, "_gp");
 	req.ventry = NULL;
@@ -69,7 +69,7 @@ set_gp(Obj_Entry *obj)
 
 	if (res == 0) {
 		gp = req.sym_out->st_value;
-		asm volatile("mv    gp, %0" :: "r"(gp));
+		__asm __volatile("mv    gp, %0" :: "r"(gp));
 	}
 
 	return (old);
@@ -80,8 +80,8 @@ init_pltgot(Obj_Entry *obj)
 {
 
 	if (obj->pltgot != NULL) {
-		obj->pltgot[0] = (Elf_Addr) &_rtld_bind_start;
-		obj->pltgot[1] = (Elf_Addr) obj;
+		obj->pltgot[0] = (Elf_Addr)&_rtld_bind_start;
+		obj->pltgot[1] = (Elf_Addr)obj;
 	}
 }
 
@@ -382,7 +382,7 @@ allocate_initial_tls(Obj_Entry *objs)
 	tp = (Elf_Addr **) ((char *)allocate_tls(objs, NULL, TLS_TCB_SIZE, 16)
 	    + TLS_TP_OFFSET + TLS_TCB_SIZE);
 
-	asm volatile("mv  tp, %0" :: "r"(tp));
+	__asm __volatile("mv  tp, %0" :: "r"(tp));
 }
 
 void *
