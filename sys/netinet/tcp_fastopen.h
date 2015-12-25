@@ -1,8 +1,6 @@
 /*-
- * Copyright (c) 2015 The FreeBSD Foundation
- *
- * This software was developed by Konstantin Belousov
- * under sponsorship from the FreeBSD Foundation.
+ * Copyright (c) 2015 Patrick Kelsey
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -24,63 +22,26 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
+ *
+ * $FreeBSD$
  */
 
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
+#ifndef _TCP_FASTOPEN_H_
+#define _TCP_FASTOPEN_H_
 
-#include <sys/types.h>
-#include <sys/elf.h>
-#include <sys/time.h>
-#include <sys/vdso.h>
-#include <machine/cpufunc.h>
-#include <machine/acle-compat.h>
-#include "libc_private.h"
+#ifdef _KERNEL
 
-#if __ARM_ARCH >= 6
-static inline uint64_t
-cp15_cntvct_get(void)
-{
-	uint64_t reg;
+#define	TCP_FASTOPEN_COOKIE_LEN	8	/* tied to SipHash24 64-bit output */
 
-	__asm __volatile("mrrc\tp15, 1, %Q0, %R0, c14" : "=r" (reg));
-	return (reg);
-}
+VNET_DECLARE(unsigned int, tcp_fastopen_enabled);
+#define	V_tcp_fastopen_enabled	VNET(tcp_fastopen_enabled)
 
-static inline uint64_t
-cp15_cntpct_get(void)
-{
-	uint64_t reg;
+void	tcp_fastopen_init(void);
+void	tcp_fastopen_destroy(void);
+unsigned int *tcp_fastopen_alloc_counter(void);
+void	tcp_fastopen_decrement_counter(unsigned int *counter);
+int	tcp_fastopen_check_cookie(struct in_conninfo *inc, uint8_t *cookie,
+	    unsigned int len, uint64_t *latest_cookie);
+#endif /* _KERNEL */
 
-	__asm __volatile("mrrc\tp15, 0, %Q0, %R0, c14" : "=r" (reg));
-	return (reg);
-}
-#endif
-
-#pragma weak __vdso_gettc
-u_int
-__vdso_gettc(const struct vdso_timehands *th)
-{
-	uint64_t val;
-
-#if __ARM_ARCH >= 6
-	/*
-	 * Userspace gettimeofday() is only enabled on ARMv7 CPUs, but
-	 * libc is compiled for ARMv6.  Due to clang issues, .arch
-	 * armv7-a directive does not work.
-	 */
-	__asm __volatile(".word\t0xf57ff06f" : : : "memory"); /* isb */
-	val = th->th_physical == 0 ? cp15_cntvct_get() : cp15_cntpct_get();
-#else
-	val = 0;
-#endif
-	return (val);
-}
-
-#pragma weak __vdso_gettimekeep
-int
-__vdso_gettimekeep(struct vdso_timekeep **tk)
-{
-
-	return (_elf_aux_info(AT_TIMEKEEP, tk, sizeof(*tk)));
-}
+#endif /* _TCP_FASTOPEN_H_ */
