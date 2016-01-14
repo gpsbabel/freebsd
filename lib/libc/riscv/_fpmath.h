@@ -55,12 +55,8 @@ union IEEEl2bits {
 	(a)[1] = (uint32_t)(u).bits.manh;		\
 } while(0)
 
-/* TODO: Use this for !56 */
+/* TODO: Use this for LDBL_PREC == 113 */
 #if 0
-#define	LDBL_NBIT	0
-#define	LDBL_IMPLICIT_NBIT
-#define	mask_nbit_l(u)	((void)0)
-
 #define	LDBL_MANH_SIZE	48
 #define	LDBL_MANL_SIZE	64
 
