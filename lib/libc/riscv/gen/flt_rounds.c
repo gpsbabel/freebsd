@@ -1,6 +1,14 @@
 /*-
- * Copyright (c) 2012 Ian Lepore <freebsd@damnhippie.dyndns.org>
+ * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
+ *
+ * Portions of this software were developed by SRI International and the
+ * University of Cambridge Computer Laboratory under DARPA/AFRL contract
+ * FA8750-10-C-0237 ("CTSRD"), as part of the DARPA CRASH research programme.
+ *
+ * Portions of this software were developed by the University of Cambridge
+ * Computer Laboratory as part of the CTSRD Project, with support from the
+ * UK Higher Education Innovation Fund (HEIF).
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,27 +40,21 @@ __FBSDID("$FreeBSD$");
 #include <fenv.h>
 #include <float.h>
 
-#if 0
-static int map[] = {
-	1,	/* round to nearest */
-	2,	/* round to positive infinity */
-	3,	/* round to negative infinity */
-	0	/* round to zero */
-};
-#endif
-
 int
 __flt_rounds(void)
 {
-	//uint64_t fpcr;
+#if 0
+	uint64_t fcsr;
+#endif
 	int mode;
 
-	//asm volatile("mrs	%0, fpcr" : "=r" (fpcr));
-	//return map[(fpcr >> 22) & 3];
+#if 0
+	__asm __volatile("csrr    %0, fcsr" : "=r" (fcsr));
+	mode = (fcsr & _ROUND_MASK);
+#endif
 
-	/* RISC-V TODO */
-	//mode = __softfloat_float_rounding_mode;
-	mode = FE_TOWARDZERO;
+	/* RISCVTODO */
+	mode = FE_TOWARDZERO; /* softfloat rounding mode */
 
 	switch (mode) {
 	case FE_TOWARDZERO:
@@ -64,5 +66,6 @@ __flt_rounds(void)
 	case FE_DOWNWARD:
 		return (3);
 	}
+
 	return (-1);
 }
