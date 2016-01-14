@@ -43,7 +43,7 @@ ENTRY(_setjmp)
 	ld	t0, 0(t0)
 	sd	t0, (0 * 8)(a0)
 	sd	sp, (1 * 8)(a0)
-	addi	a0, a0, 16
+	addi	a0, a0, (2 * 8)
 
 	/* Store the general purpose registers and ra */
 	sd	s0, (0 * 8)(a0)
@@ -59,23 +59,25 @@ ENTRY(_setjmp)
 	sd	s10, (10 * 8)(a0)
 	sd	s11, (11 * 8)(a0)
 	sd	ra, (12 * 8)(a0)
-	addi	a0, a0, 104
+	addi	a0, a0, (13 * 8)
 
 #ifndef _STANDALONE
 #if 0
+	/* RISCVTODO */
 	/* Store the vfp registers */
-	fsd	fs0, (0 * 8)(a0)
-	fsd	fs1, (1 * 8)(a0)
-	fsd	fs2, (2 * 8)(a0)
-	fsd	fs3, (3 * 8)(a0)
-	fsd	fs4, (4 * 8)(a0)
-	fsd	fs5, (5 * 8)(a0)
-	fsd	fs6, (6 * 8)(a0)
-	fsd	fs7, (7 * 8)(a0)
-	fsd	fs8, (8 * 8)(a0)
-	fsd	fs9, (9 * 8)(a0)
-	fsd	fs10, (10 * 8)(a0)
-	fsd	fs11, (11 * 8)(a0)
+	fsq	fs0, (0 * 16)(a0)
+	fsq	fs1, (1 * 16)(a0)
+	fsq	fs2, (2 * 16)(a0)
+	fsq	fs3, (3 * 16)(a0)
+	fsq	fs4, (4 * 16)(a0)
+	fsq	fs5, (5 * 16)(a0)
+	fsq	fs6, (6 * 16)(a0)
+	fsq	fs7, (7 * 16)(a0)
+	fsq	fs8, (8 * 16)(a0)
+	fsq	fs9, (9 * 16)(a0)
+	fsq	fs10, (10 * 16)(a0)
+	fsq	fs11, (11 * 16)(a0)
+	addi	a0, a0, (12 * 16)
 #endif
 #endif
 
@@ -97,7 +99,7 @@ ENTRY(_longjmp)
 	/* Restore the stack pointer */
 	ld	t0, 8(a0)
 	mv	sp, t0
-	addi	a0, a0, 16
+	addi	a0, a0, (2 * 8)
 
 	/* Restore the general purpose registers and ra */
 	ld	s0, (0 * 8)(a0)
@@ -113,23 +115,25 @@ ENTRY(_longjmp)
 	ld	s10, (10 * 8)(a0)
 	ld	s11, (11 * 8)(a0)
 	ld	ra, (12 * 8)(a0)
-	addi	a0, a0, 104
+	addi	a0, a0, (13 * 8)
 
 #ifndef _STANDALONE
 #if 0
+	/* RISCVTODO */
 	/* Restore the vfp registers */
-	fld	fs0, (0 * 8)(a0)
-	fld	fs1, (1 * 8)(a0)
-	fld	fs2, (2 * 8)(a0)
-	fld	fs3, (3 * 8)(a0)
-	fld	fs4, (4 * 8)(a0)
-	fld	fs5, (5 * 8)(a0)
-	fld	fs6, (6 * 8)(a0)
-	fld	fs7, (7 * 8)(a0)
-	fld	fs8, (8 * 8)(a0)
-	fld	fs9, (9 * 8)(a0)
-	fld	fs10, (10 * 8)(a0)
-	fld	fs11, (11 * 8)(a0)
+	flq	fs0, (0 * 16)(a0)
+	flq	fs1, (1 * 16)(a0)
+	flq	fs2, (2 * 16)(a0)
+	flq	fs3, (3 * 16)(a0)
+	flq	fs4, (4 * 16)(a0)
+	flq	fs5, (5 * 16)(a0)
+	flq	fs6, (6 * 16)(a0)
+	flq	fs7, (7 * 16)(a0)
+	flq	fs8, (8 * 16)(a0)
+	flq	fs9, (9 * 16)(a0)
+	flq	fs10, (10 * 16)(a0)
+	flq	fs11, (11 * 16)(a0)
+	addi	a0, a0, (12 * 16)
 #endif
 #endif
 
