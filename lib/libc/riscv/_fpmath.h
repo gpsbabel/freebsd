@@ -35,7 +35,6 @@ union IEEEl2bits {
 		unsigned int	exp	:15;
 		unsigned int	sign	:1;
 	} bits;
-	/* TODO andrew: Check the packing here */
 	struct {
 		unsigned long	manl	:64;
 		unsigned long	manh	:48;
