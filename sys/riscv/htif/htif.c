@@ -105,8 +105,8 @@ htif_handle_entry(struct htif_softc *sc)
 		devid = HTIF_DEV_ID(entry);
 		devcmd = HTIF_DEV_CMD(entry);
 
-		if (devcmd == 0xFF) {
-			/* Enumeration interrupts */
+		if (devcmd == HTIF_CMD_IDENTIFY) {
+			/* Enumeration interrupt */
 			if (devid == sc->identify_id)
 				sc->identify_done = 1;
 		} else {
