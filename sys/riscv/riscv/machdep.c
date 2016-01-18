@@ -572,14 +572,6 @@ init_proc0(vm_offset_t kstack)
 	pcpup->pc_curpcb = thread0.td_pcb;
 }
 
-typedef struct {
-	uint32_t type;
-	uint64_t phys_start;
-	uint64_t virt_start;
-	uint64_t num_pages;
-	uint64_t attr;
-} EFI_MEMORY_DESCRIPTOR;
-
 static int
 add_physmap_entry(uint64_t base, uint64_t length, vm_paddr_t *physmap,
     u_int *physmap_idxp)
