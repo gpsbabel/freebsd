@@ -42,7 +42,7 @@ __FBSDID("$FreeBSD$");
 #include <vm/pmap.h>
 
 #include <machine/bus.h>
-#if !defined(__aarch64__) && !defined(__riscv__)
+#ifndef __aarch64__
 #include <machine/fdt.h>
 #endif
 
@@ -54,7 +54,7 @@ __FBSDID("$FreeBSD$");
 #include <dev/uart/uart_cpu.h>
 #include <dev/uart/uart_cpu_fdt.h>
 
-#if defined(__aarch64__) || defined(__riscv__)
+#ifdef __aarch64__
 extern bus_space_tag_t fdtbus_bs_tag;
 #endif
 
