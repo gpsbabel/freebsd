@@ -86,8 +86,9 @@ static cn_ungrab_t	riscv_cnungrab;
 
 CONSOLE_DRIVER(riscv);
 
-#define	MAX_BURST_LEN	1
-#define	QUEUE_SIZE	256
+#define	MAX_BURST_LEN		1
+#define	QUEUE_SIZE		256
+#define	CONSOLE_DEFAULT_ID	1ul
 
 struct queue_entry {
 	uint64_t data;
@@ -105,7 +106,7 @@ htif_putc(int c)
 	uint64_t cmd;
 
 	cmd = (HTIF_CMD_WRITE << HTIF_CMD_SHIFT);
-	cmd |= (1ul << HTIF_DEV_ID_SHIFT);
+	cmd |= (CONSOLE_DEFAULT_ID << HTIF_DEV_ID_SHIFT);
 	cmd |= c;
 
 	htif_command(cmd);
@@ -118,7 +119,7 @@ htif_getc(void)
 	uint8_t res;
 
 	cmd = (HTIF_CMD_READ << HTIF_CMD_SHIFT);
-	cmd |= (1ul << HTIF_DEV_ID_SHIFT);
+	cmd |= (CONSOLE_DEFAULT_ID << HTIF_DEV_ID_SHIFT);
 
 	res = htif_command(cmd);
 
@@ -134,9 +135,10 @@ riscv_putc(int c)
 
 	cc = (uint64_t*)&console_intr;
 	console_intr = 0;
-
 	val = 0;
+	tmp = 0;
 
+	/* Prevent compiler from optimizations */
 	__asm __volatile(
 		"li	%0, 0\n"
 		"sd	%0, 0(%1)" : "=&r"(val) : "r"(cc)
@@ -144,8 +146,7 @@ riscv_putc(int c)
 
 	htif_putc(c);
 
-	tmp = 0;
-
+	/* Wait an interrupt */
 	__asm __volatile(
 		"li	%0, 1 \n"
 		"slli	%0, %0, 12 \n"
