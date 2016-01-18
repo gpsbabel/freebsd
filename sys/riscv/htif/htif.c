@@ -138,10 +138,10 @@ htif_add_device(struct htif_softc *sc, int i, char *id, char *name)
 {
 	struct htif_dev_softc *dev_sc;
 
-	dev_sc = malloc(sizeof(struct htif_dev_softc), M_DEVBUF, M_NOWAIT | M_ZERO);
+	dev_sc = malloc(sizeof(struct htif_dev_softc), M_DEVBUF, M_WAITOK | M_ZERO);
 	dev_sc->sc = sc;
 	dev_sc->index = i;
-	dev_sc->id = malloc(HTIF_ID_LEN, M_DEVBUF, M_NOWAIT | M_ZERO);
+	dev_sc->id = malloc(HTIF_ID_LEN, M_DEVBUF, M_WAITOK | M_ZERO);
 	memcpy(dev_sc->id, id, HTIF_ID_LEN);
 
 	dev_sc->dev = device_add_child(sc->dev, name, -1);
