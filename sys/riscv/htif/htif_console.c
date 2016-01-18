@@ -104,7 +104,8 @@ htif_putc(int c)
 {
 	uint64_t cmd;
 
-	cmd = 0x101000000000000;
+	cmd = (HTIF_CMD_WRITE << HTIF_CMD_SHIFT);
+	cmd |= (1ul << HTIF_DEV_ID_SHIFT);
 	cmd |= c;
 
 	htif_command(cmd);
@@ -116,7 +117,8 @@ htif_getc(void)
 	uint64_t cmd;
 	uint8_t res;
 
-	cmd = 0x100000000000000;
+	cmd = (HTIF_CMD_READ << HTIF_CMD_SHIFT);
+	cmd |= (1ul << HTIF_DEV_ID_SHIFT);
 
 	res = htif_command(cmd);
 
@@ -167,9 +169,6 @@ cn_drvinit(void *unused)
 
 	if (riscv_consdev.cn_pri != CN_DEAD &&
 	    riscv_consdev.cn_name[0] != '\0') {
-		//if (OF_finddevice("/riscv") == -1)
-		//	return;
-
 		tp = tty_alloc(&riscv_ttydevsw, NULL);
 		tty_init_console(tp, 0);
 		tty_makedev(tp, NULL, "%s", "rcons");
