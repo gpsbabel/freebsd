@@ -140,7 +140,7 @@ cpu_set_syscall_retval(struct thread *td, int error)
 		frame->tf_t[0] = 0;		/* syscall succeeded */
 		break;
 	case ERESTART:
-		frame->tf_sepc -= 4;
+		frame->tf_sepc -= 4;		/* prev instruction */
 		break;
 	case EJUSTRETURN:
 		break;

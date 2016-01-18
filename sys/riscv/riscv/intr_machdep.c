@@ -126,10 +126,6 @@ riscv_unmask_irq(void *source)
 	}
 }
 
-/*
- * Perform initialization of interrupts prior to setting 
- * handlings
- */
 void
 riscv_init_interrupts(void)
 {

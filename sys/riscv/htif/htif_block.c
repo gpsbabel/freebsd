@@ -66,14 +66,14 @@ __FBSDID("$FreeBSD$");
 #define	SECTOR_SIZE_SHIFT	(9)
 #define	SECTOR_SIZE		(1 << SECTOR_SIZE_SHIFT)
 
-#define HTIF_BLK_LOCK(_sc)	mtx_lock(&(_sc)->sc_mtx)
+#define	HTIF_BLK_LOCK(_sc)	mtx_lock(&(_sc)->sc_mtx)
 #define	HTIF_BLK_UNLOCK(_sc)	mtx_unlock(&(_sc)->sc_mtx)
-#define HTIF_BLK_LOCK_INIT(_sc) \
+#define	HTIF_BLK_LOCK_INIT(_sc) \
 	mtx_init(&_sc->sc_mtx, device_get_nameunit(_sc->dev), \
 	    "htif_blk", MTX_DEF)
-#define HTIF_BLK_LOCK_DESTROY(_sc)	mtx_destroy(&_sc->sc_mtx);
-#define HTIF_BLK_ASSERT_LOCKED(_sc)	mtx_assert(&_sc->sc_mtx, MA_OWNED);
-#define HTIF_BLK_ASSERT_UNLOCKED(_sc)	mtx_assert(&_sc->sc_mtx, MA_NOTOWNED);
+#define	HTIF_BLK_LOCK_DESTROY(_sc)	mtx_destroy(&_sc->sc_mtx);
+#define	HTIF_BLK_ASSERT_LOCKED(_sc)	mtx_assert(&_sc->sc_mtx, MA_OWNED);
+#define	HTIF_BLK_ASSERT_UNLOCKED(_sc)	mtx_assert(&_sc->sc_mtx, MA_NOTOWNED);
 
 static void htif_blk_task(void *arg);
 
