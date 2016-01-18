@@ -30,7 +30,7 @@
  */
 
 #ifndef _DEV_HWPMC_RISCV_H_
-#define _DEV_HWPMC_RISCV_H_
+#define	_DEV_HWPMC_RISCV_H_
 
 #define	RISCV_PMC_CAPS		(PMC_CAP_INTERRUPT | PMC_CAP_USER |	\
 				 PMC_CAP_SYSTEM | PMC_CAP_EDGE |	\
