@@ -49,7 +49,6 @@
 
 #define	HTIF_NDEV		(256)
 #define	HTIF_ID_LEN		(64)
-
 #define	HTIF_ALIGN		(64)
 
 #define	HTIF_DEV_CMD(entry)	((entry & HTIF_CMD_MASK) >> HTIF_CMD_SHIFT)
