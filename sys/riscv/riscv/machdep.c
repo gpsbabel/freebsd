@@ -394,13 +394,11 @@ void
 spinlock_enter(void)
 {
 	struct thread *td;
-	register_t sstatus_ie;
 
 	td = curthread;
 	if (td->td_md.md_spinlock_count == 0) {
-		sstatus_ie = intr_disable();
 		td->td_md.md_spinlock_count = 1;
-		td->td_md.md_saved_sstatus_ie = sstatus_ie;
+		td->td_md.md_saved_sstatus_ie = intr_disable();
 	} else
 		td->td_md.md_spinlock_count++;
 	critical_enter();
@@ -434,6 +432,7 @@ sys_sigreturn(struct thread *td, struct sigreturn_args *uap)
 	uint64_t sstatus;
 #endif
 	ucontext_t uc;
+	int error;
 
 	if (uap == NULL)
 		return (EFAULT);
@@ -454,7 +453,10 @@ sys_sigreturn(struct thread *td, struct sigreturn_args *uap)
 		return (EINVAL);
 #endif
 
-	set_mcontext(td, &uc.uc_mcontext);
+	error = set_mcontext(td, &uc.uc_mcontext);
+	if (error != 0)
+		return (error);
+
 	set_fpcontext(td, &uc.uc_mcontext);
 
 	/* Restore signal mask. */
@@ -488,12 +490,15 @@ makectx(struct trapframe *tf, struct pcb *pcb)
 void
 sendsig(sig_t catcher, ksiginfo_t *ksi, sigset_t *mask)
 {
+	struct sigframe *fp, frame;
+	struct sysentvec *sysent;
+	struct trapframe *tf;
+	struct sigacts *psp;
 	struct thread *td;
 	struct proc *p;
-	struct trapframe *tf;
-	struct sigframe *fp, frame;
-	struct sigacts *psp;
-	int code, onstack, sig;
+	int onstack;
+	int code;
+	int sig;
 
 	td = curthread;
 	p = td->td_proc;
@@ -515,9 +520,6 @@ sendsig(sig_t catcher, ksiginfo_t *ksi, sigset_t *mask)
 	    SIGISMEMBER(psp->ps_sigonstack, sig)) {
 		fp = (struct sigframe *)(td->td_sigstk.ss_sp +
 		    td->td_sigstk.ss_size);
-#if defined(COMPAT_43)
-		td->td_sigstk.ss_flags |= SS_ONSTACK;
-#endif
 	} else {
 		fp = (struct sigframe *)td->td_frame->tf_sp;
 	}
@@ -551,7 +553,13 @@ sendsig(sig_t catcher, ksiginfo_t *ksi, sigset_t *mask)
 
 	tf->tf_sepc = (register_t)catcher;
 	tf->tf_sp = (register_t)fp;
-	tf->tf_ra = (register_t)(PS_STRINGS - *(p->p_sysent->sv_szsigcode));
+
+	sysent = p->p_sysent;
+	if (sysent->sv_sigcode_base != 0)
+		tf->tf_ra = (register_t)sysent->sv_sigcode_base;
+	else
+		tf->tf_ra = (register_t)(sysent->sv_psstrings -
+		    *(sysent->sv_szsigcode));
 
 	CTR3(KTR_SIG, "sendsig: return td=%p pc=%#x sp=%#x", td, tf->tf_elr,
 	    tf->tf_sp);
