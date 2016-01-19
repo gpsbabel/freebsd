@@ -198,13 +198,16 @@ ENTRY(fork_trampoline)
 	mv	a2, sp
 	call	_C_LABEL(fork_exit)
 
-	/* Restore exception program counter */
-	ld	t0, (TF_SEPC)(sp)
-	csrw	sepc, t0
-
 	/* Restore sstatus */
 	ld	t0, (TF_SSTATUS)(sp)
 	csrw	sstatus, t0
+
+	/* Ensure interrupts disabled */
+	csrci	sstatus, SSTATUS_IE
+
+	/* Restore exception program counter */
+	ld	t0, (TF_SEPC)(sp)
+	csrw	sepc, t0
 
 	/* Restore the registers */
 	ld	t0, (TF_T + 0 * 8)(sp)
@@ -236,9 +239,6 @@ ENTRY(fork_trampoline)
 	ld	a5, (TF_A + 5 * 8)(sp)
 	ld	a6, (TF_A + 6 * 8)(sp)
 	ld	a7, (TF_A + 7 * 8)(sp)
-
-	/* Disable interrupts */
-	csrci	sstatus, SSTATUS_IE
 
 	/* Save kernel stack so we can use it doing a user trap */
 	csrw	sscratch, sp
