@@ -1,4 +1,4 @@
-/* $OpenBSD: sshconnect.c,v 1.246 2014/02/06 22:21:01 djm Exp $ */
+/* $OpenBSD: sshconnect.c,v 1.251 2014/07/15 15:54:14 millert Exp $ */
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
  * Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
@@ -56,9 +56,9 @@ __RCSID("$FreeBSD$");
 #include "sshconnect.h"
 #include "hostfile.h"
 #include "log.h"
+#include "misc.h"
 #include "readconf.h"
 #include "atomicio.h"
-#include "misc.h"
 #include "dns.h"
 #include "roaming.h"
 #include "monitor_fdpass.h"
@@ -67,6 +67,7 @@ __RCSID("$FreeBSD$");
 
 char *client_version_string = NULL;
 char *server_version_string = NULL;
+Key *previous_host_key = NULL;
 
 static int matching_host_key_dns = 0;
 
@@ -265,29 +266,6 @@ ssh_kill_proxy_command(void)
 }
 
 /*
- * Set TCP receive buffer if requested.
- * Note: tuning needs to happen after the socket is created but before the
- * connection happens so winscale is negotiated properly.
- */
-static void
-ssh_set_socket_recvbuf(int sock)
-{
-	void *buf = (void *)&options.tcp_rcv_buf;
-	int socksize, sz = sizeof(options.tcp_rcv_buf);
-	socklen_t len = sizeof(int);
-
-	debug("setsockopt attempting to set SO_RCVBUF to %d",
-	    options.tcp_rcv_buf);
-	if (setsockopt(sock, SOL_SOCKET, SO_RCVBUF, buf, sz) >= 0) {
-		getsockopt(sock, SOL_SOCKET, SO_RCVBUF, &socksize, &len);
-		debug("setsockopt SO_RCVBUF: %.100s %d", strerror(errno),
-		    socksize);
-	} else
-		error("Couldn't set socket receive buffer to %d: %.100s",
-		    options.tcp_rcv_buf, strerror(errno));
-}
-
-/*
  * Creates a (possibly privileged) socket for use as the ssh connection.
  */
 static int
@@ -302,9 +280,6 @@ ssh_create_socket(int privileged, struct addrinfo *ai)
 		return -1;
 	}
 	fcntl(sock, F_SETFD, FD_CLOEXEC);
-
-	if (options.tcp_rcv_buf > 0)
-		ssh_set_socket_recvbuf(sock);
 
 	/* Bind the socket to an alternative local IP address */
 	if (options.bind_address == NULL && !privileged)
@@ -546,10 +521,10 @@ static void
 send_client_banner(int connection_out, int minor1)
 {
 	/* Send our own protocol version identification. */
-	xasprintf(&client_version_string, "SSH-%d.%d-%.100s%s%s%s%s",
+	xasprintf(&client_version_string, "SSH-%d.%d-%.100s%s%s%s",
 	    compat20 ? PROTOCOL_MAJOR_2 : PROTOCOL_MAJOR_1,
 	    compat20 ? PROTOCOL_MINOR_2 : minor1,
-	    SSH_VERSION, options.hpn_disabled ? "" : SSH_VERSION_HPN,
+	    SSH_VERSION,
 	    *options.version_addendum == '\0' ? "" : " ",
 	    options.version_addendum, compat20 ? "\r\n" : "\n");
 	if (roaming_atomicio(vwrite, connection_out, client_version_string,
@@ -736,7 +711,7 @@ check_host_cert(const char *host, const Key *host_key)
 		error("%s", reason);
 		return 0;
 	}
-	if (buffer_len(&host_key->cert->critical) != 0) {
+	if (buffer_len(host_key->cert->critical) != 0) {
 		error("Certificate for %s contains unsupported "
 		    "critical options(s)", host);
 		return 0;
@@ -1244,13 +1219,18 @@ fail:
 int
 verify_host_key(char *host, struct sockaddr *hostaddr, Key *host_key)
 {
-	int flags = 0;
+	int r = -1, flags = 0;
 	char *fp;
 	Key *plain = NULL;
 
 	fp = key_fingerprint(host_key, SSH_FP_MD5, SSH_FP_HEX);
 	debug("Server host key: %s %s", key_type(host_key), fp);
 	free(fp);
+
+	if (key_equal(previous_host_key, host_key)) {
+		debug("%s: server host key matches cached key", __func__);
+		return 0;
+	}
 
 	if (options.verify_host_key_dns) {
 		/*
@@ -1266,7 +1246,8 @@ verify_host_key(char *host, struct sockaddr *hostaddr, Key *host_key)
 				    flags & DNS_VERIFY_MATCH &&
 				    flags & DNS_VERIFY_SECURE) {
 					key_free(plain);
-					return 0;
+					r = 0;
+					goto done;
 				}
 				if (flags & DNS_VERIFY_MATCH) {
 					matching_host_key_dns = 1;
@@ -1281,9 +1262,17 @@ verify_host_key(char *host, struct sockaddr *hostaddr, Key *host_key)
 		key_free(plain);
 	}
 
-	return check_host_key(host, hostaddr, options.port, host_key, RDRW,
+	r = check_host_key(host, hostaddr, options.port, host_key, RDRW,
 	    options.user_hostfiles, options.num_user_hostfiles,
 	    options.system_hostfiles, options.num_system_hostfiles);
+
+done:
+	if (r == 0 && host_key != NULL) {
+		key_free(previous_host_key);
+		previous_host_key = key_from_private(host_key);
+	}
+
+	return r;
 }
 
 /*
@@ -1319,8 +1308,12 @@ ssh_login(Sensitive *sensitive, const char *orighost,
 		ssh_kex2(host, hostaddr, port);
 		ssh_userauth2(local_user, server_user, host, sensitive);
 	} else {
+#ifdef WITH_SSH1
 		ssh_kex(host, hostaddr);
 		ssh_userauth1(local_user, server_user, host, sensitive);
+#else
+		fatal("ssh1 is not unsupported");
+#endif
 	}
 	free(local_user);
 }

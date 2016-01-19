@@ -1,4 +1,4 @@
-/* $OpenBSD: readconf.c,v 1.218 2014/02/23 20:11:36 djm Exp $ */
+/* $OpenBSD: readconf.c,v 1.220 2014/07/15 15:54:14 millert Exp $ */
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
  * Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
@@ -20,6 +20,7 @@ __RCSID("$FreeBSD$");
 #include <sys/socket.h>
 #include <sys/sysctl.h>
 #include <sys/wait.h>
+#include <sys/un.h>
 
 #include <netinet/in.h>
 #include <netinet/in_systm.h>
@@ -50,9 +51,9 @@ __RCSID("$FreeBSD$");
 #include "pathnames.h"
 #include "log.h"
 #include "key.h"
+#include "misc.h"
 #include "readconf.h"
 #include "match.h"
-#include "misc.h"
 #include "buffer.h"
 #include "kex.h"
 #include "mac.h"
@@ -152,9 +153,9 @@ typedef enum {
 	oKexAlgorithms, oIPQoS, oRequestTTY, oIgnoreUnknown, oProxyUseFdpass,
 	oCanonicalDomains, oCanonicalizeHostname, oCanonicalizeMaxDots,
 	oCanonicalizeFallbackLocal, oCanonicalizePermittedCNAMEs,
-	oIgnoredUnknownOption,
-	oHPNDisabled, oHPNBufferSize, oTcpRcvBufPoll, oTcpRcvBuf,
-	oVersionAddendum, oDeprecated, oUnsupported
+	oStreamLocalBindMask, oStreamLocalBindUnlink,
+	oVersionAddendum,
+	oIgnoredUnknownOption, oDeprecated, oUnsupported
 } OpCodes;
 
 /* Textual representations of the tokens. */
@@ -266,11 +267,9 @@ static struct {
 	{ "canonicalizehostname", oCanonicalizeHostname },
 	{ "canonicalizemaxdots", oCanonicalizeMaxDots },
 	{ "canonicalizepermittedcnames", oCanonicalizePermittedCNAMEs },
+	{ "streamlocalbindmask", oStreamLocalBindMask },
+	{ "streamlocalbindunlink", oStreamLocalBindUnlink },
 	{ "ignoreunknown", oIgnoreUnknown },
-	{ "hpndisabled", oHPNDisabled },
-	{ "hpnbuffersize", oHPNBufferSize },
-	{ "tcprcvbufpoll", oTcpRcvBufPoll },
-	{ "tcprcvbuf", oTcpRcvBuf },
 	{ "versionaddendum", oVersionAddendum },
 
 	{ NULL, oBadOption }
@@ -282,9 +281,9 @@ static struct {
  */
 
 void
-add_local_forward(Options *options, const Forward *newfwd)
+add_local_forward(Options *options, const struct Forward *newfwd)
 {
-	Forward *fwd;
+	struct Forward *fwd;
 #ifndef NO_IPPORT_RESERVED_CONCEPT
 	extern uid_t original_real_uid;
 	int ipport_reserved;
@@ -300,6 +299,8 @@ add_local_forward(Options *options, const Forward *newfwd)
 	ipport_reserved = IPPORT_RESERVED;
 #endif
 	if (newfwd->listen_port < ipport_reserved && original_real_uid != 0)
+	if (newfwd->listen_port < ipport_reserved && original_real_uid != 0 &&
+	    newfwd->listen_path == NULL)
 		fatal("Privileged ports can only be forwarded by root.");
 #endif
 	options->local_forwards = xrealloc(options->local_forwards,
@@ -309,8 +310,10 @@ add_local_forward(Options *options, const Forward *newfwd)
 
 	fwd->listen_host = newfwd->listen_host;
 	fwd->listen_port = newfwd->listen_port;
+	fwd->listen_path = newfwd->listen_path;
 	fwd->connect_host = newfwd->connect_host;
 	fwd->connect_port = newfwd->connect_port;
+	fwd->connect_path = newfwd->connect_path;
 }
 
 /*
@@ -319,9 +322,9 @@ add_local_forward(Options *options, const Forward *newfwd)
  */
 
 void
-add_remote_forward(Options *options, const Forward *newfwd)
+add_remote_forward(Options *options, const struct Forward *newfwd)
 {
-	Forward *fwd;
+	struct Forward *fwd;
 
 	options->remote_forwards = xrealloc(options->remote_forwards,
 	    options->num_remote_forwards + 1,
@@ -330,8 +333,10 @@ add_remote_forward(Options *options, const Forward *newfwd)
 
 	fwd->listen_host = newfwd->listen_host;
 	fwd->listen_port = newfwd->listen_port;
+	fwd->listen_path = newfwd->listen_path;
 	fwd->connect_host = newfwd->connect_host;
 	fwd->connect_port = newfwd->connect_port;
+	fwd->connect_path = newfwd->connect_path;
 	fwd->handle = newfwd->handle;
 	fwd->allocated_port = 0;
 }
@@ -343,7 +348,9 @@ clear_forwardings(Options *options)
 
 	for (i = 0; i < options->num_local_forwards; i++) {
 		free(options->local_forwards[i].listen_host);
+		free(options->local_forwards[i].listen_path);
 		free(options->local_forwards[i].connect_host);
+		free(options->local_forwards[i].connect_path);
 	}
 	if (options->num_local_forwards > 0) {
 		free(options->local_forwards);
@@ -352,7 +359,9 @@ clear_forwardings(Options *options)
 	options->num_local_forwards = 0;
 	for (i = 0; i < options->num_remote_forwards; i++) {
 		free(options->remote_forwards[i].listen_host);
+		free(options->remote_forwards[i].listen_path);
 		free(options->remote_forwards[i].connect_host);
+		free(options->remote_forwards[i].connect_path);
 	}
 	if (options->num_remote_forwards > 0) {
 		free(options->remote_forwards);
@@ -367,6 +376,7 @@ add_identity_file(Options *options, const char *dir, const char *filename,
     int userprovided)
 {
 	char *path;
+	int i;
 
 	if (options->num_identity_files >= SSH_MAX_IDENTITY_FILES)
 		fatal("Too many identity files specified (max %d)",
@@ -376,6 +386,16 @@ add_identity_file(Options *options, const char *dir, const char *filename,
 		path = xstrdup(filename);
 	else
 		(void)xasprintf(&path, "%.100s%.100s", dir, filename);
+
+	/* Avoid registering duplicates */
+	for (i = 0; i < options->num_identity_files; i++) {
+		if (options->identity_file_userprovided[i] == userprovided &&
+		    strcmp(options->identity_files[i], path) == 0) {
+			debug2("%s: ignoring duplicate key %s", __func__, path);
+			free(path);
+			return;
+		}
+	}
 
 	options->identity_file_userprovided[options->num_identity_files] =
 	    userprovided;
@@ -726,7 +746,7 @@ process_config_line(Options *options, struct passwd *pw, const char *host,
 	LogLevel *log_level_ptr;
 	long long val64;
 	size_t len;
-	Forward fwd;
+	struct Forward fwd;
 	const struct multistate *multistate_ptr;
 	struct allowed_cname *cname;
 
@@ -816,7 +836,7 @@ parse_time:
 		goto parse_time;
 
 	case oGatewayPorts:
-		intptr = &options->gateway_ports;
+		intptr = &options->fwd_opts.gateway_ports;
 		goto parse_flag;
 
 	case oExitOnForwardFailure:
@@ -1352,22 +1372,6 @@ parse_int:
 		multistate_ptr = multistate_requesttty;
 		goto parse_multistate;
 
-	case oHPNDisabled:
-		intptr = &options->hpn_disabled;
-		goto parse_flag;
-
-	case oHPNBufferSize:
-		intptr = &options->hpn_buffer_size;
-		goto parse_int;
-
-	case oTcpRcvBufPoll:
-		intptr = &options->tcp_rcv_buf_poll;
-		goto parse_flag;
-
-	case oTcpRcvBuf:
-		intptr = &options->tcp_rcv_buf;
-		goto parse_int;
-
 	case oVersionAddendum:
 		if (s == NULL)
 			fatal("%.200s line %d: Missing argument.", filename,
@@ -1446,6 +1450,21 @@ parse_int:
 
 	case oCanonicalizeFallbackLocal:
 		intptr = &options->canonicalize_fallback_local;
+		goto parse_flag;
+
+	case oStreamLocalBindMask:
+		arg = strdelim(&s);
+		if (!arg || *arg == '\0')
+			fatal("%.200s line %d: Missing StreamLocalBindMask argument.", filename, linenum);
+		/* Parse mode in octal format */
+		value = strtol(arg, &endofnumber, 8);
+		if (arg == endofnumber || value < 0 || value > 0777)
+			fatal("%.200s line %d: Bad mask.", filename, linenum);
+		options->fwd_opts.streamlocal_bind_mask = (mode_t)value;
+		break;
+
+	case oStreamLocalBindUnlink:
+		intptr = &options->fwd_opts.streamlocal_bind_unlink;
 		goto parse_flag;
 
 	case oDeprecated:
@@ -1545,7 +1564,9 @@ initialize_options(Options * options)
 	options->forward_x11_timeout = -1;
 	options->exit_on_forward_failure = -1;
 	options->xauth_location = NULL;
-	options->gateway_ports = -1;
+	options->fwd_opts.gateway_ports = -1;
+	options->fwd_opts.streamlocal_bind_mask = (mode_t)-1;
+	options->fwd_opts.streamlocal_bind_unlink = -1;
 	options->use_privileged_port = -1;
 	options->rsa_authentication = -1;
 	options->pubkey_authentication = -1;
@@ -1623,10 +1644,6 @@ initialize_options(Options * options)
 	options->canonicalize_fallback_local = -1;
 	options->canonicalize_hostname = -1;
 	options->version_addendum = NULL;
-	options->hpn_disabled = -1;
-	options->hpn_buffer_size = -1;
-	options->tcp_rcv_buf_poll = -1;
-	options->tcp_rcv_buf = -1;
 }
 
 /*
@@ -1663,8 +1680,12 @@ fill_default_options(Options * options)
 		options->exit_on_forward_failure = 0;
 	if (options->xauth_location == NULL)
 		options->xauth_location = _PATH_XAUTH;
-	if (options->gateway_ports == -1)
-		options->gateway_ports = 0;
+	if (options->fwd_opts.gateway_ports == -1)
+		options->fwd_opts.gateway_ports = 0;
+	if (options->fwd_opts.streamlocal_bind_mask == (mode_t)-1)
+		options->fwd_opts.streamlocal_bind_mask = 0177;
+	if (options->fwd_opts.streamlocal_bind_unlink == -1)
+		options->fwd_opts.streamlocal_bind_unlink = 0;
 	if (options->use_privileged_port == -1)
 		options->use_privileged_port = 0;
 	if (options->rsa_authentication == -1)
@@ -1821,49 +1842,94 @@ fill_default_options(Options * options)
 	/* options->preferred_authentications will be set in ssh */
 	if (options->version_addendum == NULL)
 		options->version_addendum = xstrdup(SSH_VERSION_FREEBSD);
-	if (options->hpn_disabled == -1)
-		options->hpn_disabled = 0;
-	if (options->hpn_buffer_size > -1)
-	{
-		u_int maxlen;
+}
 
-		/* If a user tries to set the size to 0 set it to 1KB. */
-		if (options->hpn_buffer_size == 0)
-			options->hpn_buffer_size = 1024;
-		/* Limit the buffer to BUFFER_MAX_LEN. */
-		maxlen = buffer_get_max_len();
-		if (options->hpn_buffer_size > (maxlen / 1024)) {
-			debug("User requested buffer larger than %ub: %ub. "
-			    "Request reverted to %ub", maxlen,
-			    options->hpn_buffer_size * 1024, maxlen);
-			options->hpn_buffer_size = maxlen;
-		}
-		debug("hpn_buffer_size set to %d", options->hpn_buffer_size);
+struct fwdarg {
+	char *arg;
+	int ispath;
+};
+
+/*
+ * parse_fwd_field
+ * parses the next field in a port forwarding specification.
+ * sets fwd to the parsed field and advances p past the colon
+ * or sets it to NULL at end of string.
+ * returns 0 on success, else non-zero.
+ */
+static int
+parse_fwd_field(char **p, struct fwdarg *fwd)
+{
+	char *ep, *cp = *p;
+	int ispath = 0;
+
+	if (*cp == '\0') {
+		*p = NULL;
+		return -1;	/* end of string */
 	}
-	if (options->tcp_rcv_buf == 0)
-		options->tcp_rcv_buf = 1;
-	if (options->tcp_rcv_buf > -1)
-		options->tcp_rcv_buf *= 1024;
-	if (options->tcp_rcv_buf_poll == -1)
-		options->tcp_rcv_buf_poll = 1;
+
+	/*
+	 * A field escaped with square brackets is used literally.
+	 * XXX - allow ']' to be escaped via backslash?
+	 */
+	if (*cp == '[') {
+		/* find matching ']' */
+		for (ep = cp + 1; *ep != ']' && *ep != '\0'; ep++) {
+			if (*ep == '/')
+				ispath = 1;
+		}
+		/* no matching ']' or not at end of field. */
+		if (ep[0] != ']' || (ep[1] != ':' && ep[1] != '\0'))
+			return -1;
+		/* NUL terminate the field and advance p past the colon */
+		*ep++ = '\0';
+		if (*ep != '\0')
+			*ep++ = '\0';
+		fwd->arg = cp + 1;
+		fwd->ispath = ispath;
+		*p = ep;
+		return 0;
+	}
+
+	for (cp = *p; *cp != '\0'; cp++) {
+		switch (*cp) {
+		case '\\':
+			memmove(cp, cp + 1, strlen(cp + 1) + 1);
+			cp++;
+			break;
+		case '/':
+			ispath = 1;
+			break;
+		case ':':
+			*cp++ = '\0';
+			goto done;
+		}
+	}
+done:
+	fwd->arg = *p;
+	fwd->ispath = ispath;
+	*p = cp;
+	return 0;
 }
 
 /*
  * parse_forward
  * parses a string containing a port forwarding specification of the form:
  *   dynamicfwd == 0
- *	[listenhost:]listenport:connecthost:connectport
+ *	[listenhost:]listenport|listenpath:connecthost:connectport|connectpath
+ *	listenpath:connectpath
  *   dynamicfwd == 1
  *	[listenhost:]listenport
  * returns number of arguments parsed or zero on error
  */
 int
-parse_forward(Forward *fwd, const char *fwdspec, int dynamicfwd, int remotefwd)
+parse_forward(struct Forward *fwd, const char *fwdspec, int dynamicfwd, int remotefwd)
 {
+	struct fwdarg fwdargs[4];
+	char *p, *cp;
 	int i;
-	char *p, *cp, *fwdarg[4];
 
-	memset(fwd, '\0', sizeof(*fwd));
+	memset(fwd, 0, sizeof(*fwd));
+	memset(fwdargs, 0, sizeof(fwdargs));
 
 	cp = p = xstrdup(fwdspec);
 
@@ -1871,39 +1937,70 @@ parse_forward(Forward *fwd, const char *fwdspec, int dynamicfwd, int remotefwd)
 	while (isspace((u_char)*cp))
 		cp++;
 
-	for (i = 0; i < 4; ++i)
-		if ((fwdarg[i] = hpdelim(&cp)) == NULL)
+	for (i = 0; i < 4; ++i) {
+		if (parse_fwd_field(&cp, &fwdargs[i]) != 0)
 			break;
+	}
 
 	/* Check for trailing garbage */
-	if (cp != NULL)
+	if (cp != NULL && *cp != '\0') {
 		i = 0;	/* failure */
+	}
 
 	switch (i) {
 	case 1:
-		fwd->listen_host = NULL;
-		fwd->listen_port = a2port(fwdarg[0]);
+		if (fwdargs[0].ispath) {
+			fwd->listen_path = xstrdup(fwdargs[0].arg);
+			fwd->listen_port = PORT_STREAMLOCAL;
+		} else {
+			fwd->listen_host = NULL;
+			fwd->listen_port = a2port(fwdargs[0].arg);
+		}
 		fwd->connect_host = xstrdup("socks");
 		break;
 
 	case 2:
-		fwd->listen_host = xstrdup(cleanhostname(fwdarg[0]));
-		fwd->listen_port = a2port(fwdarg[1]);
-		fwd->connect_host = xstrdup("socks");
+		if (fwdargs[0].ispath && fwdargs[1].ispath) {
+			fwd->listen_path = xstrdup(fwdargs[0].arg);
+			fwd->listen_port = PORT_STREAMLOCAL;
+			fwd->connect_path = xstrdup(fwdargs[1].arg);
+			fwd->connect_port = PORT_STREAMLOCAL;
+		} else if (fwdargs[1].ispath) {
+			fwd->listen_host = NULL;
+			fwd->listen_port = a2port(fwdargs[0].arg);
+			fwd->connect_path = xstrdup(fwdargs[1].arg);
+			fwd->connect_port = PORT_STREAMLOCAL;
+		} else {
+			fwd->listen_host = xstrdup(fwdargs[0].arg);
+			fwd->listen_port = a2port(fwdargs[1].arg);
+			fwd->connect_host = xstrdup("socks");
+		}
 		break;
 
 	case 3:
-		fwd->listen_host = NULL;
-		fwd->listen_port = a2port(fwdarg[0]);
-		fwd->connect_host = xstrdup(cleanhostname(fwdarg[1]));
-		fwd->connect_port = a2port(fwdarg[2]);
+		if (fwdargs[0].ispath) {
+			fwd->listen_path = xstrdup(fwdargs[0].arg);
+			fwd->listen_port = PORT_STREAMLOCAL;
+			fwd->connect_host = xstrdup(fwdargs[1].arg);
+			fwd->connect_port = a2port(fwdargs[2].arg);
+		} else if (fwdargs[2].ispath) {
+			fwd->listen_host = xstrdup(fwdargs[0].arg);
+			fwd->listen_port = a2port(fwdargs[1].arg);
+			fwd->connect_path = xstrdup(fwdargs[2].arg);
+			fwd->connect_port = PORT_STREAMLOCAL;
+		} else {
+			fwd->listen_host = NULL;
+			fwd->listen_port = a2port(fwdargs[0].arg);
+			fwd->connect_host = xstrdup(fwdargs[1].arg);
+			fwd->connect_port = a2port(fwdargs[2].arg);
+		}
 		break;
 
 	case 4:
-		fwd->listen_host = xstrdup(cleanhostname(fwdarg[0]));
-		fwd->listen_port = a2port(fwdarg[1]);
-		fwd->connect_host = xstrdup(cleanhostname(fwdarg[2]));
-		fwd->connect_port = a2port(fwdarg[3]);
+		fwd->listen_host = xstrdup(fwdargs[0].arg);
+		fwd->listen_port = a2port(fwdargs[1].arg);
+		fwd->connect_host = xstrdup(fwdargs[2].arg);
+		fwd->connect_port = a2port(fwdargs[3].arg);
 		break;
 	default:
 		i = 0; /* failure */
@@ -1915,29 +2012,42 @@ parse_forward(Forward *fwd, const char *fwdspec, int dynamicfwd, int remotefwd)
 		if (!(i == 1 || i == 2))
 			goto fail_free;
 	} else {
-		if (!(i == 3 || i == 4))
-			goto fail_free;
-		if (fwd->connect_port <= 0)
+		if (!(i == 3 || i == 4)) {
+			if (fwd->connect_path == NULL &&
+			    fwd->listen_path == NULL)
+				goto fail_free;
+		}
+		if (fwd->connect_port <= 0 && fwd->connect_path == NULL)
 			goto fail_free;
 	}
 
-	if (fwd->listen_port < 0 || (!remotefwd && fwd->listen_port == 0))
+	if ((fwd->listen_port < 0 && fwd->listen_path == NULL) ||
+	    (!remotefwd && fwd->listen_port == 0))
 		goto fail_free;
-
 	if (fwd->connect_host != NULL &&
 	    strlen(fwd->connect_host) >= NI_MAXHOST)
+		goto fail_free;
+	/* XXX - if connecting to a remote socket, max sun len may not match this host */
+	if (fwd->connect_path != NULL &&
+	    strlen(fwd->connect_path) >= PATH_MAX_SUN)
 		goto fail_free;
 	if (fwd->listen_host != NULL &&
 	    strlen(fwd->listen_host) >= NI_MAXHOST)
 		goto fail_free;
-
+	if (fwd->listen_path != NULL &&
+	    strlen(fwd->listen_path) >= PATH_MAX_SUN)
+		goto fail_free;
 
 	return (i);
 
  fail_free:
 	free(fwd->connect_host);
 	fwd->connect_host = NULL;
+	free(fwd->connect_path);
+	fwd->connect_path = NULL;
 	free(fwd->listen_host);
 	fwd->listen_host = NULL;
+	free(fwd->listen_path);
+	fwd->listen_path = NULL;
 	return (0);
 }

@@ -1,5 +1,5 @@
 
-/* $OpenBSD: servconf.c,v 1.249 2014/01/29 06:18:35 djm Exp $ */
+/* $OpenBSD: servconf.c,v 1.251 2014/07/15 15:54:14 millert Exp $ */
 /*
  * Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
  *                    All rights reserved
@@ -40,10 +40,10 @@ __RCSID("$FreeBSD$");
 #include "ssh.h"
 #include "log.h"
 #include "buffer.h"
+#include "misc.h"
 #include "servconf.h"
 #include "compat.h"
 #include "pathnames.h"
-#include "misc.h"
 #include "cipher.h"
 #include "key.h"
 #include "kex.h"
@@ -95,6 +95,7 @@ initialize_server_options(ServerOptions *options)
 	options->x11_display_offset = -1;
 	options->x11_use_localhost = -1;
 	options->permit_tty = -1;
+	options->permit_user_rc = -1;
 	options->xauth_location = NULL;
 	options->strict_modes = -1;
 	options->tcp_keep_alive = -1;
@@ -121,6 +122,7 @@ initialize_server_options(ServerOptions *options)
 	options->rekey_limit = -1;
 	options->rekey_interval = -1;
 	options->allow_tcp_forwarding = -1;
+	options->allow_streamlocal_forwarding = -1;
 	options->allow_agent_forwarding = -1;
 	options->num_allow_users = 0;
 	options->num_deny_users = 0;
@@ -130,7 +132,9 @@ initialize_server_options(ServerOptions *options)
 	options->macs = NULL;
 	options->kex_algorithms = NULL;
 	options->protocol = SSH_PROTO_UNKNOWN;
-	options->gateway_ports = -1;
+	options->fwd_opts.gateway_ports = -1;
+	options->fwd_opts.streamlocal_bind_mask = (mode_t)-1;
+	options->fwd_opts.streamlocal_bind_unlink = -1;
 	options->num_subsystems = 0;
 	options->max_startups_begin = -1;
 	options->max_startups_rate = -1;
@@ -155,9 +159,6 @@ initialize_server_options(ServerOptions *options)
 	options->ip_qos_interactive = -1;
 	options->ip_qos_bulk = -1;
 	options->version_addendum = NULL;
-	options->hpn_disabled = -1;
-	options->hpn_buffer_size = -1;
-	options->tcp_rcv_buf_poll = -1;
 }
 
 void
@@ -221,6 +222,8 @@ fill_default_server_options(ServerOptions *options)
 		options->xauth_location = _PATH_XAUTH;
 	if (options->permit_tty == -1)
 		options->permit_tty = 1;
+	if (options->permit_user_rc == -1)
+		options->permit_user_rc = 1;
 	if (options->strict_modes == -1)
 		options->strict_modes = 1;
 	if (options->tcp_keep_alive == -1)
@@ -271,10 +274,12 @@ fill_default_server_options(ServerOptions *options)
 		options->rekey_interval = 0;
 	if (options->allow_tcp_forwarding == -1)
 		options->allow_tcp_forwarding = FORWARD_ALLOW;
+	if (options->allow_streamlocal_forwarding == -1)
+		options->allow_streamlocal_forwarding = FORWARD_ALLOW;
 	if (options->allow_agent_forwarding == -1)
 		options->allow_agent_forwarding = 1;
-	if (options->gateway_ports == -1)
-		options->gateway_ports = 0;
+	if (options->fwd_opts.gateway_ports == -1)
+		options->fwd_opts.gateway_ports = 0;
 	if (options->max_startups == -1)
 		options->max_startups = 100;
 	if (options->max_startups_rate == -1)
@@ -305,6 +310,10 @@ fill_default_server_options(ServerOptions *options)
 		options->ip_qos_bulk = IPTOS_THROUGHPUT;
 	if (options->version_addendum == NULL)
 		options->version_addendum = xstrdup(SSH_VERSION_FREEBSD);
+	if (options->fwd_opts.streamlocal_bind_mask == (mode_t)-1)
+		options->fwd_opts.streamlocal_bind_mask = 0177;
+	if (options->fwd_opts.streamlocal_bind_unlink == -1)
+		options->fwd_opts.streamlocal_bind_unlink = 0;
 	/* Turn privilege separation on by default */
 	if (use_privsep == -1)
 		use_privsep = PRIVSEP_ON;
@@ -318,38 +327,6 @@ fill_default_server_options(ServerOptions *options)
 	}
 #endif
 
-	if (options->hpn_disabled == -1)
-		options->hpn_disabled = 0;
-	if (options->hpn_buffer_size == -1) {
-		/*
-		 * HPN buffer size option not explicitly set.  Try to figure
-		 * out what value to use or resort to default.
-		 */
-		options->hpn_buffer_size = CHAN_SES_WINDOW_DEFAULT;
-		if (!options->hpn_disabled) {
-			sock_get_rcvbuf(&options->hpn_buffer_size, 0);
-			debug ("HPN Buffer Size: %d", options->hpn_buffer_size);
-		}
-	} else {
-		/*
-		 * In the case that the user sets both values in a
-		 * contradictory manner hpn_disabled overrrides hpn_buffer_size.
-		 */
-		if (options->hpn_disabled <= 0) {
-			u_int maxlen;
-
-			maxlen = buffer_get_max_len();
-			if (options->hpn_buffer_size == 0)
-				options->hpn_buffer_size = 1;
-			/* Limit the maximum buffer to BUFFER_MAX_LEN. */
-			if (options->hpn_buffer_size > maxlen / 1024)
-				options->hpn_buffer_size = maxlen;
-			else
-				options->hpn_buffer_size *= 1024;
-		} else {
-			options->hpn_buffer_size = CHAN_TCP_WINDOW_DEFAULT;
-		}
-	}
 }
 
 /* Keyword tokens. */
@@ -384,8 +361,9 @@ typedef enum {
 	sRevokedKeys, sTrustedUserCAKeys, sAuthorizedPrincipalsFile,
 	sKexAlgorithms, sIPQoS, sVersionAddendum,
 	sAuthorizedKeysCommand, sAuthorizedKeysCommandUser,
-	sAuthenticationMethods, sHostKeyAgent,
-	sHPNDisabled, sHPNBufferSize, sTcpRcvBufPoll,
+	sAuthenticationMethods, sHostKeyAgent, sPermitUserRC,
+	sStreamLocalBindMask, sStreamLocalBindUnlink,
+	sAllowStreamLocalForwarding,
 	sDeprecated, sUnsupported
 } ServerOpCodes;
 
@@ -498,6 +476,7 @@ static struct {
 	{ "acceptenv", sAcceptEnv, SSHCFG_ALL },
 	{ "permittunnel", sPermitTunnel, SSHCFG_ALL },
 	{ "permittty", sPermitTTY, SSHCFG_ALL },
+	{ "permituserrc", sPermitUserRC, SSHCFG_ALL },
 	{ "match", sMatch, SSHCFG_ALL },
 	{ "permitopen", sPermitOpen, SSHCFG_ALL },
 	{ "forcecommand", sForceCommand, SSHCFG_ALL },
@@ -512,9 +491,9 @@ static struct {
 	{ "authorizedkeyscommanduser", sAuthorizedKeysCommandUser, SSHCFG_ALL },
 	{ "versionaddendum", sVersionAddendum, SSHCFG_GLOBAL },
 	{ "authenticationmethods", sAuthenticationMethods, SSHCFG_ALL },
-	{ "hpndisabled", sHPNDisabled, SSHCFG_ALL },
-	{ "hpnbuffersize", sHPNBufferSize, SSHCFG_ALL },
-	{ "tcprcvbufpoll", sTcpRcvBufPoll, SSHCFG_ALL },
+	{ "streamlocalbindmask", sStreamLocalBindMask, SSHCFG_ALL },
+	{ "streamlocalbindunlink", sStreamLocalBindUnlink, SSHCFG_ALL },
+	{ "allowstreamlocalforwarding", sAllowStreamLocalForwarding, SSHCFG_ALL },
 	{ NULL, sBadOption, 0 }
 };
 
@@ -1171,6 +1150,10 @@ process_server_config_line(ServerOptions *options, char *line,
 		intptr = &options->permit_tty;
 		goto parse_flag;
 
+	case sPermitUserRC:
+		intptr = &options->permit_user_rc;
+		goto parse_flag;
+
 	case sStrictModes:
 		intptr = &options->strict_modes;
 		goto parse_flag;
@@ -1228,7 +1211,7 @@ process_server_config_line(ServerOptions *options, char *line,
 		break;
 
 	case sGatewayPorts:
-		intptr = &options->gateway_ports;
+		intptr = &options->fwd_opts.gateway_ports;
 		multistate_ptr = multistate_gatewayports;
 		goto parse_multistate;
 
@@ -1260,6 +1243,11 @@ process_server_config_line(ServerOptions *options, char *line,
 
 	case sAllowTcpForwarding:
 		intptr = &options->allow_tcp_forwarding;
+		multistate_ptr = multistate_tcpfwd;
+		goto parse_multistate;
+
+	case sAllowStreamLocalForwarding:
+		intptr = &options->allow_streamlocal_forwarding;
 		multistate_ptr = multistate_tcpfwd;
 		goto parse_multistate;
 
@@ -1661,16 +1649,20 @@ process_server_config_line(ServerOptions *options, char *line,
 		}
 		return 0;
 
-	case sHPNDisabled:
-		intptr = &options->hpn_disabled;
-		goto parse_flag;
+	case sStreamLocalBindMask:
+		arg = strdelim(&cp);
+		if (!arg || *arg == '\0')
+			fatal("%s line %d: missing StreamLocalBindMask argument.",
+			    filename, linenum);
+		/* Parse mode in octal format */
+		value = strtol(arg, &p, 8);
+		if (arg == p || value < 0 || value > 0777)
+			fatal("%s line %d: Bad mask.", filename, linenum);
+		options->fwd_opts.streamlocal_bind_mask = (mode_t)value;
+		break;
 
-	case sHPNBufferSize:
-		intptr = &options->hpn_buffer_size;
-		goto parse_int;
-
-	case sTcpRcvBufPoll:
-		intptr = &options->tcp_rcv_buf_poll;
+	case sStreamLocalBindUnlink:
+		intptr = &options->fwd_opts.streamlocal_bind_unlink;
 		goto parse_flag;
 
 	case sDeprecated:
@@ -1812,13 +1804,15 @@ copy_set_server_options(ServerOptions *dst, ServerOptions *src, int preauth)
 	M_CP_INTOPT(permit_empty_passwd);
 
 	M_CP_INTOPT(allow_tcp_forwarding);
+	M_CP_INTOPT(allow_streamlocal_forwarding);
 	M_CP_INTOPT(allow_agent_forwarding);
 	M_CP_INTOPT(permit_tun);
-	M_CP_INTOPT(gateway_ports);
+	M_CP_INTOPT(fwd_opts.gateway_ports);
 	M_CP_INTOPT(x11_display_offset);
 	M_CP_INTOPT(x11_forwarding);
 	M_CP_INTOPT(x11_use_localhost);
 	M_CP_INTOPT(permit_tty);
+	M_CP_INTOPT(permit_user_rc);
 	M_CP_INTOPT(max_sessions);
 	M_CP_INTOPT(max_authtries);
 	M_CP_INTOPT(ip_qos_interactive);
@@ -1910,6 +1904,8 @@ fmt_intarg(ServerOpCodes code, int val)
 	case sUsePrivilegeSeparation:
 		return fmt_multistate_int(val, multistate_privsep);
 	case sAllowTcpForwarding:
+		return fmt_multistate_int(val, multistate_tcpfwd);
+	case sAllowStreamLocalForwarding:
 		return fmt_multistate_int(val, multistate_tcpfwd);
 	case sProtocol:
 		switch (val) {
@@ -2060,15 +2056,17 @@ dump_config(ServerOptions *o)
 	dump_cfg_fmtint(sX11Forwarding, o->x11_forwarding);
 	dump_cfg_fmtint(sX11UseLocalhost, o->x11_use_localhost);
 	dump_cfg_fmtint(sPermitTTY, o->permit_tty);
+	dump_cfg_fmtint(sPermitUserRC, o->permit_user_rc);
 	dump_cfg_fmtint(sStrictModes, o->strict_modes);
 	dump_cfg_fmtint(sTCPKeepAlive, o->tcp_keep_alive);
 	dump_cfg_fmtint(sEmptyPasswd, o->permit_empty_passwd);
 	dump_cfg_fmtint(sPermitUserEnvironment, o->permit_user_env);
 	dump_cfg_fmtint(sUseLogin, o->use_login);
 	dump_cfg_fmtint(sCompression, o->compression);
-	dump_cfg_fmtint(sGatewayPorts, o->gateway_ports);
+	dump_cfg_fmtint(sGatewayPorts, o->fwd_opts.gateway_ports);
 	dump_cfg_fmtint(sUseDNS, o->use_dns);
 	dump_cfg_fmtint(sAllowTcpForwarding, o->allow_tcp_forwarding);
+	dump_cfg_fmtint(sAllowStreamLocalForwarding, o->allow_streamlocal_forwarding);
 	dump_cfg_fmtint(sUsePrivilegeSeparation, use_privsep);
 
 	/* string arguments */
