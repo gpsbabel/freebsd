@@ -203,7 +203,7 @@ ENTRY(fork_trampoline)
 	csrw	sepc, t0
 
 	/* Restore sstatus */
-	li	t0, SSTATUS_PIE
+	ld	t0, (TF_SSTATUS)(sp)
 	csrw	sstatus, t0
 
 	/* Restore the registers */
@@ -237,6 +237,9 @@ ENTRY(fork_trampoline)
 	ld	a6, (TF_A + 6 * 8)(sp)
 	ld	a7, (TF_A + 7 * 8)(sp)
 
+	/* Disable interrupts */
+	csrci	sstatus, SSTATUS_IE
+
 	/* Save kernel stack so we can use it doing a user trap */
 	csrw	sscratch, sp
 
@@ -244,12 +247,6 @@ ENTRY(fork_trampoline)
 	ld	ra, (TF_RA)(sp)
 	ld	sp, (TF_SP)(sp)
 
-	/*
-	 * TODO: interrupt can happen here, between ld and eret.
-	 * It can came to supervisor handler with user stack
-	 * causing some panic.
-	 * Need to disable interrupts before changing sp.
-	 */
 	eret
 END(fork_trampoline)
 
@@ -259,4 +256,3 @@ ENTRY(savectx)
 .Lsavectx_panic_str:
 	.asciz "savectx_panic: %p\0"
 END(savectx)
-

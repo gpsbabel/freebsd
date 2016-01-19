@@ -92,7 +92,7 @@ cpu_fork(struct thread *td1, struct proc *p2, struct thread *td2, int flags)
 	/* Arguments for child */
 	tf->tf_a[0] = 0;
 	tf->tf_a[1] = 0;
-	/* TODO: tf->tf_sstatus = ? */
+	tf->tf_sstatus = SSTATUS_PIE;
 
 	td2->td_frame = tf;
 
