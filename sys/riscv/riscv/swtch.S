@@ -200,10 +200,10 @@ ENTRY(fork_trampoline)
 
 	/* Restore sstatus */
 	ld	t0, (TF_SSTATUS)(sp)
-	csrw	sstatus, t0
-
 	/* Ensure interrupts disabled */
-	csrci	sstatus, SSTATUS_IE
+	li	t1, ~SSTATUS_IE
+	and	t0, t0, t1
+	csrw	sstatus, t0
 
 	/* Restore exception program counter */
 	ld	t0, (TF_SEPC)(sp)
