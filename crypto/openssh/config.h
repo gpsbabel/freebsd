@@ -292,6 +292,10 @@
 /* Define if your libraries define daemon() */
 #define HAVE_DAEMON 1
 
+/* Define to 1 if you have the declaration of `AI_NUMERICSERV', and to 0 if
+   you don't. */
+#define HAVE_DECL_AI_NUMERICSERV 1
+
 /* Define to 1 if you have the declaration of `authenticate', and to 0 if you
    don't. */
 /* #undef HAVE_DECL_AUTHENTICATE */
@@ -875,6 +879,9 @@
 /* Define to 1 if you have the <readpassphrase.h> header file. */
 #define HAVE_READPASSPHRASE_H 1
 
+/* Define to 1 if you have the `reallocarray' function. */
+#define HAVE_REALLOCARRAY 1
+
 /* Define to 1 if you have the `realpath' function. */
 #define HAVE_REALPATH 1
 
@@ -1145,8 +1152,8 @@
 /* Define to 1 if you have the <sys/bsdtty.h> header file. */
 /* #undef HAVE_SYS_BSDTTY_H */
 
-/* Define to 1 if you have the <sys/capability.h> header file. */
-/* #undef HAVE_SYS_CAPABILITY_H */
+/* Define to 1 if you have the <sys/capsicum.h> header file. */
+#define HAVE_SYS_CAPSICUM_H 1
 
 /* Define to 1 if you have the <sys/cdefs.h> header file. */
 #define HAVE_SYS_CDEFS_H 1
@@ -1471,7 +1478,7 @@
 /* libcrypto is missing AES 192 and 256 bit functions */
 /* #undef OPENSSL_LOBOTOMISED_AES */
 
-/* Define if you want OpenSSL's internally seeded PRNG only */
+/* Define if you want the OpenSSL internally seeded PRNG only */
 #define OPENSSL_PRNG_ONLY 1
 
 /* Define to the address where bug reports for this package should be sent. */
@@ -1689,6 +1696,11 @@
 
 /* Define if xauth is found in your path */
 /* #undef XAUTH_PATH */
+
+/* Enable large inode numbers on Mac OS X 10.5.  */
+#ifndef _DARWIN_USE_64_BIT_INODE
+# define _DARWIN_USE_64_BIT_INODE 1
+#endif
 
 /* Number of bits in a file offset, on hosts where this is settable. */
 /* #undef _FILE_OFFSET_BITS */
