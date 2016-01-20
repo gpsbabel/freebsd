@@ -46,6 +46,8 @@
 #define	HTIF_CMD_READ_CONTROL_REG	(0x02ul)
 #define	HTIF_CMD_WRITE_CONTROL_REG	(0x03ul)
 #define	HTIF_CMD_IDENTIFY		(0xfful)
+#define	 IDENTIFY_PADDR_SHIFT		8
+#define	 IDENTIFY_IDENT			0xff
 
 #define	HTIF_NDEV		(256)
 #define	HTIF_ID_LEN		(64)
