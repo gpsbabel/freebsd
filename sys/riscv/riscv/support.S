@@ -44,6 +44,7 @@ __FBSDID("$FreeBSD$");
  */
 ENTRY(fsu_fault)
 	SET_FAULT_HANDLER(x0, a1)	/* Reset the handler function */
+fsu_fault_nopcb:
 	li	a0, -1
 	ret
 END(fsu_fault)
@@ -52,6 +53,8 @@ END(fsu_fault)
  * int casueword32(volatile uint32_t *, uint32_t, uint32_t *, uint32_t)
  */
 ENTRY(casueword32)
+	li	a4, (VM_MAXUSER_ADDRESS-3)
+	bgt	a0, a4, fsu_fault_nopcb
 	la	a6, fsu_fault		/* Load the fault handler */
 	SET_FAULT_HANDLER(a6, a4)	/* And set it */
 1:	lr.w	a4, 0(a0)		/* Load-exclusive the data */
@@ -67,6 +70,8 @@ END(casueword32)
  * int casueword(volatile u_long *, u_long, u_long *, u_long)
  */
 ENTRY(casueword)
+	li	a4, (VM_MAXUSER_ADDRESS-7)
+	bgt	a0, a4, fsu_fault_nopcb
 	la	a6, fsu_fault		/* Load the fault handler */
 	SET_FAULT_HANDLER(a6, a4)	/* And set it */
 1:	lr.d	a4, 0(a0)		/* Load-exclusive the data */
@@ -82,6 +87,8 @@ END(casueword)
  * int fubyte(volatile const void *)
  */
 ENTRY(fubyte)
+	li	a1, VM_MAXUSER_ADDRESS
+	bgt	a0, a1, fsu_fault_nopcb
 	la	a6, fsu_fault		/* Load the fault handler */
 	SET_FAULT_HANDLER(a6, a1)	/* And set it */
 	lb	a0, 0(a0)		/* Try loading the data */
@@ -93,6 +100,8 @@ END(fubyte)
  * int fuword(volatile const void *)
  */
 ENTRY(fuword16)
+	li	a1, (VM_MAXUSER_ADDRESS-1)
+	bgt	a0, a1, fsu_fault_nopcb
 	la	a6, fsu_fault		/* Load the fault handler */
 	SET_FAULT_HANDLER(a6, a1)	/* And set it */
 	lh	a0, 0(a0)		/* Try loading the data */
@@ -104,6 +113,8 @@ END(fuword16)
  * int32_t fueword32(volatile const void *, int32_t *)
  */
 ENTRY(fueword32)
+	li	a2, (VM_MAXUSER_ADDRESS-3)
+	bgt	a0, a2, fsu_fault_nopcb
 	la	a6, fsu_fault		/* Load the fault handler */
 	SET_FAULT_HANDLER(a6, a2)	/* And set it */
 	lw	a0, 0(a0)		/* Try loading the data */
@@ -119,6 +130,8 @@ END(fueword32)
  */
 ENTRY(fueword)
 EENTRY(fueword64)
+	li	a2, (VM_MAXUSER_ADDRESS-7)
+	bgt	a0, a2, fsu_fault_nopcb
 	la	a6, fsu_fault		/* Load the fault handler */
 	SET_FAULT_HANDLER(a6, a2)	/* And set it */
 	ld	a0, 0(a0)		/* Try loading the data */
@@ -133,6 +146,8 @@ END(fueword)
  * int subyte(volatile void *, int)
  */
 ENTRY(subyte)
+	li	a2, VM_MAXUSER_ADDRESS
+	bgt	a0, a2, fsu_fault_nopcb
 	la	a6, fsu_fault		/* Load the fault handler */
 	SET_FAULT_HANDLER(a6, a2)	/* And set it */
 	sb	a1, 0(a0)		/* Try storing the data */
@@ -145,6 +160,8 @@ END(subyte)
  * int suword16(volatile void *, int)
  */
 ENTRY(suword16)
+	li	a2, (VM_MAXUSER_ADDRESS-1)
+	bgt	a0, a2, fsu_fault_nopcb
 	la	a6, fsu_fault		/* Load the fault handler */
 	SET_FAULT_HANDLER(a6, a2)	/* And set it */
 	sh	a1, 0(a0)		/* Try storing the data */
@@ -157,6 +174,8 @@ END(suword16)
  * int suword32(volatile void *, int)
  */
 ENTRY(suword32)
+	li	a2, (VM_MAXUSER_ADDRESS-3)
+	bgt	a0, a2, fsu_fault_nopcb
 	la	a6, fsu_fault		/* Load the fault handler */
 	SET_FAULT_HANDLER(a6, a2)	/* And set it */
 	sw	a1, 0(a0)		/* Try storing the data */
@@ -170,6 +189,8 @@ END(suword32)
  */
 ENTRY(suword)
 EENTRY(suword64)
+	li	a2, (VM_MAXUSER_ADDRESS-7)
+	bgt	a0, a2, fsu_fault_nopcb
 	la	a6, fsu_fault		/* Load the fault handler */
 	SET_FAULT_HANDLER(a6, a2)	/* And set it */
 	sd	a1, 0(a0)		/* Try storing the data */
@@ -198,6 +219,8 @@ END(fsu_fault)
  * int fuswintr(void *)
  */
 ENTRY(fuswintr)
+	li	a1, (VM_MAXUSER_ADDRESS-3)
+	bgt	a0, a1, fsu_fault_nopcb
 	la	a6, fsu_intr_fault	/* Load the fault handler */
 	SET_FAULT_HANDLER(a6, a1)	/* And set it */
 	lw	a0, 0(a0)		/* Try loading the data */
@@ -209,6 +232,8 @@ END(fuswintr)
  * int suswintr(void *base, int word)
  */
 ENTRY(suswintr)
+	li	a2, (VM_MAXUSER_ADDRESS-3)
+	bgt	a0, a2, fsu_fault_nopcb
 	la	a6, fsu_intr_fault	/* Load the fault handler */
 	SET_FAULT_HANDLER(a6, a2)	/* And set it */
 	sw	a1, 0(a0)		/* Try storing the data */
