@@ -668,7 +668,8 @@ cache_setup(void)
 }
 
 /*
- * Fake up a boot descriptor table
+ * Fake up a boot descriptor table.
+ * RISCVTODO: This needs to be done via loader (when it's available).
  */
 vm_offset_t
 fake_preload_metadata(struct riscv_bootparams *rvbp __unused)
