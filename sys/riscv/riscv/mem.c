@@ -48,15 +48,16 @@ struct mem_range_softc mem_range_softc;
 int
 memrw(struct cdev *dev, struct uio *uio, int flags)
 {
+	ssize_t orig_resid;
+	vm_offset_t off, v;
 	struct iovec *iov;
 	struct vm_page m;
 	vm_page_t marr;
-	vm_offset_t off, v;
 	u_int cnt;
 	int error;
 
 	error = 0;
-
+	orig_resid = uio->uio_resid;
 	while (uio->uio_resid > 0 && error == 0) {
 		iov = uio->uio_iov;
 		if (iov->iov_len == 0) {
@@ -110,6 +111,13 @@ memrw(struct cdev *dev, struct uio *uio, int flags)
 			break;
 		}
 	}
+
+	/*
+	 * Don't return error if any byte was written.  Read and write
+	 * can return error only if no i/o was performed.
+	 */
+	if (uio->uio_resid != orig_resid)
+		error = 0;
 
 	return (error);
 }
