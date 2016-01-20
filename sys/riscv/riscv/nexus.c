@@ -60,17 +60,10 @@ __FBSDID("$FreeBSD$");
 #include <machine/resource.h>
 #include <machine/intr.h>
 
-#include "opt_acpi.h"
 #include "opt_platform.h"
 
-#ifdef FDT
 #include <dev/fdt/fdt_common.h>
 #include "ofw_bus_if.h"
-#endif
-#ifdef DEV_ACPI
-#include <contrib/dev/acpica/include/acpi.h>
-#include <dev/acpica/acpivar.h>
-#endif
 
 extern struct bus_space memmap_bus;
 
@@ -87,14 +80,8 @@ static struct rman irq_rman;
 
 static	int nexus_attach(device_t);
 
-#ifdef FDT
 static device_probe_t	nexus_fdt_probe;
 static device_attach_t	nexus_fdt_attach;
-#endif
-#ifdef DEV_ACPI
-static device_probe_t	nexus_acpi_probe;
-static device_attach_t	nexus_acpi_attach;
-#endif
 
 static	int nexus_print_child(device_t, device_t);
 static	device_t nexus_add_child(device_t, u_int, const char *, int);
@@ -113,12 +100,17 @@ static int nexus_setup_intr(device_t dev, device_t child, struct resource *res,
     int flags, driver_filter_t *filt, driver_intr_t *intr, void *arg, void **cookiep);
 static int nexus_teardown_intr(device_t, device_t, struct resource *, void *);
 
-#ifdef FDT
 static int nexus_ofw_map_intr(device_t dev, device_t child, phandle_t iparent,
     int icells, pcell_t *intr);
-#endif
 
 static device_method_t nexus_methods[] = {
+	/* Device interface */
+	DEVMETHOD(device_probe,		nexus_fdt_probe),
+	DEVMETHOD(device_attach,	nexus_fdt_attach),
+
+	/* OFW interface */
+	DEVMETHOD(ofw_bus_map_intr,	nexus_ofw_map_intr),
+
 	/* Bus interface */
 	DEVMETHOD(bus_print_child,	nexus_print_child),
 	DEVMETHOD(bus_add_child,	nexus_add_child),
@@ -134,7 +126,7 @@ static device_method_t nexus_methods[] = {
 	{ 0, 0 }
 };
 
-static driver_t nexus_driver = {
+static driver_t nexus_fdt_driver = {
 	"nexus",
 	nexus_methods,
 	1			/* no softc */
@@ -363,19 +355,6 @@ nexus_deactivate_resource(device_t bus, device_t child, int type, int rid,
 	return (rman_deactivate_resource(r));
 }
 
-#ifdef FDT
-static device_method_t nexus_fdt_methods[] = {
-	/* Device interface */
-	DEVMETHOD(device_probe,		nexus_fdt_probe),
-	DEVMETHOD(device_attach,	nexus_fdt_attach),
-
-	/* OFW interface */
-	DEVMETHOD(ofw_bus_map_intr,	nexus_ofw_map_intr),
-};
-
-#define nexus_baseclasses nexus_fdt_baseclasses
-DEFINE_CLASS_1(nexus, nexus_fdt_driver, nexus_fdt_methods, 1, nexus_driver);
-#undef nexus_baseclasses
 static devclass_t nexus_fdt_devclass;
 
 EARLY_DRIVER_MODULE(nexus_fdt, root, nexus_fdt_driver, nexus_fdt_devclass,
@@ -417,40 +396,3 @@ nexus_ofw_map_intr(device_t dev, device_t child, phandle_t iparent, int icells,
 
 	return (irq);
 }
-#endif
-
-#ifdef DEV_ACPI
-static device_method_t nexus_acpi_methods[] = {
-	/* Device interface */
-	DEVMETHOD(device_probe,		nexus_acpi_probe),
-	DEVMETHOD(device_attach,	nexus_acpi_attach),
-};
-
-#define nexus_baseclasses nexus_acpi_baseclasses
-DEFINE_CLASS_1(nexus, nexus_acpi_driver, nexus_acpi_methods, 1,
-    nexus_driver);
-#undef nexus_baseclasses
-static devclass_t nexus_acpi_devclass;
-
-EARLY_DRIVER_MODULE(nexus_acpi, root, nexus_acpi_driver, nexus_acpi_devclass,
-    0, 0, BUS_PASS_BUS + BUS_PASS_ORDER_FIRST);
-
-static int
-nexus_acpi_probe(device_t dev)
-{
-
-	if (acpi_identify() != 0)
-		return (ENXIO);
-
-	device_quiet(dev);
-	return (BUS_PROBE_LOW_PRIORITY);
-}
-
-static int
-nexus_acpi_attach(device_t dev)
-{
-
-	nexus_add_child(dev, 10, "acpi", 0);
-	return (nexus_attach(dev));
-}
-#endif
