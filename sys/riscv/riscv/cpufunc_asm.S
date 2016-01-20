@@ -71,6 +71,7 @@ END(riscv_tlb_flushID_SE)
  * void riscv_dcache_wb_range(vm_offset_t, vm_size_t)
  */
 ENTRY(riscv_dcache_wb_range)
+	/* RISCVTODO */
 	ret
 END(riscv_dcache_wb_range)
 
@@ -78,6 +79,7 @@ END(riscv_dcache_wb_range)
  * void riscv_dcache_wbinv_range(vm_offset_t, vm_size_t)
  */
 ENTRY(riscv_dcache_wbinv_range)
+	/* RISCVTODO */
 	ret
 END(riscv_dcache_wbinv_range)
 
@@ -85,6 +87,7 @@ END(riscv_dcache_wbinv_range)
  * void riscv_dcache_inv_range(vm_offset_t, vm_size_t)
  */
 ENTRY(riscv_dcache_inv_range)
+	/* RISCVTODO */
 	ret
 END(riscv_dcache_inv_range)
 
@@ -92,6 +95,7 @@ END(riscv_dcache_inv_range)
  * void riscv_idcache_wbinv_range(vm_offset_t, vm_size_t)
  */
 ENTRY(riscv_idcache_wbinv_range)
+	/* RISCVTODO */
 	ret
 END(riscv_idcache_wbinv_range)
 
@@ -99,5 +103,6 @@ END(riscv_idcache_wbinv_range)
  * void riscv_icache_sync_range(vm_offset_t, vm_size_t)
  */
 ENTRY(riscv_icache_sync_range)
+	/* RISCVTODO */
 	ret
 END(riscv_icache_sync_range)
