@@ -427,10 +427,7 @@ struct sigreturn_args {
 int
 sys_sigreturn(struct thread *td, struct sigreturn_args *uap)
 {
-#if 0
-	/* RISCVTODO */
 	uint64_t sstatus;
-#endif
 	ucontext_t uc;
 	int error;
 
@@ -439,19 +436,14 @@ sys_sigreturn(struct thread *td, struct sigreturn_args *uap)
 	if (copyin(uap->sigcntxp, &uc, sizeof(uc)))
 		return (EFAULT);
 
-	/* RISCVTODO: check this */
-
 	/*
 	 * Make sure the processor mode has not been tampered with and
 	 * interrupts have not been disabled.
 	 */
-#if 0
-	/* RISCVTODO */
 	sstatus = uc.uc_mcontext.mc_gpregs.gp_sstatus;
-	if ((sstatus & (1 << 4)) != 0 ||
-	    (sstatus & (1 << 3)) == 0)
+	if ((sstatus & SSTATUS_PS) != 0 ||
+	    (sstatus & SSTATUS_PIE) == 0)
 		return (EINVAL);
-#endif
 
 	error = set_mcontext(td, &uc.uc_mcontext);
 	if (error != 0)

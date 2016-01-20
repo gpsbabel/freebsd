@@ -109,6 +109,12 @@ __FBSDID("$FreeBSD$");
 
 .macro load_registers el
 	ld	t0, (TF_SSTATUS)(sp)
+	ori	t0, t0, SSTATUS_PIE
+.if \el == 1
+	/* Disable interrupts */
+	li	t1, ~SSTATUS_IE
+	and	t0, t0, t1
+.endif
 	csrw	sstatus, t0
 
 	ld	t0, (TF_SEPC)(sp)
@@ -158,8 +164,11 @@ __FBSDID("$FreeBSD$");
 .endm
 
 .macro	do_ast
-	/* TODO: disable interrupts here ? */
+	/* Disable interrupts */
+	csrr	a4, sstatus
 1:
+	csrci	sstatus, SSTATUS_IE
+
 	la	a1, pcpup
 	ld	a1, 0(a1)
 	ld	a1, PC_CURTHREAD(a1)
@@ -169,7 +178,11 @@ __FBSDID("$FreeBSD$");
 	and	a2, a2, a3
 	beqz	a2, 2f
 
-	/* handle the ast */
+	/* Restore interrupts */
+	andi	a4, a4, SSTATUS_IE
+	csrs	sstatus, a4
+
+	/* Handle the ast */
 	mv	a0, sp
 	call	_C_LABEL(ast)
 
@@ -280,7 +293,7 @@ timer_interrupt:
 	and	t0, t0, t1
 	beqz	t0, 1f
 
-	/* If PRV1 is supervisor and interrupts was enabled, then serve a trap */
+	/* If PRV1 is supervisor and interrupts were enabled, then serve a trap */
 	csrr	t0, mstatus
 	li	t1, (SR_IE1 | (MSTATUS_PRV_M << MSTATUS_PRV1_SHIFT))
 	and	t0, t0, t1
