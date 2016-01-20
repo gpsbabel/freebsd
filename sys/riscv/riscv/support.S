@@ -63,6 +63,7 @@ ENTRY(casueword32)
 	bnez	a5, 1b			/* Retry on failure */
 2:	SET_FAULT_HANDLER(x0, a5)	/* Reset the fault handler */
 	sw	a4, 0(a2)		/* Store the read data */
+	li	a0, 0			/* Success */
 	ret				/* Return */
 END(casueword32)
 
@@ -80,6 +81,7 @@ ENTRY(casueword)
 	bnez	a5, 1b			/* Retry on failure */
 2:	SET_FAULT_HANDLER(x0, a5)	/* Reset the fault handler */
 	sd	a4, 0(a2)		/* Store the read data */
+	li	a0, 0			/* Success */
 	ret				/* Return */
 END(casueword)
 
