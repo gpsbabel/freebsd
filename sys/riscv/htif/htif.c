@@ -164,7 +164,8 @@ htif_enumerate(struct htif_softc *sc)
 
 	for (i = 0; i < HTIF_NDEV; i++) {
 		paddr = pmap_kextract((vm_offset_t)&id);
-		data = (paddr << 8) | 0xff;
+		data = (paddr << IDENTIFY_PADDR_SHIFT);
+		data |= IDENTIFY_IDENT;
 
 		sc->identify_id = i;
 		sc->identify_done = 0;

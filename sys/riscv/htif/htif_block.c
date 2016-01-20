@@ -100,7 +100,7 @@ struct htif_blk_request {
 	uint64_t offset;	/* offset in bytes */
 	uint64_t size;		/* length in bytes */
 	uint64_t tag;
-} __packed;
+};
 
 static void
 htif_blk_intr(void *arg, uint64_t entry)
