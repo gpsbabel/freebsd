@@ -240,7 +240,6 @@ htif_blk_task(void *arg)
 
 				if (i++ > 2) {
 					/* TODO: try to re-issue operation on timeout ? */
-					device_printf(sc->dev, "HTIF IO error\n");
 					bp->bio_error = EIO;
 					bp->bio_flags |= BIO_ERROR;
 					disk_err(bp, "hard error", -1, 1);
