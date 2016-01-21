@@ -60,12 +60,10 @@ __FBSDID("$FreeBSD$");
 #include <machine/asm.h>
 #include <machine/trap.h>
 
-#ifdef FDT
 #include <dev/fdt/fdt_common.h>
 #include <dev/ofw/openfirm.h>
 #include <dev/ofw/ofw_bus.h>
 #include <dev/ofw/ofw_bus_subr.h>
-#endif
 
 #define	DEFAULT_FREQ	1000000
 
@@ -158,7 +156,6 @@ riscv_tmr_intr(void *arg)
 	return (FILTER_HANDLED);
 }
 
-#ifdef FDT
 static int
 riscv_tmr_fdt_probe(device_t dev)
 {
@@ -173,24 +170,19 @@ riscv_tmr_fdt_probe(device_t dev)
 
 	return (ENXIO);
 }
-#endif
 
 static int
 riscv_tmr_attach(device_t dev)
 {
 	struct riscv_tmr_softc *sc;
-
-#ifdef FDT
 	phandle_t node;
 	pcell_t clock;
-#endif
 	int error;
 
 	sc = device_get_softc(dev);
 	if (riscv_tmr_sc)
 		return (ENXIO);
 
-#ifdef FDT
 	/* Get the base clock frequency */
 	node = ofw_bus_get_node(dev);
 	if (node > 0) {
@@ -200,7 +192,6 @@ riscv_tmr_attach(device_t dev)
 			sc->clkfreq = fdt32_to_cpu(clock);
 		}
 	}
-#endif
 
 	if (sc->clkfreq == 0)
 		sc->clkfreq = DEFAULT_FREQ;
@@ -243,7 +234,6 @@ riscv_tmr_attach(device_t dev)
 	return (0);
 }
 
-#ifdef FDT
 static device_method_t riscv_tmr_fdt_methods[] = {
 	DEVMETHOD(device_probe,		riscv_tmr_fdt_probe),
 	DEVMETHOD(device_attach,	riscv_tmr_attach),
@@ -262,7 +252,6 @@ EARLY_DRIVER_MODULE(timer, simplebus, riscv_tmr_fdt_driver, riscv_tmr_fdt_devcla
     0, 0, BUS_PASS_TIMER + BUS_PASS_ORDER_MIDDLE);
 EARLY_DRIVER_MODULE(timer, ofwbus, riscv_tmr_fdt_driver, riscv_tmr_fdt_devclass,
     0, 0, BUS_PASS_TIMER + BUS_PASS_ORDER_MIDDLE);
-#endif
 
 void
 DELAY(int usec)
