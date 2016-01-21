@@ -109,9 +109,15 @@ __FBSDID("$FreeBSD$");
 
 .macro load_registers el
 	ld	t0, (TF_SSTATUS)(sp)
+.if \el == 0
+	/* Ensure user interrupts will be enabled on eret. */
 	ori	t0, t0, SSTATUS_PIE
-.if \el == 1
-	/* Disable interrupts */
+.else
+	/*
+	 * Disable interrupts for supervisor mode exceptions.
+	 * For user mode exceptions we have already done this
+	 * in do_ast.
+	 */
 	li	t1, ~SSTATUS_IE
 	and	t0, t0, t1
 .endif
