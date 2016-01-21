@@ -142,7 +142,3 @@ struct bus_space memmap_bus = {
 	.bs_wr_4_s = NULL,
 	.bs_wr_8_s = NULL,
 };
-
-#ifdef FDT
-bus_space_tag_t fdtbus_bs_tag = &memmap_bus;
-#endif
