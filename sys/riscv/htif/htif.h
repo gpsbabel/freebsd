@@ -67,7 +67,7 @@ struct htif_softc {
 };
 
 /* device private data */
-struct htif_dev_softc {
+struct htif_dev_ivars {
 	char			*id;
 	int			index;
 	device_t		dev;
@@ -76,3 +76,18 @@ struct htif_dev_softc {
 
 uint64_t htif_command(uint64_t);
 int htif_setup_intr(int id, void *func, void *arg);
+int htif_read_ivar(device_t dev, device_t child, int which, uintptr_t *result);
+
+enum htif_device_ivars {
+	HTIF_IVAR_INDEX,
+	HTIF_IVAR_ID,
+};
+
+/*
+ * Simplified accessors for HTIF devices
+ */
+#define HTIF_ACCESSOR(var, ivar, type)	\
+	__BUS_ACCESSOR(htif, var, HTIF, ivar, type)
+
+HTIF_ACCESSOR(index, INDEX, int);
+HTIF_ACCESSOR(id, ID, char *);

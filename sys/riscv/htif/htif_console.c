@@ -298,11 +298,11 @@ riscv_cnputc(struct consdev *cp, int c)
 
 struct htif_console_softc {
 	device_t	dev;
-	struct htif_dev_softc *sc_dev;
 	int		running;
 	int		intr_chan;
 	int		cmd_done;
 	int		curtag;
+	int		index;
 };
 
 static void
@@ -335,14 +335,15 @@ static int
 htif_console_attach(device_t dev)
 {
 	struct htif_console_softc *sc;
-	struct htif_dev_softc *sc_dev;
 
 	sc = device_get_softc(dev);
 	sc->dev = dev;
-	sc_dev = device_get_ivars(dev);
-	sc->sc_dev = sc_dev;
 
-	htif_setup_intr(sc_dev->index, htif_console_intr, sc);
+	sc->index = htif_get_index(dev);
+	if (sc->index < 0)
+		return (EINVAL);
+
+	htif_setup_intr(sc->index, htif_console_intr, sc);
 
 	return (0);
 }
@@ -350,7 +351,7 @@ htif_console_attach(device_t dev)
 static device_method_t htif_console_methods[] = {
 	DEVMETHOD(device_probe,		htif_console_probe),
 	DEVMETHOD(device_attach,	htif_console_attach),
-	{ 0, 0 }
+	DEVMETHOD_END
 };
 
 static driver_t htif_console_driver = {

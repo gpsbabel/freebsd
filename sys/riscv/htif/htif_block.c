@@ -84,7 +84,6 @@ static disk_strategy_t	htif_blk_strategy;
 struct htif_blk_softc {
 	device_t	dev;
 	struct disk	*disk;
-	struct htif_dev_softc *sc_dev;
 	struct mtx	htif_io_mtx;
 	struct mtx	sc_mtx;
 	struct proc	*p;
@@ -92,6 +91,7 @@ struct htif_blk_softc {
 	int		running;
 	int		intr_chan;
 	int		cmd_done;
+	int		index;
 	uint16_t	curtag;
 };
 
@@ -130,7 +130,6 @@ htif_blk_probe(device_t dev)
 static int
 htif_blk_attach(device_t dev)
 {
-	struct htif_dev_softc *sc_dev;
 	struct htif_blk_softc *sc;
 	char prefix[] = " size=";
 	char *str;
@@ -138,19 +137,21 @@ htif_blk_attach(device_t dev)
 
 	sc = device_get_softc(dev);
 	sc->dev = dev;
-	sc_dev = device_get_ivars(dev);
-	sc->sc_dev = sc_dev;
+
 	mtx_init(&sc->htif_io_mtx, device_get_nameunit(dev), "htif_blk", MTX_DEF);
 	HTIF_BLK_LOCK_INIT(sc);
 
-	str = strstr(sc_dev->id, prefix);
+	str = strstr(htif_get_id(dev), prefix);
 
 	size = strtol((str + 6), NULL, 10);
 	if (size == 0) {
 		return (ENXIO);
 	}
 
-	htif_setup_intr(sc_dev->index, htif_blk_intr, sc);
+	sc->index = htif_get_index(dev);
+	if (sc->index < 0)
+		return (EINVAL);
+	htif_setup_intr(sc->index, htif_blk_intr, sc);
 
 	sc->disk = disk_alloc();
 	sc->disk->d_drv1 = sc;
@@ -193,7 +194,6 @@ static void
 htif_blk_task(void *arg)
 {
 	struct htif_blk_request req __aligned(HTIF_ALIGN);
-	struct htif_dev_softc *sc_dev;
 	struct htif_blk_softc *sc;
 	struct bio *bp;
 	uint64_t paddr;
@@ -201,7 +201,6 @@ htif_blk_task(void *arg)
 	int i;
 
 	sc = (struct htif_blk_softc *)arg;
-	sc_dev = sc->sc_dev;
 
 	while (1) {
 		HTIF_BLK_LOCK(sc);
@@ -220,7 +219,7 @@ htif_blk_task(void *arg)
 			req.addr = paddr;
 			req.tag = sc->curtag;
 
-			cmd = sc_dev->index;
+			cmd = sc->index;
 			cmd <<= HTIF_DEV_ID_SHIFT;
 			if (bp->bio_cmd == BIO_READ)
 				cmd |= (HTIF_CMD_READ << HTIF_CMD_SHIFT);

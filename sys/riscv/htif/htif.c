@@ -136,16 +136,16 @@ htif_intr(void *arg)
 static int
 htif_add_device(struct htif_softc *sc, int i, char *id, char *name)
 {
-	struct htif_dev_softc *dev_sc;
+	struct htif_dev_ivars *di;
 
-	dev_sc = malloc(sizeof(struct htif_dev_softc), M_DEVBUF, M_WAITOK | M_ZERO);
-	dev_sc->sc = sc;
-	dev_sc->index = i;
-	dev_sc->id = malloc(HTIF_ID_LEN, M_DEVBUF, M_WAITOK | M_ZERO);
-	memcpy(dev_sc->id, id, HTIF_ID_LEN);
+	di = malloc(sizeof(struct htif_dev_ivars), M_DEVBUF, M_WAITOK | M_ZERO);
+	di->sc = sc;
+	di->index = i;
+	di->id = malloc(HTIF_ID_LEN, M_DEVBUF, M_WAITOK | M_ZERO);
+	memcpy(di->id, id, HTIF_ID_LEN);
 
-	dev_sc->dev = device_add_child(sc->dev, name, -1);
-	device_set_ivars(dev_sc->dev, dev_sc);
+	di->dev = device_add_child(sc->dev, name, -1);
+	device_set_ivars(di->dev, di);
 
 	return (0);
 }
@@ -201,6 +201,26 @@ htif_enumerate(struct htif_softc *sc)
 	return (bus_generic_attach(sc->dev));
 }
 
+int
+htif_read_ivar(device_t dev, device_t child, int which, uintptr_t *result)
+{
+	struct htif_dev_ivars *ivars;
+
+	ivars = device_get_ivars(child);
+
+	switch (which) {
+	case HTIF_IVAR_INDEX:
+                *result = ivars->index;
+		break;
+	case HTIF_IVAR_ID:
+		*result = (uintptr_t)ivars->id;
+	default:
+		return (EINVAL);
+	}
+
+	return (0);
+}
+
 static int
 htif_probe(device_t dev)
 {
@@ -243,9 +263,12 @@ htif_attach(device_t dev)
 }
 
 static device_method_t htif_methods[] = {
-	/* Bus interface */
 	DEVMETHOD(device_probe,		htif_probe),
 	DEVMETHOD(device_attach,	htif_attach),
+
+	/* Bus interface */
+	DEVMETHOD(bus_read_ivar,	htif_read_ivar),
+
 	DEVMETHOD_END
 };
 
