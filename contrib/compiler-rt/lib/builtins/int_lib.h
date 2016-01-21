@@ -76,6 +76,8 @@
  *
  * This problem has been observed on FreeBSD for sparc64 and
  * mips64 with GCC 4.2.1, and for riscv with GCC 5.2.0.
+ * Presumably it's any version of GCC, and targeting an arch that
+ * does not have dedicated bit counting instructions.
  */
 #if defined(__FreeBSD__) && (defined(__sparc64__) || \
     defined(__mips_n64) || defined(__mips_o64) || defined(__riscv__))
