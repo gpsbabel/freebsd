@@ -78,10 +78,8 @@ struct nexus_device {
 static struct rman mem_rman;
 static struct rman irq_rman;
 
-static	int nexus_attach(device_t);
-
-static device_probe_t	nexus_fdt_probe;
-static device_attach_t	nexus_fdt_attach;
+static device_probe_t nexus_fdt_probe;
+static int nexus_attach(device_t);
 
 static	int nexus_print_child(device_t, device_t);
 static	device_t nexus_add_child(device_t, u_int, const char *, int);
@@ -106,7 +104,7 @@ static int nexus_ofw_map_intr(device_t dev, device_t child, phandle_t iparent,
 static device_method_t nexus_methods[] = {
 	/* Device interface */
 	DEVMETHOD(device_probe,		nexus_fdt_probe),
-	DEVMETHOD(device_attach,	nexus_fdt_attach),
+	DEVMETHOD(device_attach,	nexus_attach),
 
 	/* OFW interface */
 	DEVMETHOD(ofw_bus_map_intr,	nexus_ofw_map_intr),
@@ -133,6 +131,14 @@ static driver_t nexus_fdt_driver = {
 };
 
 static int
+nexus_fdt_probe(device_t dev)
+{
+
+	device_quiet(dev);
+	return (BUS_PROBE_DEFAULT);
+}
+
+static int
 nexus_attach(device_t dev)
 {
 
@@ -148,6 +154,8 @@ nexus_attach(device_t dev)
 	irq_rman.rm_descr = "Interrupts";
 	if (rman_init(&irq_rman) || rman_manage_region(&irq_rman, 0, ~0))
 		panic("nexus_attach irq_rman");
+
+	nexus_add_child(dev, 10, "ofwbus", 0);
 
 	bus_generic_probe(dev);
 	bus_generic_attach(dev);
@@ -359,25 +367,6 @@ static devclass_t nexus_fdt_devclass;
 
 EARLY_DRIVER_MODULE(nexus_fdt, root, nexus_fdt_driver, nexus_fdt_devclass,
     0, 0, BUS_PASS_BUS + BUS_PASS_ORDER_FIRST);
-
-static int
-nexus_fdt_probe(device_t dev)
-{
-
-	if (OF_peer(0) == 0)
-		return (ENXIO);
-
-	device_quiet(dev);
-	return (BUS_PROBE_DEFAULT);
-}
-
-static int
-nexus_fdt_attach(device_t dev)
-{
-
-	nexus_add_child(dev, 10, "ofwbus", 0);
-	return (nexus_attach(dev));
-}
 
 static int
 nexus_ofw_map_intr(device_t dev, device_t child, phandle_t iparent, int icells,
