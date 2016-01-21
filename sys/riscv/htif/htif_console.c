@@ -129,34 +129,29 @@ htif_getc(void)
 static void
 riscv_putc(int c)
 {
-	uint64_t tmp;
+	uint64_t counter;
 	uint64_t *cc;
 	uint64_t val;
 
-	cc = (uint64_t*)&console_intr;
-	console_intr = 0;
 	val = 0;
-	tmp = 0;
+	counter = 0;
 
-	/* Prevent compiler from optimizations */
-	__asm __volatile(
-		"li	%0, 0\n"
-		"sd	%0, 0(%1)" : "=&r"(val) : "r"(cc)
-	);
+	cc = (uint64_t*)&console_intr;
+	*cc = 0;
 
 	htif_putc(c);
 
-	/* Wait an interrupt */
+	/* Wait for an interrupt */
 	__asm __volatile(
-		"li	%0, 1 \n"
-		"slli	%0, %0, 12 \n"
-		"1:\n"
-		"addi	%0, %0, -1 \n"
-		"beqz	%0, 2f \n"
-		"ld	%1, 0(%2)\n"
-		"beqz	%1, 1b\n"
-		"2:\n"
-		: "=&r"(tmp), "=&r"(val) : "r"(cc)
+		"li	%0, 1\n"	/* counter = 1 */
+		"slli	%0, %0, 12\n"	/* counter <<= 12 */
+	"1:"
+		"addi	%0, %0, -1\n"	/* counter -= 1 */
+		"beqz	%0, 2f\n"	/* counter == 0 ? finish */
+		"ld	%1, 0(%2)\n"	/* val = *cc */
+		"beqz	%1, 1b\n"	/* val == 0 ? repeat */
+	"2:"
+		: "=&r"(counter), "=&r"(val) : "r"(cc)
 	);
 }
 
