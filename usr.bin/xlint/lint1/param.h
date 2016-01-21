@@ -80,6 +80,9 @@
 #elif __powerpc__
 #define PTRDIFF_IS_LONG		0
 #define SIZEOF_IS_ULONG		0
+#elif __riscv__
+#define PTRDIFF_IS_LONG		1
+#define SIZEOF_IS_ULONG		1
 #elif __sparc__
 #define PTRDIFF_IS_LONG		0
 #define SIZEOF_IS_ULONG		0
@@ -96,9 +99,6 @@
 #define PTRDIFF_IS_LONG		0
 #define SIZEOF_IS_ULONG		0
 #elif __aarch64__
-#define PTRDIFF_IS_LONG		1
-#define SIZEOF_IS_ULONG		1
-#elif __riscv__
 #define PTRDIFF_IS_LONG		1
 #define SIZEOF_IS_ULONG		1
 #else
