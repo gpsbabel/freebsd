@@ -77,6 +77,7 @@ namespace __sanitizer {
   const unsigned struct_kernel_stat_sz = 144;
   const unsigned struct_kernel_stat64_sz = 104;
 #elif defined(__riscv__)
+  /* RISCVTODO: check that these values are correct */
   const unsigned struct_kernel_stat_sz = 128;
   const unsigned struct_kernel_stat64_sz = 128;
 #elif defined(__mips__)
