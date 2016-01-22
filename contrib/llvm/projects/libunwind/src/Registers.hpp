@@ -1024,7 +1024,7 @@ inline const char *Registers_ppc::getRegisterName(int regNum) {
 
 }
 
-/// Registers_riscv  holds the register state of a thread in a 64-bit RISC-V
+/// Registers_riscv holds the register state of a thread in a 64-bit RISC-V
 /// process.
 class _LIBUNWIND_HIDDEN Registers_riscv {
 public:
