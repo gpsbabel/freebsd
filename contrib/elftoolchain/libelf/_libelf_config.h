@@ -97,7 +97,7 @@
 #define	LIBELF_BYTEORDER	ELFDATA2MSB
 #define	LIBELF_CLASS		ELFCLASS32
 
-#elif	defined(__riscv__)
+#elif	defined(__riscv64)
 
 #define	LIBELF_ARCH		EM_RISCV
 #define	LIBELF_BYTEORDER	ELFDATA2LSB
