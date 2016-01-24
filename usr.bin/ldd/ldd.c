@@ -48,7 +48,7 @@ __FBSDID("$FreeBSD$");
 
 #include "extern.h"
 
-/* We don't support a.out executables on arm64 */
+/* We don't support a.out executables on arm64 and riscv */
 #if !defined(__aarch64__) && !defined(__riscv__)
 #include <a.out.h>
 #define	AOUT_SUPPORTED
