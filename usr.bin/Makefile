@@ -222,9 +222,7 @@ SUBDIR.${MK_ICONV}+=	mkcsmapper
 SUBDIR.${MK_ICONV}+=	mkesdb
 SUBDIR.${MK_ISCSI}+=	iscsictl
 SUBDIR.${MK_KDUMP}+=	kdump
-.if ${MACHINE_ARCH} != "riscv64" # RISCVTODO truss does not build
 SUBDIR.${MK_KDUMP}+=	truss
-.endif
 SUBDIR.${MK_KERBEROS_SUPPORT}+=	compile_et
 SUBDIR.${MK_LDNS_UTILS}+=	drill
 SUBDIR.${MK_LDNS_UTILS}+=	host
@@ -283,8 +281,7 @@ SUBDIR.${MK_TOOLCHAIN}+=	rpcgen
 SUBDIR.${MK_TOOLCHAIN}+=	unifdef
 SUBDIR.${MK_TOOLCHAIN}+=	size
 SUBDIR.${MK_TOOLCHAIN}+=	strings
-.if ${MACHINE_ARCH} != "aarch64" && \ # ARM64TODO xlint does not build
-    ${MACHINE_ARCH} != "riscv64" # RISCVTODO xlint does not build
+.if ${MACHINE_ARCH} != "aarch64" # ARM64TODO xlint does not build
 SUBDIR.${MK_TOOLCHAIN}+=	xlint
 .endif
 SUBDIR.${MK_TOOLCHAIN}+=	xstr
