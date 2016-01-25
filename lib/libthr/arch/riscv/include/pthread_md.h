@@ -46,6 +46,7 @@
 
 #define	CPU_SPINWAIT
 #define	DTV_OFFSET		offsetof(struct tcb, tcb_dtv)
+#define	TP_OFFSET		0x10
 
 /*
  * Variant I tcb. The structure layout is fixed, don't blindly
@@ -61,7 +62,7 @@ static __inline void
 _tcb_set(struct tcb *tcb)
 {
 
-	__asm __volatile("mv tp, %0" :: "r"((uint8_t *)tcb + 0x10));
+	__asm __volatile("mv tp, %0" :: "r"((uint8_t *)tcb + TP_OFFSET));
 }
 
 /*
@@ -74,7 +75,7 @@ _tcb_get(void)
 
 	__asm __volatile("mv %0, tp" : "=r"(_tp));
 
-	return ((struct tcb *)(_tp - 0x10));
+	return ((struct tcb *)(_tp - TP_OFFSET));
 }
 
 extern struct pthread *_thr_initial;
