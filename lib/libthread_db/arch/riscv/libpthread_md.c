@@ -41,12 +41,12 @@ __FBSDID("$FreeBSD$");
 
 #include "libpthread_db.h"
 
-void abort(void);
-
 void
 pt_reg_to_ucontext(const struct reg *r, ucontext_t *uc)
 {
-	mcontext_t *mc = &uc->uc_mcontext;
+	mcontext_t *mc;
+
+	mc = &uc->uc_mcontext;
 
 	memcpy(mc->mc_gpregs.gp_t, r->t, sizeof(mc->mc_gpregs.gp_t));
 	memcpy(mc->mc_gpregs.gp_s, r->s, sizeof(mc->mc_gpregs.gp_s));
@@ -62,7 +62,9 @@ pt_reg_to_ucontext(const struct reg *r, ucontext_t *uc)
 void
 pt_ucontext_to_reg(const ucontext_t *uc, struct reg *r)
 {
-	const mcontext_t *mc = &uc->uc_mcontext;
+	const mcontext_t *mc;
+
+	mc = &uc->uc_mcontext;
 
 	memcpy(r->t, mc->mc_gpregs.gp_t, sizeof(mc->mc_gpregs.gp_t));
 	memcpy(r->s, mc->mc_gpregs.gp_s, sizeof(mc->mc_gpregs.gp_s));
@@ -79,14 +81,14 @@ void
 pt_fpreg_to_ucontext(const struct fpreg *r __unused, ucontext_t *uc __unused)
 {
 
-	/* TODO */
+	/* RISCVTODO */
 }
 
 void
 pt_ucontext_to_fpreg(const ucontext_t *uc __unused, struct fpreg *r __unused)
 {
 
-	/* TODO */
+	/* RISCVTODO */
 }
 
 void
