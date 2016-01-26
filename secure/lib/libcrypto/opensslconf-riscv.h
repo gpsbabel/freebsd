@@ -1,6 +1,6 @@
 /* $FreeBSD$ */
 /* opensslconf.h */
-/* WARNING: Generated automatically from opensslconf.h.in by Configure. */
+/* RISCVTODO: generate from opensslconf.h.in by Configure. */
 
 #ifdef  __cplusplus
 extern "C" {
