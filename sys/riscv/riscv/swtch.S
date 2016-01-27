@@ -35,8 +35,10 @@
 #include "assym.s"
 #include "opt_sched.h"
 
+#include <machine/param.h>
 #include <machine/asm.h>
 #include <machine/riscvreg.h>
+#include <machine/pte.h>
 
 __FBSDID("$FreeBSD$");
 
@@ -56,8 +58,14 @@ ENTRY(cpu_throw)
 	sfence.vm
 
 	/* Switch to the new pmap */
-	ld	t0, PCB_L1ADDR(x13)
-	csrw	sptbr0, t0
+	la	t0, pagetable_l0
+	ld	t1, PCB_L1ADDR(x13)	/* Link to next level PN */
+	srli	t1, t1, PAGE_SHIFT	/* PN no */
+	li	t2, (PTE_VALID | (PTE_TYPE_PTR << PTE_TYPE_S))
+	slli	t3, t1, PTE_PPN0_S	/* (t1 << PTE_PPN0_S) */
+	or	t4, t2, t3
+	/* Store single level0 PTE entry to position */
+	sd	t4, 0(t0)
 
 	/* TODO: Invalidate the TLB */
 
@@ -146,8 +154,14 @@ ENTRY(cpu_switch)
 	sfence.vm
 
 	/* Switch to the new pmap */
-	ld	t0, PCB_L1ADDR(x13)
-	csrw	sptbr0, t0
+	la	t0, pagetable_l0
+	ld	t1, PCB_L1ADDR(x13)	/* Link to next level PN */
+	srli	t1, t1, PAGE_SHIFT	/* PN no */
+	li	t2, (PTE_VALID | (PTE_TYPE_PTR << PTE_TYPE_S))
+	slli	t3, t1, PTE_PPN0_S	/* (t1 << PTE_PPN0_S) */
+	or	t4, t2, t3
+	/* Store single level0 PTE entry to position */
+	sd	t4, 0(t0)
 
 	/* TODO: Invalidate the TLB */
 

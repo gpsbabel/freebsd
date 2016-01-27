@@ -116,6 +116,22 @@ _start:
 
 	/* Page tables */
 
+	/* Level 0 */
+	la	s1, pagetable_l0
+	la	s2, pagetable_l1	/* Link to next level PN */
+	srli	s2, s2, PAGE_SHIFT
+
+	li	t4, (PTE_VALID | (PTE_TYPE_PTR << PTE_TYPE_S))
+	slli	t5, s2, PTE_PPN0_S	/* (s2 << PTE_PPN0_S) */
+	or	t6, t4, t5
+
+	/* Store single level0 PTE entry to position */
+	li	a5, 0x1ff
+	li	a6, PTE_SIZE
+	mulw	a5, a5, a6
+	add	t0, s1, a5
+	sd	t6, 0(t0)
+
 	/* Level 1 */
 	la	s1, pagetable_l1
 	la	s2, pagetable_l2	/* Link to next level PN */
@@ -149,14 +165,14 @@ _start:
 	addi	t4, t4, 1
 	bltu	t4, t3, 2b
 
-	/* Page tables base for kernel */
-	la	s1, pagetable_l1
-	csrw	sptbr1, s1
+	/* Set page tables base register */
+	la	s1, pagetable_l0
+	csrw	sptbr, s1
 
 	/* Page tables END */
 
 	/* Enter supervisor mode */
-	li	s0, ((MSTATUS_VM_SV39 << MSTATUS_VM_SHIFT) | \
+	li	s0, ((MSTATUS_VM_SV48 << MSTATUS_VM_SHIFT) | \
 		     (MSTATUS_PRV_M << MSTATUS_PRV_SHIFT) | \
 		     (MSTATUS_PRV_S << MSTATUS_PRV1_SHIFT) | \
 		     (MSTATUS_PRV_U << MSTATUS_PRV2_SHIFT));
@@ -242,6 +258,9 @@ szsigcode:
 	.quad	esigcode - sigcode
 
 	.align	12
+	.globl pagetable_l0
+pagetable_l0:
+	.space	PAGE_SIZE
 pagetable_l1:
 	.space	PAGE_SIZE
 pagetable_l2:
