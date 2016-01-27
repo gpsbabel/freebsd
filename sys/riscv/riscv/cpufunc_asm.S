@@ -50,13 +50,6 @@ END(riscv_nullop)
  * Generic functions to read/modify/write the internal coprocessor registers
  */
 
-ENTRY(riscv_setttb)
-	fence
-	csrw	sptbr0, a0
-	fence
-	ret
-END(riscv_setttb)
-
 ENTRY(riscv_tlb_flushID)
 	sfence.vm
 	ret
