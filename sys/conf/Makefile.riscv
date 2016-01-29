@@ -6,7 +6,8 @@
 #
 # Makefile for FreeBSD
 #
-# This makefile is constructed from a machine description:
+# RISCVTODO: copy pasted from aarch64, needs to be
+# constructed from a machine description:
 #	config machineid
 # Most changes should be made in the machine description
 #	/sys/riscv/conf/``machineid''
