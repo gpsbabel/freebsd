@@ -53,8 +53,8 @@ get_pcpu(void)
 	val = ~(PAGE_SIZE * KSTACK_PAGES - 1);
 
 	__asm __volatile(
-		"and	%0, sp, %1		\n"
-		"ld	%0, 0(%0)		\n"
+		"and	%0, sp, %1	\n" /* Get the bottom of stack */
+		"ld	%0, 0(%0)	\n" /* Get pcpup */
 	 : "=&r"(pcpu) : "r"(val));
 
 	return (pcpu);
@@ -69,9 +69,9 @@ get_curthread(void)
 	val = ~(PAGE_SIZE * KSTACK_PAGES - 1);
 
 	__asm __volatile(
-		"and	%0, sp, %1		\n"
-		"ld	%0, 0(%0)		\n"
-		"ld	%0, 0(%0)		\n"
+		"and	%0, sp, %1	\n" /* Get the bottom of stack */
+		"ld	%0, 0(%0)	\n" /* Get pcpup */
+		"ld	%0, 0(%0)	\n" /* Get curthread */
 	 : "=&r"(td) : "r"(val));
 
 	return (td);
