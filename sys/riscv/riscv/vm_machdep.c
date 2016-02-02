@@ -214,6 +214,9 @@ void
 cpu_thread_alloc(struct thread *td)
 {
 
+	/* Store pcpup at the bottom of stack */
+	*(uintptr_t *)td->td_kstack = (uintptr_t)get_pcpu();
+
 	td->td_pcb = (struct pcb *)(td->td_kstack +
 	    td->td_kstack_pages * PAGE_SIZE) - 1;
 	td->td_frame = (struct trapframe *)STACKALIGN(

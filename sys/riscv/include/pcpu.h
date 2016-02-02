@@ -47,16 +47,32 @@ extern struct pcpu *pcpup;
 static inline struct pcpu *
 get_pcpu(void)
 {
+	struct pcpu *pcpu;
+	uint64_t val;
 
-	return (pcpup);
+	val = ~(PAGE_SIZE * KSTACK_PAGES - 1);
+
+	__asm __volatile(
+		"and	%0, sp, %1		\n"
+		"ld	%0, 0(%0)		\n"
+	 : "=&r"(pcpu) : "r"(val));
+
+	return (pcpu);
 }
 
 static inline struct thread *
 get_curthread(void)
 {
 	struct thread *td;
+	uint64_t val;
 
-	td = (struct thread *)*(uint64_t *)pcpup;
+	val = ~(PAGE_SIZE * KSTACK_PAGES - 1);
+
+	__asm __volatile(
+		"and	%0, sp, %1		\n"
+		"ld	%0, 0(%0)		\n"
+		"ld	%0, 0(%0)		\n"
+	 : "=&r"(td) : "r"(val));
 
 	return (td);
 }
