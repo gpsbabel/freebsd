@@ -563,7 +563,6 @@ sendsig(sig_t catcher, ksiginfo_t *ksi, sigset_t *mask)
 static void
 init_proc0(vm_offset_t kstack)
 {
-
 	pcpup = &__pcpu[0];
 
 	proc_linkup0(&proc0, &thread0);
@@ -767,9 +766,6 @@ initriscv(struct riscv_bootparams *rvbp)
 	    "mv gp, %0" :: "r"(pcpup));
 #endif
 
-	/* Store pcpup at the bottom of stack */
-	*(uintptr_t *)rvbp->kern_stack = (uintptr_t)pcpup;
-
 	PCPU_SET(curthread, &thread0);
 
 	/* Do basic tuning, hz etc */
@@ -783,7 +779,7 @@ initriscv(struct riscv_bootparams *rvbp)
 
 	cninit();
 
-	init_proc0(rvbp->kern_stack_end);
+	init_proc0(rvbp->kern_stack);
 
 	/* set page table base register for thread0 */
 	thread0.td_pcb->pcb_l1addr = (rvbp->kern_l1pt - KERNBASE);

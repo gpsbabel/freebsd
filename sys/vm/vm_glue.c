@@ -354,10 +354,10 @@ vm_thread_new(struct thread *td, int pages)
 	/*
 	 * Get a kernel virtual address for this thread's kstack.
 	 */
-#if defined(__mips__) || defined(__riscv__)
+#if defined(__mips__)
 	/*
 	 * We need to align the kstack's mapped address to fit within
-	 * a single TLB entry on MIPS and to access pcpup on RISC-V.
+	 * a single TLB entry.
 	 */
 	if (vmem_xalloc(kernel_arena, (pages + KSTACK_GUARD_PAGES) * PAGE_SIZE,
 	    PAGE_SIZE * 2, 0, 0, VMEM_ADDR_MIN, VMEM_ADDR_MAX,
