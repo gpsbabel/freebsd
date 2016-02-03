@@ -248,14 +248,20 @@ ENTRY(fork_trampoline)
 	ld	a6, (TF_A + 6 * 8)(sp)
 	ld	a7, (TF_A + 7 * 8)(sp)
 
-	/* Save kernel stack so we can use it doing a user trap */
-	csrw	sscratch, sp
-
 	/* Load user ra and sp */
-	ld	gp, (TF_GP)(sp)
 	ld	tp, (TF_TP)(sp)
 	ld	ra, (TF_RA)(sp)
-	ld	sp, (TF_SP)(sp)
+
+	/* Store our pcpup, so we can use it doing a trap */
+	sd	gp, (TF_SIZE)(sp)
+	ld	gp, (TF_GP)(sp)
+
+	/* Save kernel stack so we can use it doing a user trap */
+	addi	sp, sp, TF_SIZE
+	csrw	sscratch, sp
+
+	/* Load user stack */
+	ld	sp, (TF_SP - TF_SIZE)(sp)
 
 	eret
 END(fork_trampoline)
