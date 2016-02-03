@@ -256,7 +256,9 @@ ptrace_clear_single_step(struct thread *td)
 void
 exec_setregs(struct thread *td, struct image_params *imgp, u_long stack)
 {
-	struct trapframe *tf = td->td_frame;
+	struct trapframe *tf;
+
+	tf = td->td_frame;
 
 	memset(tf, 0, sizeof(struct trapframe));
 
