@@ -46,7 +46,7 @@ __FBSDID("$FreeBSD$");
 	sd	ra, (TF_RA)(sp)
 	sd	tp, (TF_TP)(sp)
 
-.if \el == 0	/* We come from userspace. Load our pcpu */
+.if \el == 0	/* We came from userspace. Load our pcpu */
 	sd	gp, (TF_GP)(sp)
 	ld	gp, (TF_SIZE)(sp)
 .endif
