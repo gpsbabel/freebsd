@@ -282,6 +282,14 @@ machine_interrupt:
 	j	1b
 
 software_interrupt:
+	/* Clear machine pending */
+	li	t0, MIP_MSIP
+	csrc	mip, t0
+
+	/* (Re)post supervisor software interrupt */
+	li	t0, MIP_SSIP
+	csrs	mip, t0  
+
 	/* Redirect to supervisor */
 	j	exit_mrts
 
@@ -294,7 +302,7 @@ timer_interrupt:
 	li	t0, MIP_MTIP
 	csrc	mip, t0
 
-	/* Post supervisor software interrupt */
+	/* Post supervisor timer interrupt */
 	li	t0, MIP_STIP
 	csrs	mip, t0
 
@@ -336,15 +344,22 @@ htif_interrupt:
 
 2:
 	/* Save entry */
-	la	t0, htif_ring_cursor
-	beqz	t0, 3f		/* not initialized */
-	ld	t0, 0(t0)	/* load struct */
-	sd	t5, 0(t0)	/* put entry */
+	la	t0, htif_ring
+	csrr	t1, mhartid
+	li	t4, (24 * 1024 + 16)
+	mulw	t4, t4, t1
+	add	t0, t0, t4
+	li	t4, (24 * 1024)
+	add	t0, t0, t4	/* t0 == htif_ring_cursor */
+	
+	//la	t0, htif_ring_cursor
+	//beqz	t0, 3f		/* not initialized */
+	ld	t1, 0(t0)	/* load address */
+	sd	t5, 0(t1)	/* put entry */
 	li	t4, 1
-	sd	t4, 8(t0)	/* mark used */
-	ld	t4, 16(t0)	/* take next */
+	sd	t4, 8(t1)	/* mark used */
+	ld	t4, 16(t1)	/* take next */
 	/* Update cursor */
-	la	t0, htif_ring_cursor
 	sd	t4, 0(t0)
 
 	/* Post supervisor software interrupt */
@@ -369,6 +384,10 @@ supervisor_call:
 	beq	t5, t4, mcpuid_get
 	li	t4, ECALL_MIMPID_GET
 	beq	t5, t4, mimpid_get
+	li	t4, ECALL_SEND_IPI
+	beq	t5, t4, send_ipi
+	li	t4, ECALL_CLEAR_IPI
+	beq	t5, t4, clear_ipi
 	j	exit_next_instr
 
 mcpuid_get:
@@ -379,18 +398,36 @@ mimpid_get:
 	csrr	t6, mimpid
 	j	exit_next_instr
 
+send_ipi:
+	csrw	send_ipi, t6
+	j	exit_next_instr
+
+clear_ipi:
+	li	t0, MIP_SSIP
+	csrc	mip, t0
+	j	exit_next_instr
+
 htif_get_entry:
+
+	la	t0, htif_ring
+	csrr	t2, mhartid
+	li	t4, (24 * 1024 + 16)
+	mulw	t4, t4, t2
+	add	t0, t0, t4
+	li	t4, (24 * 1024 + 8)
+	add	t0, t0, t4	/* t0 == htif_ring_last */
+
 	li	t6, 0		/* preset return value */
-	la	t0, htif_ring_last
-	ld	t0, 0(t0)	/* load struct */
-	ld	t4, 8(t0)	/* get used */
+	//la	t0, htif_ring_last
+	ld	t2, 0(t0)	/* load address */
+	ld	t4, 8(t2)	/* get used */
 	beqz	t4, 1f
-	ld	t6, 0(t0)	/* get entry */
+	ld	t6, 0(t2)	/* get entry */
 	li	t4, 0
-	sd	t4, 8(t0)	/* mark free */
-	sd	t4, 0(t0)	/* free entry, just in case */
-	ld	t4, 16(t0)	/* take next */
-	la	t0, htif_ring_last
+	sd	t4, 8(t2)	/* mark free */
+	sd	t4, 0(t2)	/* free entry, just in case */
+	ld	t4, 16(t2)	/* take next */
+	//la	t0, htif_ring_last
 	sd	t4, 0(t0)
 1:
 	/* Exit. Result is stored in t6 */

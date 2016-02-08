@@ -69,15 +69,15 @@ mentry:
 	.align 6
 	j	bad_trap
 
-	/* Reset vector */
-	.text
-	.align 8
-	.globl _start
-_start:
-	li	s11, KERNBASE
-
+.macro build_ring
 	/* Build ring */
 	la	t0, htif_ring
+//#ifdef SMP
+	csrr	a0, mhartid
+	li	s0, (24 * 1024 + 16)
+	mulw	s0, a0, s0
+	add	t0, t0, s0
+//#endif
 	li	t1, 0
 	sd	t1, 0(t0)	/* zero data */
 	sd	t1, 8(t0)	/* zero used */
@@ -95,13 +95,31 @@ _start:
 	j	1b
 2:
 	sd	t0, 16(t3)	/* last -> first */
-	la	t1, htif_ring_cursor
-	sd	t0, 0(t1)
-	la	t1, htif_ring_last
-	sd	t0, 0(t1)
-	/* finish building ring */
 
-	la	t0, hardstack_end
+	li	t2, (24 * 1024)
+	add	s0, t0, t2
+	sd	t0, 0(s0)	/* cursor */
+	sd	t0, 8(s0)	/* last */
+	/* finish building ring */
+.endm
+
+	/* Reset vector */
+	.text
+	.align 8
+	.globl _start
+_start:
+	/* Direct secondary cores to mpentry */
+	csrr	a0, mhartid
+#ifdef	SMP
+	bnez	a0, mpentry
+#endif
+
+	build_ring
+
+	li	s11, KERNBASE
+	la	t0, hardstack
+	li	t1, PAGE_SIZE
+	add	t0, t0, t1
 	sub	t0, t0, s11
 	csrw	mscratch, t0
 
@@ -214,20 +232,12 @@ initstack:
 	.space  (PAGE_SIZE * KSTACK_PAGES)
 initstack_end:
 hardstack:
-	.space  (PAGE_SIZE)
+	.space  (PAGE_SIZE * MAXCPU)
 hardstack_end:
 
 	.globl htif_ring
 htif_ring:
-	.space  (24 * 1024)
-
-	.globl htif_ring_cursor
-htif_ring_cursor:
-	.space  (8)
-
-	.globl htif_ring_last
-htif_ring_last:
-	.space  (8)
+	.space ((24 * 1024 + 16) * MAXCPU)
 
 	.globl console_intr
 console_intr:
@@ -270,5 +280,111 @@ pagetable_end:
 	.globl init_pt_va
 init_pt_va:
 	.quad pagetable_l2	/* XXX: Keep page tables VA */
+
+#ifdef SMP
+/*
+ * mpentry(unsigned long)
+ *
+ * Called by a core when it is being brought online.
+ * The data in x0 is passed straight to init_secondary.
+ */
+ENTRY(mpentry)
+	/* Calculate offset */
+	li	t1, 4
+	mulw	t1, t1, a0
+	/* Get pointer */
+	la	t0, __riscv_boot_ap
+	add	t0, t0, t1
+
+	/* Wait kernel to be ready */
+1:
+	lw	t1, 0(t0)
+	beqz	t1, 1b
+
+	la	t0, mentry
+	csrw	mtvec, t0
+
+	build_ring
+
+	/* Disable interrupts */
+	//msr	daifset, #2
+
+	/* Drop to EL1 */
+	//bl	drop_to_el1
+
+	/* Set the context id */
+	//msr	contextidr_el1, x1
+
+	/* Load the kernel page table */
+	//adr	x26, pagetable_l1_ttbr1
+	/* Load the identity page table */
+	//adr	x27, pagetable_l0_ttbr0
+
+	/* Enable the mmu */
+	//bl	start_mmu
+
+	/* Jump to the virtual address space */
+	//ldr	x15, =mp_virtdone
+	//br	x15
+
+	/* Set page tables base register */
+	la	s1, pagetable_l0
+	csrw	sptbr, s1
+
+	/* Page tables END */
+
+	/* Enter supervisor mode */
+	li	s0, ((MSTATUS_VM_SV48 << MSTATUS_VM_SHIFT) | \
+		     (MSTATUS_PRV_M << MSTATUS_PRV_SHIFT) | \
+		     (MSTATUS_PRV_S << MSTATUS_PRV1_SHIFT) | \
+		     (MSTATUS_PRV_U << MSTATUS_PRV2_SHIFT));
+	csrw	mstatus, s0
+
+	li	s11, KERNBASE
+	la	t0, hardstack
+	li	t1, PAGE_SIZE
+	mulw	t1, t1, a0
+	add	t0, t0, t1
+	sub	t0, t0, s11
+	csrw	mscratch, t0
+
+	li	t0, 0
+	csrw	sscratch, t0
+
+	/* Enable machine soft interrupts */
+	//li	t0, MIE_MSIE
+	//csrs	mie, t0
+
+	/* Exit from machine mode */
+	la	t0, mp_virtdone
+	add	t0, t0, s11
+	csrw	mepc, t0
+	eret
+
+mp_virtdone:
+	/*
+	 * Now that we are in virtual address space,
+	 * we don't need the identity mapping in TTBR0 and
+	 * can set the TCR to a more useful value.
+	 */
+	//ldr	x2, tcr
+	//mrs	x3, id_aa64mmfr0_el1
+	//bfi	x2, x3, #32, #3
+	//msr	tcr_el1, x2
+
+	//ldr	x4, =secondary_stacks
+	//mov	x5, #(PAGE_SIZE * KSTACK_PAGES)
+	//mul	x5, x0, x5
+	//add	sp, x4, x5
+
+	/* Setup stack pointer */
+	la	t0, secondary_stacks
+	li	t1, (PAGE_SIZE * KSTACK_PAGES)
+	mul	t1, t1, a0
+	add	sp, t0, t1
+
+	call	init_secondary
+END(mpentry)
+#endif
 
 #include "exception.S"

@@ -58,6 +58,7 @@ __FBSDID("$FreeBSD$");
 #include <machine/pcb.h>
 #include <machine/pcpu.h>
 #include <machine/vmparam.h>
+#include <machine/smp.h>
 
 #include <machine/resource.h>
 #include <machine/intr.h>
@@ -256,7 +257,10 @@ do_trap_supervisor(struct trapframe *frame)
 	uint64_t exception;
 
 	exception = (frame->tf_scause & EXCP_MASK);
+	//printf("0x%016lx\n", exception);
 	if (frame->tf_scause & EXCP_INTR) {
+		//printf("intr\n");
+
 		/* Interrupt */
 		riscv_cpu_intr(frame);
 		return;
@@ -271,6 +275,9 @@ do_trap_supervisor(struct trapframe *frame)
 	case EXCP_INSTR_ACCESS_FAULT:
 		data_abort(frame, 0);
 		break;
+	case EXCP_INSTR_ILLEGAL:
+		printf("illegal instruction: sepc %x\n", frame->tf_sepc);
+		break;
 	default:
 		dump_regs(frame);
 		panic("Unknown kernel exception %x badaddr %lx\n",
@@ -282,6 +289,10 @@ void
 do_trap_user(struct trapframe *frame)
 {
 	uint64_t exception;
+
+	uint64_t ipis = PCPU_GET(pending_ipis);
+	if (ipis)
+		printf("user ipis %d\n", ipis);
 
 	exception = (frame->tf_scause & EXCP_MASK);
 	if (frame->tf_scause & EXCP_INTR) {
@@ -302,6 +313,9 @@ do_trap_user(struct trapframe *frame)
 	case EXCP_UMODE_ENV_CALL:
 		frame->tf_sepc += 4;	/* Next instruction */
 		svc_handler(frame);
+		break;
+	case EXCP_INSTR_ILLEGAL:
+		printf("illegal instruction: sepc %x\n", frame->tf_sepc);
 		break;
 	default:
 		dump_regs(frame);

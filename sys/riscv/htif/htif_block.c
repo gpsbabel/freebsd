@@ -212,6 +212,8 @@ htif_blk_task(void *arg)
 		HTIF_BLK_UNLOCK(sc);
 
 		if (bp->bio_cmd == BIO_READ || bp->bio_cmd == BIO_WRITE) {
+			//printf("bio rq\n");
+
 			req.offset = (bp->bio_pblkno * sc->disk->d_sectorsize);
 			req.size = bp->bio_bcount;
 			paddr = vtophys(bp->bio_data);
