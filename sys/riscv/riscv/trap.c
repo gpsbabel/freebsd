@@ -58,7 +58,6 @@ __FBSDID("$FreeBSD$");
 #include <machine/pcb.h>
 #include <machine/pcpu.h>
 #include <machine/vmparam.h>
-#include <machine/smp.h>
 
 #include <machine/resource.h>
 #include <machine/intr.h>
@@ -257,10 +256,7 @@ do_trap_supervisor(struct trapframe *frame)
 	uint64_t exception;
 
 	exception = (frame->tf_scause & EXCP_MASK);
-	//printf("0x%016lx\n", exception);
 	if (frame->tf_scause & EXCP_INTR) {
-		//printf("intr\n");
-
 		/* Interrupt */
 		riscv_cpu_intr(frame);
 		return;
@@ -289,10 +285,6 @@ void
 do_trap_user(struct trapframe *frame)
 {
 	uint64_t exception;
-
-	uint64_t ipis = PCPU_GET(pending_ipis);
-	if (ipis)
-		printf("user ipis %d\n", ipis);
 
 	exception = (frame->tf_scause & EXCP_MASK);
 	if (frame->tf_scause & EXCP_INTR) {
