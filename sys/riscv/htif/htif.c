@@ -128,7 +128,7 @@ htif_intr(void *arg)
 
 	htif_handle_entry(sc);
 
-	csr_clear(sip, SIE_SSIE);
+	csr_clear(sip, SIP_SSIP);
 
 	return (FILTER_HANDLED);
 }

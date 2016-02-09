@@ -219,7 +219,11 @@ riscv_cpu_intr(struct trapframe *frame)
 		if (ipi_bitmap) {
 			printf("ipis %d\n", ipi_bitmap);
 			//machine_command(ECALL_CLEAR_IPI, 0);
+#ifdef SMP
 			ipi_handler(ipi_bitmap);
+#endif
+			//csr_clear(sip, SIP_SSIP);
+
 			//return;
 			break;
 		} else 

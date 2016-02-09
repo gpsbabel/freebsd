@@ -111,7 +111,8 @@
 #define	SIE_SSIE	(1 << 1)
 #define	SIE_STIE	(1 << 5)
 
-/* Note: sip register is not yet implement in Spike simulator */
+/* Note: sip register has no SIP_STIP bit in Spike simulator */
+#define	SIP_SSIP	(1 << 1)
 #define	SIP_STIP	(1 << 5)
 
 #define	CSR_ZIMM(val)							\
