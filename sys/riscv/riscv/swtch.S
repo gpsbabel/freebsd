@@ -56,6 +56,10 @@ ENTRY(cpu_throw)
 
 	/* Switch to the new pmap */
 	la	t0, pagetable_l0
+	lw	t1, PC_CPUID(gp)
+	li	t2, 4096
+	mulw	t1, t1, t2
+	add	t0, t0, t1
 	ld	t1, PCB_L1ADDR(x13)	/* Link to next level PN */
 	srli	t1, t1, PAGE_SHIFT	/* PN no */
 	li	t2, (PTE_VALID | (PTE_TYPE_PTR << PTE_TYPE_S))
@@ -145,6 +149,10 @@ ENTRY(cpu_switch)
 
 	/* Switch to the new pmap */
 	la	t0, pagetable_l0
+	lw	t1, PC_CPUID(gp)
+	li	t2, 4096
+	mulw	t1, t1, t2
+	add	t0, t0, t1
 	ld	t1, PCB_L1ADDR(x13)	/* Link to next level PN */
 	srli	t1, t1, PAGE_SHIFT	/* PN no */
 	li	t2, (PTE_VALID | (PTE_TYPE_PTR << PTE_TYPE_S))

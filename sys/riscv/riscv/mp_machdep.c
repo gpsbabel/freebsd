@@ -167,12 +167,12 @@ riscv64_cpu_attach(device_t dev)
 	if (reg == NULL)
 		return (EINVAL);
 
-	if (bootverbose) {
+	//if (bootverbose) {
 		device_printf(dev, "register <");
 		for (i = 0; i < reg_size; i++)
 			printf("%s%x", (i == 0) ? "" : " ", reg[i]);
 		printf(">\n");
-	}
+	//}
 
 	/* Set the device to start it later */
 	cpu_list[cpuid] = dev;
@@ -184,8 +184,6 @@ static void
 release_aps(void *dummy __unused)
 {
 	int cpu, i;
-
-	printf("release aps\n");
 
 	/* Setup the IPI handler */
 	//for (i = 0; i < COUNT_IPI; i++)
@@ -231,10 +229,9 @@ init_secondary(uint64_t cpu)
 	__asm __volatile("mv gp, %0" :: "r"(pcpup));
 
 	/* Spin until the BSP releases the APs */
-	//while (!aps_ready)
-	//	__asm __volatile("wfe");
 	while (!aps_ready)
 		__asm __volatile("wfi");
+	//	__asm __volatile("wfe");
 
 	/* Initialize curthread */
 	KASSERT(PCPU_GET(idlethread) != NULL, ("no idle thread"));
@@ -253,6 +250,8 @@ init_secondary(uint64_t cpu)
 
 	for (i = 0; i < COUNT_IPI; i++)
 		riscv_unmask_ipi(i);
+	/* Enable SOFT interrupts */
+	csr_set(sie, SIE_SSIE);
 
 	/* Start per-CPU event timers. */
 	cpu_initclocks_ap();
@@ -265,10 +264,6 @@ init_secondary(uint64_t cpu)
 
 	/* Enable interrupts */
 	intr_enable();
-
-	/* Enable SOFT interrupts: check this */
-	csr_set(sie, SIE_SSIE);
-	//csr_set(sie, SIE_STIE);
 
 	mtx_lock_spin(&ap_boot_mtx);
 
@@ -302,12 +297,15 @@ ipi_handler(u_int ipi_bitmap)
 
 	cpu = PCPU_GET(cpuid);
 
+	mb();
+
 	while ((bit = ffs(ipi_bitmap))) {
-		bit = bit - 1;
-		ipi = 1 << bit;
+		bit = (bit - 1);
+		ipi = (1 << bit);
 		ipi_bitmap &= ~ipi;
 
-		printf("handle ipi %d\n", ipi);
+		mb();
+
 		switch (ipi) {
 		case IPI_AST:
 			CTR0(KTR_SMP, "IPI_AST");
@@ -322,6 +320,7 @@ ipi_handler(u_int ipi_bitmap)
 			break;
 		case IPI_STOP:
 		case IPI_STOP_HARD:
+			printf("stopping CPU %d\n", cpu);
 			CTR0(KTR_SMP, (ipi == IPI_STOP) ? "IPI_STOP" : "IPI_STOP_HARD");
 			savectx(&stoppcbs[cpu]);
 

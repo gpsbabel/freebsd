@@ -25,7 +25,8 @@ makeoptions	DEBUG=-g		# Build kernel with gdb(1) debug symbols
 # makeoptions	WITH_CTF=1		# Run ctfconvert(1) for DTrace support
 makeoptions	NO_MODULES=1		# We don't yet support modules on RISC-V
 
-options 	SCHED_ULE		# ULE scheduler
+# options 	SCHED_ULE		# ULE scheduler
+options 	SCHED_4BSD		# ULE scheduler
 options 	PREEMPTION		# Enable kernel thread preemption
 options 	INET			# InterNETworking
 options 	INET6			# IPv6 communications protocols
@@ -70,13 +71,15 @@ options 	MAC			# TrustedBSD MAC Framework
 options 	RACCT			# Resource accounting framework
 options 	RACCT_DEFAULT_TO_DISABLED # Set kern.racct.enable=0 by default
 options 	RCTL			# Resource limits
-# options 	SMP
+options 	SMP
 
-options        MD_ROOT
-options        MD_ROOT_SIZE=8192       # 8MB ram disk
-options        VM_KMEM_SIZE=16777216   # required for 8mb mdroot
-#makeoptions    MFS_IMAGE=/home/rb743/dev/freebsd-riscv/riscv.img
-#options        VM_KMEM_SIZE=16777216   # required for 8mb mdroot
+# Uncomment for memory disk
+# options 	MD_ROOT
+# options 	MD_ROOT_SIZE=8192	# 8MB ram disk
+# options 	VM_KMEM_SIZE=16777216
+# makeoptions	MFS_IMAGE=/home/rb743/dev/freebsd-riscv/riscv.img
+# options 	ROOTDEVNAME=\"ufs:/dev/md0\"
+options 	ROOTDEVNAME=\"ufs:/dev/htif_blk0\"
 
 # Debugging support.  Always need this:
 # options 	KDB			# Enable kernel debugger support.
@@ -91,8 +94,6 @@ options 	INVARIANT_SUPPORT	# Extra sanity checks of internal structures, require
 # options 	WITNESS_SKIPSPIN	# Don't run witness on spinlocks for speed
 options 	MALLOC_DEBUG_MAXZONES=8	# Separate malloc(9) zones
 
-# options 	ROOTDEVNAME=\"ufs:/dev/htif_blk0\"
-options 	ROOTDEVNAME=\"ufs:/dev/md0\"
 # options 	EARLY_PRINTF
 
 # Pseudo devices.

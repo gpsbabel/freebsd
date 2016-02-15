@@ -283,12 +283,12 @@ machine_interrupt:
 
 software_interrupt:
 	/* Clear machine pending */
-	li	t0, MIP_MSIP
-	csrc	mip, t0
+	//li	t0, MIP_MSIP
+	//csrc	mip, t0
 
 	/* (Re)post supervisor software interrupt */
-	li	t0, MIP_SSIP
-	csrs	mip, t0  
+	//li	t0, MIP_SSIP
+	//csrs	mip, t0  
 
 	/* Redirect to supervisor */
 	j	exit_mrts
@@ -340,7 +340,8 @@ htif_interrupt:
 	la	t0, console_intr
 	li	t1, 1
 	sd	t1, 0(t0)
-	j	3f
+	j	1b
+	//j	3f
 
 2:
 	/* Save entry */
@@ -354,7 +355,7 @@ htif_interrupt:
 	
 	//la	t0, htif_ring_cursor
 	//beqz	t0, 3f		/* not initialized */
-	ld	t1, 0(t0)	/* load address */
+	ld	t1, 0(t0)	/* load ptr to cursor */
 	sd	t5, 0(t1)	/* put entry */
 	li	t4, 1
 	sd	t4, 8(t1)	/* mark used */
@@ -365,6 +366,9 @@ htif_interrupt:
 	/* Post supervisor software interrupt */
 	li	t0, MIP_SSIP
 	csrs	mip, t0
+
+	/* See other events */
+	j	1b
 
 3:
 	j	exit
@@ -388,6 +392,8 @@ supervisor_call:
 	beq	t5, t4, send_ipi
 	li	t4, ECALL_CLEAR_IPI
 	beq	t5, t4, clear_ipi
+	li	t4, ECALL_HTIF_LOWPUTC
+	beq	t5, t4, htif_lowputc
 	j	exit_next_instr
 
 mcpuid_get:
@@ -399,12 +405,38 @@ mimpid_get:
 	j	exit_next_instr
 
 send_ipi:
-	csrw	send_ipi, t6
+	/* cpuid in t6 */
+
+	li	t0, (4096 * 1024 * 1024 + 2 * 4096)
+	li	t2, 4096
+	mulw	t2, t6, t2
+	add	t0, t0, t2	/* t0 = cpu mmio base */
+	li	t2, (0x783 * 8)
+	add	t0, t0, t2	/* t0 = CSR_IPI */
+	li	t2, 1
+	sd	t2, 0(t0)
 	j	exit_next_instr
 
 clear_ipi:
+	/* Do only clear if there are no new entries in HTIF ring */
+
+	la	t0, htif_ring
+	csrr	t2, mhartid
+	li	t4, (24 * 1024 + 16)
+	mulw	t4, t4, t2
+	add	t0, t0, t4
+	li	t4, (24 * 1024)
+	add	t0, t0, t4	/* t0 == htif_ring_cursor */
+	ld	t2, 0(t0)	/* ptr in cursor */
+	ld	t3, 8(t0)	/* ptr in last */
+	//bne	t2, t3, 4f
+	ld	t3, 8(t3)	/* get used */
+	bnez	t3, 4f
+
 	li	t0, MIP_SSIP
 	csrc	mip, t0
+
+4:
 	j	exit_next_instr
 
 htif_get_entry:
@@ -418,8 +450,7 @@ htif_get_entry:
 	add	t0, t0, t4	/* t0 == htif_ring_last */
 
 	li	t6, 0		/* preset return value */
-	//la	t0, htif_ring_last
-	ld	t2, 0(t0)	/* load address */
+	ld	t2, 0(t0)	/* load ptr to last */
 	ld	t4, 8(t2)	/* get used */
 	beqz	t4, 1f
 	ld	t6, 0(t2)	/* get entry */
@@ -427,17 +458,64 @@ htif_get_entry:
 	sd	t4, 8(t2)	/* mark free */
 	sd	t4, 0(t2)	/* free entry, just in case */
 	ld	t4, 16(t2)	/* take next */
-	//la	t0, htif_ring_last
-	sd	t4, 0(t0)
+	sd	t4, 0(t0)	/* update ptr to last */
 1:
 	/* Exit. Result is stored in t6 */
 	j	exit_next_instr
 
 htif_cmd:
-	mv	t0, t6
 1:
+	mv	t0, t6
+	//li	t6, MIP_SSIP
+	//csrc	mip, t6
+	//li	t6, MIE_SSIE
+	//csrs	mie, t6
 	csrrw	t0, mtohost, t0
 	bnez	t0, 1b
+	j	exit_next_instr
+
+htif_lowputc:
+1:
+	mv	t0, t6
+	csrrw	t0, mtohost, t0
+	bnez	t0, 1b
+
+2:
+	li	t4, 0
+	csrrw	t5, mfromhost, t4
+	beqz	t5, 2b
+
+	/* Console PUT intr ? */
+	mv	t2, t5
+	srli	t2, t2, 48
+	li	t3, 0x0101
+	beq	t2, t3, 3f
+
+	/* Not a console PUT, so save entry */
+	la	t0, htif_ring
+	csrr	t2, mhartid
+	li	t4, (24 * 1024 + 16)
+	mulw	t4, t4, t2
+	add	t0, t0, t4
+	li	t4, (24 * 1024)
+	add	t0, t0, t4	/* t0 == htif_ring_cursor */
+	
+	ld	t2, 0(t0)	/* load ptr to cursor */
+	sd	t5, 0(t2)	/* put entry */
+	li	t4, 1
+	sd	t4, 8(t2)	/* mark used */
+	ld	t4, 16(t2)	/* take next */
+	/* Update cursor */
+	sd	t4, 0(t0)
+
+	/* Post supervisor software interrupt */
+	li	t0, MIP_SSIP
+	csrs	mip, t0
+
+	/* Wait for console intr again */
+	j	2b
+
+3:
 	j	exit_next_instr
 
 set_mtimecmp:

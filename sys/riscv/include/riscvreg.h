@@ -46,6 +46,7 @@
 #define	ECALL_MIMPID_GET	0x6
 #define	ECALL_SEND_IPI		0x7
 #define	ECALL_CLEAR_IPI		0x8
+#define	ECALL_HTIF_LOWPUTC	0x9
 
 #define	EXCP_SHIFT			0
 #define	EXCP_MASK			(0xf << EXCP_SHIFT)

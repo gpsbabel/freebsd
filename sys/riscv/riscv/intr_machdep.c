@@ -205,30 +205,19 @@ riscv_cpu_intr(struct trapframe *frame)
 		("riscv_cpu_intr: wrong frame passed"));
 
 	active_irq = (frame->tf_scause & EXCP_MASK);
-	//if (active_irq != 1)
-	//printf("active_irq %d\n", active_irq);
 
 	switch (active_irq) {
 	case IRQ_SOFTWARE:
-		/* Check for IPI */
-		//ipi_bitmap = atomic_readandclear_int(PCPU_PTR(pending_ipis));
-		//if (ipi_bitmap != 0)
-		//	printf("IPI 0x%08x\n", ipi_bitmap);
-
+#ifdef SMP
 		ipi_bitmap = atomic_readandclear_int(PCPU_PTR(pending_ipis));
 		if (ipi_bitmap) {
-			printf("ipis %d\n", ipi_bitmap);
 			//machine_command(ECALL_CLEAR_IPI, 0);
-#ifdef SMP
+			mb();
+			//printf("cpu%d: IPI 0x%08x\n", PCPU_GET(cpuid), ipi_bitmap);
 			ipi_handler(ipi_bitmap);
+			//break;
+		}
 #endif
-			//csr_clear(sip, SIP_SSIP);
-
-			//return;
-			break;
-		} else 
-			printf("soft irq\n");
-
 	case IRQ_TIMER:
 		event = intr_events[active_irq];
 		/* Update counters */
@@ -244,8 +233,9 @@ riscv_cpu_intr(struct trapframe *frame)
 	}
 
 	if (!event || TAILQ_EMPTY(&event->ie_handlers) ||
-	    (intr_event_handle(event, frame) != 0))
+	    (intr_event_handle(event, frame) != 0)) {
 		printf("stray interrupt %d\n", active_irq);
+	}
 
 	critical_exit();
 }

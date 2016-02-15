@@ -115,8 +115,13 @@ htif_blk_intr(void *arg, uint64_t entry)
 	data = HTIF_DEV_DATA(entry);
 
 	if (sc->curtag == data) {
-		sc->cmd_done = 1;
+		atomic_swap_32(&sc->cmd_done, 1);
+
+		//printf(",%d\n", PCPU_GET(cpuid));
+
 		wakeup(&sc->intr_chan);
+	} else {
+		printf("curtag %d data %d\n", sc->curtag, data);
 	}
 }
 
@@ -134,6 +139,8 @@ htif_blk_attach(device_t dev)
 	char prefix[] = " size=";
 	char *str;
 	long size;
+
+	//return (-1);
 
 	sc = device_get_softc(dev);
 	sc->dev = dev;
@@ -212,7 +219,7 @@ htif_blk_task(void *arg)
 		HTIF_BLK_UNLOCK(sc);
 
 		if (bp->bio_cmd == BIO_READ || bp->bio_cmd == BIO_WRITE) {
-			//printf("bio rq\n");
+			//printf("b%d", PCPU_GET(cpuid));
 
 			req.offset = (bp->bio_pblkno * sc->disk->d_sectorsize);
 			req.size = bp->bio_bcount;
@@ -231,15 +238,15 @@ htif_blk_task(void *arg)
 			KASSERT(paddr != 0, ("paddr is 0"));
 			cmd |= paddr;
 
-			sc->cmd_done = 0;
+			HTIF_BLK_LOCK(sc);
+
+			atomic_swap_32(&sc->cmd_done, 0);
 			htif_command(cmd);
 
 			/* Wait for interrupt */
-			HTIF_BLK_LOCK(sc);
 			i = 0;
-			while (sc->cmd_done == 0) {
+			while (atomic_swap_32(&sc->cmd_done, 0) == 0) {
 				msleep(&sc->intr_chan, &sc->sc_mtx, PRIBIO, "intr", hz/2);
-
 				if (i++ > 2) {
 					/* TODO: try to re-issue operation on timeout ? */
 					bp->bio_error = EIO;
@@ -248,6 +255,7 @@ htif_blk_task(void *arg)
 					break;
 				}
 			}
+
 			HTIF_BLK_UNLOCK(sc);
 
 			biodone(bp);
@@ -263,6 +271,8 @@ htif_blk_strategy(struct bio *bp)
 	struct htif_blk_softc *sc;
 
 	sc = bp->bio_disk->d_drv1;
+
+	//printf("#%d", PCPU_GET(cpuid));
 
 	HTIF_BLK_LOCK(sc);
 	if (sc->running > 0) {

@@ -143,6 +143,8 @@ riscv_tmr_intr(void *arg)
 
 	sc = (struct riscv_tmr_softc *)arg;
 
+	//printf(".");
+
 	/*
 	 * Clear interrupt pending bit.
 	 * Note sip register has no SIP_STIP bit in Spike simulator,
@@ -195,6 +197,7 @@ riscv_tmr_attach(device_t dev)
 
 	if (sc->clkfreq == 0)
 		sc->clkfreq = DEFAULT_FREQ;
+	sc->clkfreq = 10000000;
 
 	if (sc->clkfreq == 0) {
 		device_printf(dev, "No clock frequency specified\n");

@@ -43,7 +43,7 @@
 #include <machine/riscvreg.h>
 #include <machine/pte.h>
 
-#define	HTIF_RING_SIZE	(64)
+#define	HTIF_RING_SIZE	(1024)
 #define	HTIF_RING_LAST	(24 * (HTIF_RING_SIZE - 1))
 
 	.globl	kernbase
@@ -69,6 +69,13 @@ mentry:
 	.align 6
 	j	bad_trap
 
+/*
+ * struct htif_ring {
+ *     uint64_t data;
+ *     uint64_t used;
+ *     uint64_t next;
+ * };
+ */
 .macro build_ring
 	/* Build ring */
 	la	t0, htif_ring
@@ -114,6 +121,15 @@ _start:
 	bnez	a0, mpentry
 #endif
 
+	//li	t0, (128 * 1024 * 1024 + 2 * 4096)
+	//li	t1, (0x340 * 8)
+	//add	t0, t0, t1
+	//li	t1, 0x10241024
+	//sd	t1, 0(t0)
+	//ld	t1, 0(t0)
+	//csrr	t0, mscratch
+	//csrr	t0, miobase
+
 	build_ring
 
 	li	s11, KERNBASE
@@ -147,7 +163,12 @@ _start:
 	li	a5, 0x1ff
 	li	a6, PTE_SIZE
 	mulw	a5, a5, a6
+	/* store it to first cpu */
 	add	t0, s1, a5
+	sd	t6, 0(t0)
+	/* store it to second cpu as well */
+	li	t1, PAGE_SIZE
+	add	t0, t0, t1
 	sd	t6, 0(t0)
 
 	/* Level 1 */
@@ -270,7 +291,7 @@ szsigcode:
 	.align	12
 	.globl pagetable_l0
 pagetable_l0:
-	.space	PAGE_SIZE
+	.space (PAGE_SIZE * MAXCPU)
 pagetable_l1:
 	.space	PAGE_SIZE
 pagetable_l2:
@@ -329,6 +350,8 @@ ENTRY(mpentry)
 
 	/* Set page tables base register */
 	la	s1, pagetable_l0
+	li	s0, PAGE_SIZE
+	add	s1, s1, s0
 	csrw	sptbr, s1
 
 	/* Page tables END */

@@ -109,7 +109,9 @@ htif_putc(int c)
 	cmd |= (CONSOLE_DEFAULT_ID << HTIF_DEV_ID_SHIFT);
 	cmd |= c;
 
-	htif_command(cmd);
+	//htif_command(cmd);
+
+	machine_command(ECALL_HTIF_LOWPUTC, cmd);
 }
 
 static uint8_t
@@ -140,6 +142,8 @@ riscv_putc(int c)
 	*cc = 0;
 
 	htif_putc(c);
+
+	return;
 
 	/* Wait for an interrupt */
 	__asm __volatile(

@@ -76,6 +76,7 @@ ASSYM(PCB_A, offsetof(struct pcb, pcb_a));
 ASSYM(SF_UC, offsetof(struct sigframe, sf_uc));
 
 ASSYM(PC_CURPCB, offsetof(struct pcpu, pc_curpcb));
+ASSYM(PC_CPUID, offsetof(struct pcpu, pc_cpuid));
 ASSYM(PC_CURTHREAD, offsetof(struct pcpu, pc_curthread));
 
 ASSYM(TD_PCB, offsetof(struct thread, td_pcb));

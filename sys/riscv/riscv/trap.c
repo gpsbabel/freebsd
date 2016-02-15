@@ -181,6 +181,7 @@ data_abort(struct trapframe *frame, int lower)
 	}
 
 	sbadaddr = frame->tf_sbadaddr;
+	//printf("sbadaddr 0x%016lx\n", sbadaddr);
 
 	p = td->td_proc;
 
@@ -256,7 +257,9 @@ do_trap_supervisor(struct trapframe *frame)
 	uint64_t exception;
 
 	exception = (frame->tf_scause & EXCP_MASK);
+	//printf("excp %d\n", exception);
 	if (frame->tf_scause & EXCP_INTR) {
+		//printf("intr\n");
 		/* Interrupt */
 		riscv_cpu_intr(frame);
 		return;
@@ -272,7 +275,7 @@ do_trap_supervisor(struct trapframe *frame)
 		data_abort(frame, 0);
 		break;
 	case EXCP_INSTR_ILLEGAL:
-		printf("illegal instruction: sepc %x\n", frame->tf_sepc);
+		printf("illegal instruction at %x\n", frame->tf_sepc);
 		break;
 	default:
 		dump_regs(frame);
@@ -307,7 +310,7 @@ do_trap_user(struct trapframe *frame)
 		svc_handler(frame);
 		break;
 	case EXCP_INSTR_ILLEGAL:
-		printf("illegal instruction: sepc %x\n", frame->tf_sepc);
+		printf("illegal instruction at %x\n", frame->tf_sepc);
 		break;
 	default:
 		dump_regs(frame);

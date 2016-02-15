@@ -65,6 +65,7 @@ END(riscv_tlb_flushID_SE)
  */
 ENTRY(riscv_dcache_wb_range)
 	/* RISCVTODO */
+	sfence.vm
 	ret
 END(riscv_dcache_wb_range)
 
@@ -73,6 +74,7 @@ END(riscv_dcache_wb_range)
  */
 ENTRY(riscv_dcache_wbinv_range)
 	/* RISCVTODO */
+	sfence.vm
 	ret
 END(riscv_dcache_wbinv_range)
 
@@ -81,6 +83,7 @@ END(riscv_dcache_wbinv_range)
  */
 ENTRY(riscv_dcache_inv_range)
 	/* RISCVTODO */
+	sfence.vm
 	ret
 END(riscv_dcache_inv_range)
 
@@ -89,6 +92,7 @@ END(riscv_dcache_inv_range)
  */
 ENTRY(riscv_idcache_wbinv_range)
 	/* RISCVTODO */
+	sfence.vm
 	ret
 END(riscv_idcache_wbinv_range)
 
@@ -97,5 +101,6 @@ END(riscv_idcache_wbinv_range)
  */
 ENTRY(riscv_icache_sync_range)
 	/* RISCVTODO */
+	sfence.vm
 	ret
 END(riscv_icache_sync_range)
