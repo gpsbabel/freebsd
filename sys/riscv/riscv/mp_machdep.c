@@ -320,7 +320,6 @@ ipi_handler(u_int ipi_bitmap)
 			break;
 		case IPI_STOP:
 		case IPI_STOP_HARD:
-			printf("stopping CPU %d\n", cpu);
 			CTR0(KTR_SMP, (ipi == IPI_STOP) ? "IPI_STOP" : "IPI_STOP_HARD");
 			savectx(&stoppcbs[cpu]);
 
