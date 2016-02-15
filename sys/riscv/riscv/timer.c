@@ -143,7 +143,7 @@ riscv_tmr_intr(void *arg)
 
 	sc = (struct riscv_tmr_softc *)arg;
 
-	//printf(".");
+	//printf("%d.", PCPU_GET(cpuid));
 
 	/*
 	 * Clear interrupt pending bit.

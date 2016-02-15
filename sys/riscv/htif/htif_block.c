@@ -221,6 +221,8 @@ htif_blk_task(void *arg)
 		if (bp->bio_cmd == BIO_READ || bp->bio_cmd == BIO_WRITE) {
 			//printf("b%d", PCPU_GET(cpuid));
 
+			HTIF_BLK_LOCK(sc);
+
 			req.offset = (bp->bio_pblkno * sc->disk->d_sectorsize);
 			req.size = bp->bio_bcount;
 			paddr = vtophys(bp->bio_data);
@@ -238,8 +240,6 @@ htif_blk_task(void *arg)
 			KASSERT(paddr != 0, ("paddr is 0"));
 			cmd |= paddr;
 
-			HTIF_BLK_LOCK(sc);
-
 			atomic_swap_32(&sc->cmd_done, 0);
 			htif_command(cmd);
 
@@ -256,9 +256,9 @@ htif_blk_task(void *arg)
 				}
 			}
 
-			HTIF_BLK_UNLOCK(sc);
-
 			biodone(bp);
+
+			HTIF_BLK_UNLOCK(sc);
 		} else {
 			printf("unknown op %d\n", bp->bio_cmd);
 		}
