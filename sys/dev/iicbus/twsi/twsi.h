@@ -1,9 +1,8 @@
 /*-
- * Copyright (c) 1990, 1993
- *	The Regents of the University of California.  All rights reserved.
+ * Copyright (C) 2008 MARVELL INTERNATIONAL LTD.
+ * All rights reserved.
  *
- * This code is derived from software contributed to Berkeley by
- * Chris Torek.
+ * Developed by Semihalf.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -13,14 +12,14 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of MARVELL nor the names of contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
- * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+ * THIS SOFTWARE IS PROVIDED BY AUTHOR AND CONTRIBUTORS ``AS IS'' AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL AUTHOR OR CONTRIBUTORS BE LIABLE
  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
  * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
@@ -28,42 +27,41 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
+ *
+ * $FreeBSD$
  */
 
-#if defined(LIBC_SCCS) && !defined(lint)
-static char sccsid[] = "@(#)fputs.c	8.1 (Berkeley) 6/4/93";
-#endif /* LIBC_SCCS and not lint */
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
+#ifndef _TWSI_H_
+#define	_TWSI_H_
 
-#include "namespace.h"
-#include <limits.h>
-#include <stdio.h>
-#include <string.h>
-#include "un-namespace.h"
-#include "fvwrite.h"
-#include "libc_private.h"
-#include "local.h"
+struct twsi_baud_rate {
+	uint32_t	raw;
+	int		param;
+	int		m;
+	int		n;
+};
 
-/*
- * Write the given string to the given file.
- */
-int
-fputs(const char * __restrict s, FILE * __restrict fp)
-{
-	int retval;
-	struct __suio uio;
-	struct __siov iov;
+struct twsi_softc {
+	device_t	dev;
+	struct resource	*res[1];	/* SYS_RES_MEMORY */
+	struct mtx	mutex;
+	device_t	iicbus;
 
-	iov.iov_base = (void *)s;
-	uio.uio_resid = iov.iov_len = strlen(s);
-	uio.uio_iov = &iov;
-	uio.uio_iovcnt = 1;
-	FLOCKFILE(fp);
-	ORIENT(fp, -1);
-	retval = __sfvwrite(fp, &uio);
-	FUNLOCKFILE(fp);
-	if (retval == 0)
-		return (iov.iov_len > INT_MAX ? INT_MAX : uio.uio_resid);
-	return (retval);
-}
+	bus_size_t	reg_data;
+	bus_size_t	reg_slave_addr;
+	bus_size_t	reg_slave_ext_addr;
+	bus_size_t	reg_control;
+	bus_size_t	reg_status;
+	bus_size_t	reg_baud_rate;
+	bus_size_t	reg_soft_reset;
+	struct twsi_baud_rate  baud_rate[IIC_FASTEST + 1];
+};
+
+DECLARE_CLASS(twsi_driver);
+
+#define	TWSI_BAUD_RATE_PARAM(M,N)	((((M) << 3) | ((N) & 0x7)) & 0x7f)
+
+int twsi_attach(device_t);
+int twsi_detach(device_t);
+
+#endif /* _TWSI_H_ */
