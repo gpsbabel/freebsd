@@ -3091,8 +3091,12 @@ pmap_activate(struct thread *td)
 	pmap_t pmap;
 
 	critical_enter();
+
 	pmap = vmspace_pmap(td->td_proc->p_vmspace);
 	td->td_pcb->pcb_l1addr = vtophys(pmap->pm_l1);
+
+	if ((td->td_pcb->pcb_sp >> 63) == 0) {
+	}
 
 	pn = (td->td_pcb->pcb_l1addr / PAGE_SIZE);
 	entry = (PTE_VALID | (PTE_TYPE_PTR << PTE_TYPE_S));

@@ -86,7 +86,7 @@ static device_identify_t riscv64_cpu_identify;
 static device_probe_t riscv64_cpu_probe;
 static device_attach_t riscv64_cpu_attach;
 
-//static int ipi_handler(int ipi);
+static int ipi_handler(void *);
 
 struct mtx ap_boot_mtx;
 struct pcb stoppcbs[MAXCPU];
@@ -188,6 +188,7 @@ release_aps(void *dummy __unused)
 	/* Setup the IPI handler */
 	//for (i = 0; i < COUNT_IPI; i++)
 	//	riscv_setup_ipihandler(ipi_handler, i);
+	riscv_setup_ipihandler(ipi_handler, 0);
 
 	atomic_store_rel_int(&aps_ready, 1);
 	/* Wake up the other CPUs */
@@ -284,8 +285,8 @@ init_secondary(uint64_t cpu)
 	/* NOTREACHED */
 }
 
-int
-ipi_handler(u_int ipi_bitmap)
+static int
+ipi_handler(void *arg)
 {
 	u_int cpu, ipi;
 	int bit;
@@ -301,6 +302,14 @@ ipi_handler(u_int ipi_bitmap)
 	mb();
 
 	//printf("ipi %x\n", ipi_bitmap);
+
+	u_int ipi_bitmap;
+	ipi_bitmap = atomic_readandclear_int(PCPU_PTR(pending_ipis));
+	printf("%d: %d\n", cpu, ipi_bitmap);
+
+	if (ipi_bitmap == 0) {
+		return (0);
+	};
 
 	while ((bit = ffs(ipi_bitmap))) {
 		bit = (bit - 1);

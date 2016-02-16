@@ -196,7 +196,7 @@ void
 riscv_cpu_intr(struct trapframe *frame)
 {
 	struct intr_event *event;
-	u_int ipi_bitmap;
+	//u_int ipi_bitmap;
 	int active_irq;
 
 	critical_enter();
@@ -208,6 +208,7 @@ riscv_cpu_intr(struct trapframe *frame)
 
 	switch (active_irq) {
 	case IRQ_SOFTWARE:
+#if 0
 #ifdef SMP
 		ipi_bitmap = atomic_readandclear_int(PCPU_PTR(pending_ipis));
 		if (ipi_bitmap) {
@@ -217,6 +218,7 @@ riscv_cpu_intr(struct trapframe *frame)
 			ipi_handler(ipi_bitmap);
 			//break;
 		}
+#endif
 #endif
 	case IRQ_TIMER:
 		event = intr_events[active_irq];
@@ -245,6 +247,9 @@ void
 riscv_setup_ipihandler(driver_filter_t *filt, u_int ipi)
 {
 
+	riscv_setup_intr("ipi", filt, NULL, (void *)((uintptr_t)ipi),
+	    EXCP_INTR_SOFTWARE, INTR_TYPE_MISC | INTR_EXCL, NULL);
+
 	//arm_setup_intr("ipi", filt, NULL, (void *)((uintptr_t)ipi | 1<<16), ipi,
 	//    INTR_TYPE_MISC | INTR_EXCL, NULL);
 	//arm_unmask_ipi(ipi);
@@ -270,6 +275,8 @@ ipi_send(struct pcpu *pc, int ipi)
 {
 
 	CTR3(KTR_SMP, "%s: cpu=%d, ipi=%x", __func__, pc->pc_cpuid, ipi);
+
+	//printf("ipi_send: %d\n", ipi);
 
 	atomic_set_32(&pc->pc_pending_ipis, ipi);
 	//platform_ipi_send(pc->pc_cpuid);

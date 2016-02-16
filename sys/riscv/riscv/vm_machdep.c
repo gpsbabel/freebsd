@@ -71,7 +71,7 @@ cpu_fork(struct thread *td1, struct proc *p2, struct thread *td2, int flags)
 
 	if (td1 == curthread) {
 		__asm __volatile("mv	%0, tp" : "=&r"(val));
-		td1->td_pcb->pcb_tp = val;
+		//td1->td_pcb->pcb_tp = val;
 	}
 
 	pcb2 = (struct pcb *)(td2->td_kstack +

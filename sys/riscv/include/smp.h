@@ -53,6 +53,6 @@ void	ipi_selected(cpuset_t cpus, u_int ipi);
 /* global data in mp_machdep.c */
 extern struct pcb               stoppcbs[];
 
-int ipi_handler(u_int ipi);
+//int ipi_handler(u_int ipi);
 
 #endif /* !_MACHINE_SMP_H_ */

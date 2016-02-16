@@ -275,7 +275,8 @@ do_trap_supervisor(struct trapframe *frame)
 		data_abort(frame, 0);
 		break;
 	case EXCP_INSTR_ILLEGAL:
-		printf("illegal instruction at %x\n", frame->tf_sepc);
+		dump_regs(frame);
+		panic("illegal instruction at %x\n", frame->tf_sepc);
 		break;
 	default:
 		dump_regs(frame);
@@ -310,7 +311,8 @@ do_trap_user(struct trapframe *frame)
 		svc_handler(frame);
 		break;
 	case EXCP_INSTR_ILLEGAL:
-		printf("illegal instruction at %x\n", frame->tf_sepc);
+		dump_regs(frame);
+		panic("illegal instruction at %x\n", frame->tf_sepc);
 		break;
 	default:
 		dump_regs(frame);
