@@ -215,7 +215,7 @@ void
 init_secondary(uint64_t cpu)
 {
 	struct pcpu *pcpup;
-	int i;
+	//int i;
 
 	pcpup = &__pcpu[cpu];
 	/*
@@ -248,8 +248,9 @@ init_secondary(uint64_t cpu)
 	/* Configure the interrupt controller */
 	riscv_init_secondary();
 
-	for (i = 0; i < COUNT_IPI; i++)
-		riscv_unmask_ipi(i);
+	//for (i = 0; i < COUNT_IPI; i++)
+	//	riscv_unmask_ipi(i);
+
 	/* Enable SOFT interrupts */
 	csr_set(sie, SIE_SSIE);
 
@@ -298,6 +299,8 @@ ipi_handler(u_int ipi_bitmap)
 	cpu = PCPU_GET(cpuid);
 
 	mb();
+
+	//printf("ipi %x\n", ipi_bitmap);
 
 	while ((bit = ffs(ipi_bitmap))) {
 		bit = (bit - 1);
