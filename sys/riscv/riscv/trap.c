@@ -181,7 +181,6 @@ data_abort(struct trapframe *frame, int lower)
 	}
 
 	sbadaddr = frame->tf_sbadaddr;
-	//printf("sbadaddr 0x%016lx\n", sbadaddr);
 
 	p = td->td_proc;
 
@@ -257,9 +256,7 @@ do_trap_supervisor(struct trapframe *frame)
 	uint64_t exception;
 
 	exception = (frame->tf_scause & EXCP_MASK);
-	//printf("excp %d\n", exception);
 	if (frame->tf_scause & EXCP_INTR) {
-		//printf("intr\n");
 		/* Interrupt */
 		riscv_cpu_intr(frame);
 		return;
