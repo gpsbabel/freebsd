@@ -77,14 +77,13 @@ mentry:
  * };
  */
 .macro build_ring
-	/* Build ring */
 	la	t0, htif_ring
-//#ifdef SMP
+#ifdef SMP
 	csrr	a0, mhartid
 	li	s0, (24 * 1024 + 16)
 	mulw	s0, a0, s0
 	add	t0, t0, s0
-//#endif
+#endif
 	li	t1, 0
 	sd	t1, 0(t0)	/* zero data */
 	sd	t1, 8(t0)	/* zero used */
@@ -117,19 +116,9 @@ mentry:
 _start:
 	/* Direct secondary cores to mpentry */
 	csrr	a0, mhartid
-#ifdef	SMP
 	bnez	a0, mpentry
-#endif
 
-	//li	t0, (128 * 1024 * 1024 + 2 * 4096)
-	//li	t1, (0x340 * 8)
-	//add	t0, t0, t1
-	//li	t1, 0x10241024
-	//sd	t1, 0(t0)
-	//ld	t1, 0(t0)
-	//csrr	t0, mscratch
-	//csrr	t0, miobase
-
+	/* Build event queue for current core */
 	build_ring
 
 	li	s11, KERNBASE
@@ -328,25 +317,7 @@ ENTRY(mpentry)
 	build_ring
 
 	/* Disable interrupts */
-	//msr	daifset, #2
-
-	/* Drop to EL1 */
-	//bl	drop_to_el1
-
-	/* Set the context id */
-	//msr	contextidr_el1, x1
-
-	/* Load the kernel page table */
-	//adr	x26, pagetable_l1_ttbr1
-	/* Load the identity page table */
-	//adr	x27, pagetable_l0_ttbr0
-
-	/* Enable the mmu */
-	//bl	start_mmu
-
-	/* Jump to the virtual address space */
-	//ldr	x15, =mp_virtdone
-	//br	x15
+	csrci	mstatus, MSTATUS_IE
 
 	/* Set page tables base register */
 	la	s1, pagetable_l0
@@ -374,36 +345,22 @@ ENTRY(mpentry)
 	li	t0, 0
 	csrw	sscratch, t0
 
-	/* Enable machine soft interrupts */
-	//li	t0, MIE_MSIE
-	//csrs	mie, t0
-
-	/* Exit from machine mode */
+	/*
+	 * Exit from machine mode and go to
+	 * the virtual address space.
+	 */
 	la	t0, mp_virtdone
 	add	t0, t0, s11
 	csrw	mepc, t0
 	eret
 
 mp_virtdone:
-	/*
-	 * Now that we are in virtual address space,
-	 * we don't need the identity mapping in TTBR0 and
-	 * can set the TCR to a more useful value.
-	 */
-	//ldr	x2, tcr
-	//mrs	x3, id_aa64mmfr0_el1
-	//bfi	x2, x3, #32, #3
-	//msr	tcr_el1, x2
-
-	//ldr	x4, =secondary_stacks
-	//mov	x5, #(PAGE_SIZE * KSTACK_PAGES)
-	//mul	x5, x0, x5
-	//add	sp, x4, x5
+	/* We are now in virtual address space */
 
 	/* Setup stack pointer */
 	la	t0, secondary_stacks
 	li	t1, (PAGE_SIZE * KSTACK_PAGES)
-	mul	t1, t1, a0
+	mulw	t1, t1, a0
 	add	sp, t0, t1
 
 	call	init_secondary
