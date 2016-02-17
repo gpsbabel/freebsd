@@ -118,7 +118,6 @@ identify_cpu(void)
 
 	/* SMPTODO: use mhartid ? */
 	cpu = PCPU_GET(cpuid);
-	printf("%s: %d\n", __func__, cpu);
 
 	impl_id	= CPU_IMPL(mimpid);
 	for (i = 0; i < nitems(cpu_implementers); i++) {
