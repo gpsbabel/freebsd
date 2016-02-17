@@ -143,12 +143,11 @@ riscv_tmr_intr(void *arg)
 
 	sc = (struct riscv_tmr_softc *)arg;
 
-	//printf("%d.", PCPU_GET(cpuid));
-
 	/*
 	 * Clear interrupt pending bit.
-	 * Note sip register has no SIP_STIP bit in Spike simulator,
-	 * so use machine command to clear it in mip.
+	 * Note SIP_STIP bit is unimplemented in sip register
+	 * in Spike simulator, so use machine command to clear
+	 * it in mip.
 	 */
 	machine_command(ECALL_CLEAR_PENDING, 0);
 
