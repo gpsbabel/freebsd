@@ -113,7 +113,7 @@ ENTRY(cpu_switch)
 	/* Save the old context. */
 	ld	x13, TD_PCB(a0)
 
-	/* Store the callee-saved registers */
+	/* Store ra, sp and the callee-saved registers */
 	sd	ra, (PCB_RA)(x13)
 	sd	sp, (PCB_SP)(x13)
 
@@ -268,7 +268,7 @@ ENTRY(fork_trampoline)
 END(fork_trampoline)
 
 ENTRY(savectx)
-	/* Store the callee-saved registers */
+	/* Store ra, sp and the callee-saved registers */
 	sd	ra, (PCB_RA)(a0)
 	sd	sp, (PCB_SP)(a0)
 
