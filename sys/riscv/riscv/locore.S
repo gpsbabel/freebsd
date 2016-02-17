@@ -153,13 +153,15 @@ _start:
 	li	a5, 0x1ff
 	li	a6, PTE_SIZE
 	mulw	a5, a5, a6
-	/* store it to first cpu */
 	add	t0, s1, a5
+	/* Store it to pagetable_l0 for each cpu */
+	li	t1, MAXCPU
+	li	t2, PAGE_SIZE
+1:
 	sd	t6, 0(t0)
-	/* store it to second cpu as well */
-	li	t1, PAGE_SIZE
-	add	t0, t0, t1
-	sd	t6, 0(t0)
+	add	t0, t0, t2
+	addi	t1, t1, -1
+	bnez	t1, 1b
 
 	/* Level 1 */
 	la	s1, pagetable_l1
