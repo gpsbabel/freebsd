@@ -222,8 +222,6 @@ void pmap_preboot_map_attr(vm_paddr_t, vm_offset_t, vm_size_t, vm_prot_t,
 #endif	/* _KERNEL */
 
 // ----------------- TO BE DELETED ---------------------------------------------
-#include <machine/pte-v6.h>
-
 #ifdef _KERNEL
 
 /*
@@ -244,13 +242,6 @@ void pmap_preboot_map_attr(vm_paddr_t, vm_offset_t, vm_size_t, vm_prot_t,
  * sys/arm/xscale/pxa/pxa_machdep.c
  */
 #define	PMAP_DOMAIN_KERNEL	0	/* The kernel uses domain #0 */
-
-/*
- * sys/arm/arm/cpufunc.c
- */
-void vector_page_setprot(int);
-
-#define PTE_DEVICE	VM_MEMATTR_DEVICE
 
 #endif	/* _KERNEL */
 // -----------------------------------------------------------------------------
