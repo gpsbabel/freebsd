@@ -46,13 +46,10 @@
 #define	IPI_STOP_HARD	(1 << 4)
 #define	IPI_HARDCLOCK	(1 << 5)
 
-void	ipi_all_but_self(u_int ipi);
-void	ipi_cpu(int cpu, u_int ipi);
-void	ipi_selected(cpuset_t cpus, u_int ipi);
+void ipi_all_but_self(u_int ipi);
+void ipi_cpu(int cpu, u_int ipi);
+void ipi_selected(cpuset_t cpus, u_int ipi);
 
-/* global data in mp_machdep.c */
-extern struct pcb               stoppcbs[];
-
-//int ipi_handler(u_int ipi);
+extern struct pcb stoppcbs[];
 
 #endif /* !_MACHINE_SMP_H_ */
