@@ -51,28 +51,12 @@
 			device_type = "cpu";
 			compatible = "riscv,rv64i";
 			reg = <0x0>;
-			d-cache-line-size = <32>;
-			i-cache-line-size = <32>;
-			d-cache-size = <0x8000>;
-			i-cache-size = <0x8000>;
-			/* TODO: describe L2 cache also */
-			timebase-frequency = <0>;
-			bus-frequency = <0>;
-			clock-frequency = <0>;
 		};
 
 		cpu@1 {
 			device_type = "cpu";
 			compatible = "riscv,rv64i";
 			reg = <0x0>;
-			d-cache-line-size = <32>;
-			i-cache-line-size = <32>;
-			d-cache-size = <0x8000>;
-			i-cache-size = <0x8000>;
-			/* TODO: describe L2 cache also */
-			timebase-frequency = <0>;
-			bus-frequency = <0>;
-			clock-frequency = <0>;
 		};
 	};
 
