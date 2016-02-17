@@ -46,29 +46,6 @@
 #define	HTIF_RING_SIZE	(1024)
 #define	HTIF_RING_LAST	(24 * (HTIF_RING_SIZE - 1))
 
-	.globl	kernbase
-	.set	kernbase, KERNBASE
-
-	/* Trap entries */
-	.text
-
-mentry:
-	/* User mode entry point (mtvec + 0x000) */
-	.align 6
-	j	user_trap
-
-	/* Supervisor mode entry point (mtvec + 0x040) */
-	.align 6
-	j	supervisor_trap
-
-	/* Hypervisor mode entry point (mtvec + 0x080) */
-	.align 6
-	j	bad_trap
-
-	/* Machine mode entry point (mtvec + 0x0C0) */
-	.align 6
-	j	bad_trap
-
 /*
  * struct htif_ring {
  *     uint64_t data;
@@ -76,6 +53,7 @@ mentry:
  *     uint64_t next;
  * };
  */
+
 .macro build_ring
 	la	t0, htif_ring
 #ifdef SMP
@@ -108,6 +86,29 @@ mentry:
 	sd	t0, 8(s0)	/* last */
 	/* finish building ring */
 .endm
+
+	.globl	kernbase
+	.set	kernbase, KERNBASE
+
+	/* Trap entries */
+	.text
+
+mentry:
+	/* User mode entry point (mtvec + 0x000) */
+	.align 6
+	j	user_trap
+
+	/* Supervisor mode entry point (mtvec + 0x040) */
+	.align 6
+	j	supervisor_trap
+
+	/* Hypervisor mode entry point (mtvec + 0x080) */
+	.align 6
+	j	bad_trap
+
+	/* Machine mode entry point (mtvec + 0x0C0) */
+	.align 6
+	j	bad_trap
 
 	/* Reset vector */
 	.text
