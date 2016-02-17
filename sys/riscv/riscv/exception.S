@@ -282,14 +282,6 @@ machine_interrupt:
 	j	1b
 
 software_interrupt:
-	/* Clear machine pending */
-	//li	t0, MIP_MSIP
-	//csrc	mip, t0
-
-	/* (Re)post supervisor software interrupt */
-	//li	t0, MIP_SSIP
-	//csrs	mip, t0  
-
 	/* Redirect to supervisor */
 	j	exit_mrts
 
@@ -340,8 +332,9 @@ htif_interrupt:
 	la	t0, console_intr
 	li	t1, 1
 	sd	t1, 0(t0)
+
+	/* Check if there is any other pending event */
 	j	1b
-	//j	3f
 
 2:
 	/* Save entry */
@@ -352,9 +345,7 @@ htif_interrupt:
 	add	t0, t0, t4
 	li	t4, (24 * 1024)
 	add	t0, t0, t4	/* t0 == htif_ring_cursor */
-	
-	//la	t0, htif_ring_cursor
-	//beqz	t0, 3f		/* not initialized */
+
 	ld	t1, 0(t0)	/* load ptr to cursor */
 	sd	t5, 0(t1)	/* put entry */
 	li	t4, 1
@@ -367,7 +358,7 @@ htif_interrupt:
 	li	t0, MIP_SSIP
 	csrs	mip, t0
 
-	/* See other events */
+	/* Check if there is any other pending event */
 	j	1b
 
 3:
@@ -419,7 +410,6 @@ send_ipi:
 
 clear_ipi:
 	/* Do only clear if there are no new entries in HTIF ring */
-
 	la	t0, htif_ring
 	csrr	t2, mhartid
 	li	t4, (24 * 1024 + 16)
@@ -429,7 +419,6 @@ clear_ipi:
 	add	t0, t0, t4	/* t0 == htif_ring_cursor */
 	ld	t2, 0(t0)	/* ptr in cursor */
 	ld	t3, 8(t0)	/* ptr in last */
-	//bne	t2, t3, 4f
 	ld	t3, 8(t3)	/* get used */
 	bnez	t3, 4f
 
@@ -466,10 +455,6 @@ htif_get_entry:
 htif_cmd:
 1:
 	mv	t0, t6
-	//li	t6, MIP_SSIP
-	//csrc	mip, t6
-	//li	t6, MIE_SSIE
-	//csrs	mie, t6
 	csrrw	t0, mtohost, t0
 	bnez	t0, 1b
 	j	exit_next_instr
@@ -499,7 +484,7 @@ htif_lowputc:
 	add	t0, t0, t4
 	li	t4, (24 * 1024)
 	add	t0, t0, t4	/* t0 == htif_ring_cursor */
-	
+
 	ld	t2, 0(t0)	/* load ptr to cursor */
 	sd	t5, 0(t2)	/* put entry */
 	li	t4, 1
