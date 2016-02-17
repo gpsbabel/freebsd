@@ -299,41 +299,45 @@ init_pt_va:
  * The data in x0 is passed straight to init_secondary.
  */
 ENTRY(mpentry)
-	/* Calculate offset */
+	/*
+	 * Calculate the offset for current core,
+	 * cpuid in a0.
+	 */
 	li	t1, 4
 	mulw	t1, t1, a0
+
 	/* Get pointer */
 	la	t0, __riscv_boot_ap
 	add	t0, t0, t1
 
-	/* Wait kernel to be ready */
 1:
+	/* Wait kernel to be ready */
 	lw	t1, 0(t0)
 	beqz	t1, 1b
 
+	/* Setup machine exception vector */
 	la	t0, mentry
 	csrw	mtvec, t0
 
+	/* Build event queue ring for this core */
 	build_ring
 
-	/* Disable interrupts */
-	csrci	mstatus, MSTATUS_IE
-
 	/* Set page tables base register */
-	la	s1, pagetable_l0
-	li	s0, PAGE_SIZE
-	add	s1, s1, s0
-	csrw	sptbr, s1
-
+	la	t0, pagetable_l0
+	li	t1, PAGE_SIZE
+	mulw	t1, t1, a0
+	add	t0, t0, t1
+	csrw	sptbr, t0
 	/* Page tables END */
 
-	/* Enter supervisor mode */
+	/* Configure mstatus */
 	li	s0, ((MSTATUS_VM_SV48 << MSTATUS_VM_SHIFT) | \
 		     (MSTATUS_PRV_M << MSTATUS_PRV_SHIFT) | \
 		     (MSTATUS_PRV_S << MSTATUS_PRV1_SHIFT) | \
 		     (MSTATUS_PRV_U << MSTATUS_PRV2_SHIFT));
 	csrw	mstatus, s0
 
+	/* Setup stack for machine mode exceptions */
 	li	s11, KERNBASE
 	la	t0, hardstack
 	li	t1, PAGE_SIZE
