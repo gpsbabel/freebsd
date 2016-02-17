@@ -55,7 +55,6 @@ __FBSDID("$FreeBSD$");
 #include <vm/vm_extern.h>
 #include <vm/vm_kern.h>
 
-//#include <machine/debug_monitor.h>
 #include <machine/intr.h>
 #include <machine/smp.h>
 #ifdef VFP
@@ -99,8 +98,7 @@ static device_t cpu_list[MAXCPU];
 void mpentry(unsigned long cpuid);
 void init_secondary(uint64_t);
 
-//uint8_t secondary_stacks[MAXCPU - 1][PAGE_SIZE * KSTACK_PAGES] __aligned(16);
-uint8_t secondary_stacks[MAXCPU - 0][PAGE_SIZE * KSTACK_PAGES] __aligned(16);
+uint8_t secondary_stacks[MAXCPU - 1][PAGE_SIZE * KSTACK_PAGES] __aligned(16);
 
 /* Set to 1 once we're ready to let the APs out of the pen. */
 volatile int aps_ready = 0;
@@ -167,12 +165,12 @@ riscv64_cpu_attach(device_t dev)
 	if (reg == NULL)
 		return (EINVAL);
 
-	//if (bootverbose) {
+	if (bootverbose) {
 		device_printf(dev, "register <");
 		for (i = 0; i < reg_size; i++)
 			printf("%s%x", (i == 0) ? "" : " ", reg[i]);
 		printf(">\n");
-	//}
+	}
 
 	/* Set the device to start it later */
 	cpu_list[cpuid] = dev;
@@ -419,8 +417,6 @@ cpu_mp_start(void)
 
 	CPU_SET(0, &all_cpus);
 
-	printf("%s\n", __func__);
-
 	switch(cpu_enum_method) {
 #ifdef FDT
 	case CPUS_FDT:
@@ -460,8 +456,4 @@ cpu_mp_setmaxid(void)
 		printf("No CPU data, limiting to 1 core\n");
 	mp_ncpus = 1;
 	mp_maxid = 0;
-
-	/* Test */
-	mp_ncpus = 2;
-	mp_maxid = 1;
 }
