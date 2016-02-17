@@ -186,13 +186,9 @@ release_aps(void *dummy __unused)
 	int cpu, i;
 
 	/* Setup the IPI handler */
-	//for (i = 0; i < COUNT_IPI; i++)
-	//	riscv_setup_ipihandler(ipi_handler, i);
-	riscv_setup_ipihandler(ipi_handler, 0);
+	riscv_setup_ipihandler(ipi_handler);
 
 	atomic_store_rel_int(&aps_ready, 1);
-	/* Wake up the other CPUs */
-	//__asm __volatile("sev");
 
 	printf("Release APs\n");
 
@@ -201,7 +197,6 @@ release_aps(void *dummy __unused)
 			for (cpu = 0; cpu <= mp_maxid; cpu++) {
 				if (CPU_ABSENT(cpu))
 					continue;
-				//print_cpu_features(cpu);
 			}
 			return;
 		}
@@ -216,23 +211,14 @@ void
 init_secondary(uint64_t cpu)
 {
 	struct pcpu *pcpup;
-	//int i;
 
+	/* Setup the pcpu pointer */
 	pcpup = &__pcpu[cpu];
-	/*
-	 * Set the pcpu pointer with a backup in tpidr_el1 to be
-	 * loaded when entering the kernel from userland.
-	 */
-	//__asm __volatile(
-	//    "mov x18, %0 \n"
-	//    "msr tpidr_el1, %0" :: "r"(pcpup));
-
 	__asm __volatile("mv gp, %0" :: "r"(pcpup));
 
 	/* Spin until the BSP releases the APs */
 	while (!aps_ready)
 		__asm __volatile("wfi");
-	//	__asm __volatile("wfe");
 
 	/* Initialize curthread */
 	KASSERT(PCPU_GET(idlethread) != NULL, ("no idle thread"));
@@ -249,20 +235,15 @@ init_secondary(uint64_t cpu)
 	/* Configure the interrupt controller */
 	riscv_init_secondary();
 
-	//for (i = 0; i < COUNT_IPI; i++)
-	//	riscv_unmask_ipi(i);
-
 	/* Enable SOFT interrupts */
-	csr_set(sie, SIE_SSIE);
+	riscv_unmask_ipi();
 
 	/* Start per-CPU event timers. */
 	cpu_initclocks_ap();
 
 #ifdef VFP
-	vfp_init();
+	/* TODO: init FPU */
 #endif
-
-	//dbg_monitor_init();
 
 	/* Enable interrupts */
 	intr_enable();
@@ -288,28 +269,19 @@ init_secondary(uint64_t cpu)
 static int
 ipi_handler(void *arg)
 {
+	u_int ipi_bitmap;
 	u_int cpu, ipi;
 	int bit;
 
-	//arg = (void *)((uintptr_t)arg & ~(1 << 16));
-	//KASSERT((uintptr_t)arg < COUNT_IPI,
-	//    ("Invalid IPI %ju", (uintptr_t)arg));
-	//KASSERT(ipi < COUNT_IPI, ("Invalid IPI %ju", ipi));
-	//ipi = (uintptr_t)arg;
+	machine_command(ECALL_CLEAR_IPI, 0);
 
 	cpu = PCPU_GET(cpuid);
 
 	mb();
 
-	//printf("ipi %x\n", ipi_bitmap);
-
-	u_int ipi_bitmap;
 	ipi_bitmap = atomic_readandclear_int(PCPU_PTR(pending_ipis));
-	printf("%d: %d\n", cpu, ipi_bitmap);
-
-	if (ipi_bitmap == 0) {
-		return (0);
-	};
+	if (ipi_bitmap == 0)
+		return (FILTER_HANDLED);
 
 	while ((bit = ffs(ipi_bitmap))) {
 		bit = (bit - 1);

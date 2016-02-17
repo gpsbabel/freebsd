@@ -62,7 +62,7 @@ __FBSDID("$FreeBSD$");
 #include "htif.h"
 
 static struct resource_spec htif_spec[] = {
-	{ SYS_RES_IRQ,		0,	RF_ACTIVE },
+	{ SYS_RES_IRQ,		0,	RF_ACTIVE | RF_SHAREABLE},
 	{ -1, 0 }
 };
 

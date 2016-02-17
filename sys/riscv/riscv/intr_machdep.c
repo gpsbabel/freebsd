@@ -52,13 +52,6 @@ __FBSDID("$FreeBSD$");
 #include <machine/smp.h>
 #endif
 
-enum {
-	IRQ_SOFTWARE,
-	IRQ_TIMER,
-	IRQ_HTIF,
-	NIRQS
-};
-
 u_long intrcnt[NIRQS];
 size_t sintrcnt = sizeof(intrcnt);
 
@@ -165,8 +158,12 @@ riscv_setup_intr(const char *name, driver_filter_t *filt,
 		riscv_unmask_irq((void*)(uintptr_t)irq);
 	}
 
-	intr_event_add_handler(event, name, filt, handler, arg,
+	error = intr_event_add_handler(event, name, filt, handler, arg,
 	    intr_priority(flags), flags, cookiep);
+	if (error) {
+		printf("Failed to setup intr: %d\n", irq);
+		return (error);
+	}
 
 	riscv_intrcnt_setname(riscv_intr_counters[irq],
 			     event->ie_fullname);
@@ -196,7 +193,6 @@ void
 riscv_cpu_intr(struct trapframe *frame)
 {
 	struct intr_event *event;
-	//u_int ipi_bitmap;
 	int active_irq;
 
 	critical_enter();
@@ -208,18 +204,6 @@ riscv_cpu_intr(struct trapframe *frame)
 
 	switch (active_irq) {
 	case IRQ_SOFTWARE:
-#if 0
-#ifdef SMP
-		ipi_bitmap = atomic_readandclear_int(PCPU_PTR(pending_ipis));
-		if (ipi_bitmap) {
-			//machine_command(ECALL_CLEAR_IPI, 0);
-			mb();
-			//printf("cpu%d: IPI 0x%08x\n", PCPU_GET(cpuid), ipi_bitmap);
-			ipi_handler(ipi_bitmap);
-			//break;
-		}
-#endif
-#endif
 	case IRQ_TIMER:
 		event = intr_events[active_irq];
 		/* Update counters */
@@ -235,38 +219,32 @@ riscv_cpu_intr(struct trapframe *frame)
 	}
 
 	if (!event || TAILQ_EMPTY(&event->ie_handlers) ||
-	    (intr_event_handle(event, frame) != 0)) {
+	    (intr_event_handle(event, frame) != 0))
 		printf("stray interrupt %d\n", active_irq);
-	}
 
 	critical_exit();
 }
 
 #ifdef SMP
 void
-riscv_setup_ipihandler(driver_filter_t *filt, u_int ipi)
+riscv_setup_ipihandler(driver_filter_t *filt)
 {
 
-	riscv_setup_intr("ipi", filt, NULL, (void *)((uintptr_t)ipi),
-	    EXCP_INTR_SOFTWARE, INTR_TYPE_MISC | INTR_EXCL, NULL);
-
-	//arm_setup_intr("ipi", filt, NULL, (void *)((uintptr_t)ipi | 1<<16), ipi,
-	//    INTR_TYPE_MISC | INTR_EXCL, NULL);
-	//arm_unmask_ipi(ipi);
+	riscv_setup_intr("ipi", filt, NULL, NULL, IRQ_SOFTWARE,
+	   INTR_TYPE_MISC, NULL);
 }
 
 void
-riscv_unmask_ipi(u_int ipi)
+riscv_unmask_ipi(void)
 {
 
-	//PIC_UNMASK(root_pic, ipi);
+	csr_set(sie, SIE_SSIE);
 }
 
 void
 riscv_init_secondary(void)
 {
 
-	//PIC_INIT_SECONDARY(root_pic);
 }
 
 /* Sending IPI */
@@ -276,12 +254,7 @@ ipi_send(struct pcpu *pc, int ipi)
 
 	CTR3(KTR_SMP, "%s: cpu=%d, ipi=%x", __func__, pc->pc_cpuid, ipi);
 
-	//printf("ipi_send: %d\n", ipi);
-
 	atomic_set_32(&pc->pc_pending_ipis, ipi);
-	//platform_ipi_send(pc->pc_cpuid);
-	//__asm __volatile("csrw send_ipi, %0" :: "r"(pc->pc_cpuid));
-	//csr_write(send_ipi, pc->pc_cpuid);
 	machine_command(ECALL_SEND_IPI, pc->pc_cpuid);
 
 	CTR1(KTR_SMP, "%s: sent", __func__);
@@ -297,8 +270,6 @@ ipi_all_but_self(u_int ipi)
 
 	CTR2(KTR_SMP, "%s: ipi: %x", __func__, ipi);
 	ipi_selected(other_cpus, ipi);
-
-	//PIC_IPI_SEND(root_pic, other_cpus, ipi);
 }
 
 void
@@ -311,8 +282,6 @@ ipi_cpu(int cpu, u_int ipi)
 
 	CTR3(KTR_SMP, "%s: cpu: %d, ipi: %x\n", __func__, cpu, ipi);
 	ipi_send(cpuid_to_pcpu[cpu], ipi);
-
-	//PIC_IPI_SEND(root_pic, cpus, ipi);
 }
 
 void
@@ -321,8 +290,6 @@ ipi_selected(cpuset_t cpus, u_int ipi)
 	struct pcpu *pc;
 
 	CTR1(KTR_SMP, "ipi_selected: ipi: %x", ipi);
-
-	//PIC_IPI_SEND(root_pic, cpus, ipi);
 
 	STAILQ_FOREACH(pc, &cpuhead, pc_allcpu) {
 		if (CPU_ISSET(pc->pc_cpuid, &cpus)) {
