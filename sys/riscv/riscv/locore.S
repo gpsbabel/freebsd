@@ -122,6 +122,7 @@ _start:
 	/* Build event queue for current core */
 	build_ring
 
+	/* Setup machine-mode stack for CPU 0 */
 	la	t0, hardstack
 	li	t1, PAGE_SIZE
 	add	t0, t0, t1
