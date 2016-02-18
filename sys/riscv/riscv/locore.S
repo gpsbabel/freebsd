@@ -122,11 +122,9 @@ _start:
 	/* Build event queue for current core */
 	build_ring
 
-	li	s11, KERNBASE
 	la	t0, hardstack
 	li	t1, PAGE_SIZE
 	add	t0, t0, t1
-	sub	t0, t0, s11
 	csrw	mscratch, t0
 
 	la	t0, mentry
@@ -211,6 +209,7 @@ _start:
 
 	/* Exit from machine mode */
 	la	t0, .Lmmu_on
+	li	s11, KERNBASE
 	add	t0, t0, s11
 	csrw	mepc, t0
 	eret
@@ -341,12 +340,10 @@ ENTRY(mpentry)
 	csrw	mstatus, s0
 
 	/* Setup stack for machine mode exceptions */
-	li	s11, KERNBASE
 	la	t0, hardstack
 	li	t1, PAGE_SIZE
 	mulw	t1, t1, a0
 	add	t0, t0, t1
-	sub	t0, t0, s11
 	csrw	mscratch, t0
 
 	li	t0, 0
@@ -357,6 +354,7 @@ ENTRY(mpentry)
 	 * the virtual address space.
 	 */
 	la	t0, mp_virtdone
+	li	s11, KERNBASE
 	add	t0, t0, s11
 	csrw	mepc, t0
 	eret
