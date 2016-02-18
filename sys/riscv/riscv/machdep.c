@@ -93,6 +93,7 @@ __FBSDID("$FreeBSD$");
 #endif
 
 struct pcpu __pcpu[MAXCPU];
+extern uint64_t pagetable_l0;
 
 static struct trapframe proc0_tf;
 
@@ -389,7 +390,12 @@ cpu_est_clockrate(int cpu_id, uint64_t *rate)
 void
 cpu_pcpu_init(struct pcpu *pcpu, int cpuid, size_t size)
 {
+	uint64_t addr;
 
+	addr = (uint64_t)&pagetable_l0;
+	addr += (cpuid * PAGE_SIZE);
+
+	pcpu->pc_sptbr = addr;
 }
 
 void
@@ -555,7 +561,7 @@ sendsig(sig_t catcher, ksiginfo_t *ksi, sigset_t *mask)
 		tf->tf_ra = (register_t)(sysent->sv_psstrings -
 		    *(sysent->sv_szsigcode));
 
-	CTR3(KTR_SIG, "sendsig: return td=%p pc=%#x sp=%#x", td, tf->tf_elr,
+	CTR3(KTR_SIG, "sendsig: return td=%p pc=%#x sp=%#x", td, tf->tf_sepc,
 	    tf->tf_sp);
 
 	PROC_LOCK(p);
@@ -756,7 +762,7 @@ initriscv(struct riscv_bootparams *rvbp)
 	 * RISCVTODO: figure out whether platform provides ranges,
 	 * or grab from FDT.
 	 */
-	add_physmap_entry(0, 0x8000000, physmap, &physmap_idx);
+	add_physmap_entry(0, 0x10000000, physmap, &physmap_idx);
 
 	/* Set the pcpu data, this is needed by pmap_bootstrap */
 	pcpup = &__pcpu[0];

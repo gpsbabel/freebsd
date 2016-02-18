@@ -217,8 +217,6 @@ struct msgbuf *msgbufp = NULL;
 
 static struct rwlock_padalign pvh_global_lock;
 
-extern uint64_t pagetable_l0;
-
 /*
  * Data for the pv entry allocation mechanism
  */
@@ -3096,16 +3094,11 @@ pmap_activate(struct thread *td)
 	td->td_pcb->pcb_l1addr = vtophys(pmap->pm_l1);
 
 	if ((td->td_pcb->pcb_sp >> 63) == 0) {
+		pn = (td->td_pcb->pcb_l1addr / PAGE_SIZE);
+		entry = (PTE_VALID | (PTE_TYPE_PTR << PTE_TYPE_S));
+		entry |= (pn << PTE_PPN0_S);
+		pmap_load_store((uint64_t *)PCPU_GET(sptbr), entry);
 	}
-
-	pn = (td->td_pcb->pcb_l1addr / PAGE_SIZE);
-	entry = (PTE_VALID | (PTE_TYPE_PTR << PTE_TYPE_S));
-	entry |= (pn << PTE_PPN0_S);
-	uint8_t *pt;
-	pt = (uint8_t *)&pagetable_l0;
-	pt += (PCPU_GET(cpuid) * 4096);
-	pmap_load_store((uint64_t *)pt, entry);
-	//pmap_load_store(&pagetable_l0, entry);
 
 	pmap_invalidate_all(pmap);
 	critical_exit();

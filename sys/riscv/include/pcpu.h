@@ -45,8 +45,9 @@
 #define	ALT_STACK_SIZE	128
 
 #define	PCPU_MD_FIELDS							\
-	u_int pc_pending_ipis;	/* IPIs pending to this CPU */		\
-	char __pad[125]
+	uint32_t pc_pending_ipis;	/* IPIs pending to this CPU */	\
+	uint64_t pc_sptbr;		/* VA of sptbr */		\
+	char __pad[117]
 
 #ifdef _KERNEL
 
