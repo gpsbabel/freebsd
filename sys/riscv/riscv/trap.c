@@ -271,6 +271,10 @@ do_trap_supervisor(struct trapframe *frame)
 	case EXCP_INSTR_ACCESS_FAULT:
 		data_abort(frame, 0);
 		break;
+	case EXCP_INSTR_BREAKPOINT:
+		dump_regs(frame);
+		panic("breakpoint at %x\n", frame->tf_sepc);
+		break;
 	case EXCP_INSTR_ILLEGAL:
 		dump_regs(frame);
 		panic("illegal instruction at %x\n", frame->tf_sepc);
@@ -306,6 +310,10 @@ do_trap_user(struct trapframe *frame)
 	case EXCP_UMODE_ENV_CALL:
 		frame->tf_sepc += 4;	/* Next instruction */
 		svc_handler(frame);
+		break;
+	case EXCP_INSTR_BREAKPOINT:
+		dump_regs(frame);
+		panic("breakpoint at %x\n", frame->tf_sepc);
 		break;
 	case EXCP_INSTR_ILLEGAL:
 		dump_regs(frame);
