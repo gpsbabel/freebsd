@@ -3093,12 +3093,10 @@ pmap_activate(struct thread *td)
 	pmap = vmspace_pmap(td->td_proc->p_vmspace);
 	td->td_pcb->pcb_l1addr = vtophys(pmap->pm_l1);
 
-	if ((td->td_pcb->pcb_sp >> 63) == 0) {
-		pn = (td->td_pcb->pcb_l1addr / PAGE_SIZE);
-		entry = (PTE_VALID | (PTE_TYPE_PTR << PTE_TYPE_S));
-		entry |= (pn << PTE_PPN0_S);
-		pmap_load_store((uint64_t *)PCPU_GET(sptbr), entry);
-	}
+	pn = (td->td_pcb->pcb_l1addr / PAGE_SIZE);
+	entry = (PTE_VALID | (PTE_TYPE_PTR << PTE_TYPE_S));
+	entry |= (pn << PTE_PPN0_S);
+	pmap_load_store((uint64_t *)PCPU_GET(sptbr), entry);
 
 	pmap_invalidate_all(pmap);
 	critical_exit();
