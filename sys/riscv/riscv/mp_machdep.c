@@ -351,7 +351,6 @@ cpu_init_fdt(u_int id, phandle_t node, u_int addr_size, pcell_t *reg)
 	uint64_t target_cpu;
 	struct pcpu *pcpup;
 	vm_paddr_t pa;
-	int err;
 
 	printf("%s\n", __func__);
 
@@ -391,18 +390,7 @@ cpu_init_fdt(u_int id, phandle_t node, u_int addr_size, pcell_t *reg)
 
 	__riscv_boot_ap[id] = 1;
 
-	err = 0; //psci_cpu_on(target_cpu, pa, id);
-	if (err != PSCI_RETVAL_SUCCESS) {
-		/* Panic here if INVARIANTS are enabled */
-		KASSERT(0, ("Failed to start CPU %u (%lx)\n", id, target_cpu));
-
-		pcpu_destroy(pcpup);
-		kmem_free(kernel_arena, (vm_offset_t)dpcpu[id - 1], DPCPU_SIZE);
-		dpcpu[id - 1] = NULL;
-		/* Notify the user that the CPU failed to start */
-		printf("Failed to start CPU %u (%lx)\n", id, target_cpu);
-	} else
-		CPU_SET(id, &all_cpus);
+	CPU_SET(id, &all_cpus);
 
 	return (1);
 }
