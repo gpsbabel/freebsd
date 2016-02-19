@@ -3089,7 +3089,6 @@ pmap_activate(struct thread *td)
 	pmap_t pmap;
 
 	critical_enter();
-
 	pmap = vmspace_pmap(td->td_proc->p_vmspace);
 	td->td_pcb->pcb_l1addr = vtophys(pmap->pm_l1);
 
