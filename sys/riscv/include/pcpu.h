@@ -46,7 +46,7 @@
 
 #define	PCPU_MD_FIELDS							\
 	uint32_t pc_pending_ipis;	/* IPIs pending to this CPU */	\
-	uint64_t pc_sptbr;		/* VA of sptbr */		\
+	uint64_t pc_sptbr;		/* page table base VA */	\
 	char __pad[117]
 
 #ifdef _KERNEL
