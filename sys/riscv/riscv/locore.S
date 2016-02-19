@@ -341,8 +341,11 @@ ENTRY(mpentry)
 	csrw	mstatus, s0
 
 	/* Setup stack for machine mode exceptions */
+	//addi	t3, a0, 1
 	la	t0, hardstack
 	li	t1, PAGE_SIZE
+	add	t0, t0, t1
+
 	mulw	t1, t1, a0
 	add	t0, t0, t1
 	csrw	mscratch, t0
