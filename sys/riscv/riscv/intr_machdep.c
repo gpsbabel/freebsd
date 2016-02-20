@@ -204,7 +204,6 @@ riscv_cpu_intr(struct trapframe *frame)
 
 	switch (active_irq) {
 	case IRQ_SOFTWARE:
-		//ipi_handler(NULL);
 	case IRQ_TIMER:
 		event = intr_events[active_irq];
 		/* Update counters */
@@ -255,8 +254,6 @@ ipi_send(struct pcpu *pc, int ipi)
 
 	CTR3(KTR_SMP, "%s: cpu=%d, ipi=%x", __func__, pc->pc_cpuid, ipi);
 
-	printf("ipi_send: curcpu=%d tocpu=%d ipi=%d\n",
-	    PCPU_GET(cpuid), pc->pc_cpuid, ipi);
 	atomic_set_32(&pc->pc_pending_ipis, ipi);
 	machine_command(ECALL_SEND_IPI, pc->pc_cpuid);
 
