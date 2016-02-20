@@ -235,6 +235,8 @@ init_secondary(uint64_t cpu)
 
 	/* Enable SOFT interrupts */
 	riscv_unmask_ipi();
+	csr_set(sie, SIE_SSIE);
+	csr_set(sie, SIE_STIE);
 
 	/* Start per-CPU event timers. */
 	cpu_initclocks_ap();
@@ -271,7 +273,7 @@ ipi_handler(void *arg)
 	u_int cpu, ipi;
 	int bit;
 
-	machine_command(ECALL_CLEAR_IPI, 0);
+	//machine_command(ECALL_CLEAR_IPI, 0);
 
 	cpu = PCPU_GET(cpuid);
 
@@ -297,6 +299,7 @@ ipi_handler(void *arg)
 			sched_preempt(curthread);
 			break;
 		case IPI_RENDEZVOUS:
+			printf("%d ipi %d\n", PCPU_GET(cpuid), ipi);
 			CTR0(KTR_SMP, "IPI_RENDEZVOUS");
 			smp_rendezvous_action();
 			break;
@@ -370,7 +373,6 @@ cpu_init_fdt(u_int id, phandle_t node, u_int addr_size, pcell_t *reg)
 	/* We are already running on cpu 0 */
 	if (id == 0)
 		return (1);
-
 
 	pcpup = &__pcpu[id];
 	pcpu_init(pcpup, id, sizeof(struct pcpu));

@@ -389,6 +389,7 @@ smp_rendezvous_action(void)
 	int owepreempt;
 #endif
 
+	printf("R%d\n", PCPU_GET(cpuid));
 	/* Ensure we have up-to-date values. */
 	atomic_add_acq_int(&smp_rv_waiters[0], 1);
 	while (smp_rv_waiters[0] < smp_rv_ncpus)
@@ -509,6 +510,7 @@ smp_rendezvous_cpus(cpuset_t map,
 
 	/* Pass rendezvous parameters via global variables. */
 	smp_rv_ncpus = ncpus;
+	printf("ncpus %d\n", ncpus);
 	smp_rv_setup_func = setup_func;
 	smp_rv_action_func = action_func;
 	smp_rv_teardown_func = teardown_func;

@@ -208,6 +208,9 @@ _start:
 		     (MSTATUS_PRV_U << MSTATUS_PRV2_SHIFT));
 	csrw	mstatus, s0
 
+	li	t0, MIE_MSIE
+	csrs	mie, t0
+
 	/* Exit from machine mode */
 	la	t0, .Lmmu_on
 	li	s11, KERNBASE
@@ -352,6 +355,9 @@ ENTRY(mpentry)
 
 	li	t0, 0
 	csrw	sscratch, t0
+
+	li	t0, MIE_MSIE
+	csrs	mie, t0
 
 	/*
 	 * Exit from machine mode and go to

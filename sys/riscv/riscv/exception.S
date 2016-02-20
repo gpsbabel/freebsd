@@ -282,7 +282,31 @@ machine_interrupt:
 	j	1b
 
 software_interrupt:
-	/* Redirect to supervisor */
+	//csrr	t0, mip
+	//and	MIP_MSIP, t1, t1
+
+	li	t0, MIP_MSIP
+	csrc	mip, t0
+	li	t0, MIP_SSIP
+	csrs	mip, t0
+
+	/* If PRV1 is PRV_U (user) then serve a trap */
+	csrr	t0, mstatus
+	li	t1, (MSTATUS_PRV_M << MSTATUS_PRV1_SHIFT)
+	and	t0, t0, t1
+	beqz	t0, 1f
+
+	/* If PRV1 is supervisor and interrupts were enabled, then serve a trap */
+	csrr	t0, mstatus
+	li	t1, (SR_IE1 | (MSTATUS_PRV_M << MSTATUS_PRV1_SHIFT))
+	and	t0, t0, t1
+	li	t1, (SR_IE1 | (MSTATUS_PRV_S << MSTATUS_PRV1_SHIFT))
+	beq	t0, t1, 1f
+
+	j	exit
+
+1:
+	/* Serve a trap in supervisor mode */
 	j	exit_mrts
 
 timer_interrupt:
@@ -385,6 +409,12 @@ supervisor_call:
 	beq	t5, t4, clear_ipi
 	li	t4, ECALL_HTIF_LOWPUTC
 	beq	t5, t4, htif_lowputc
+	li	t4, ECALL_MIE_SET
+	beq	t5, t4, mie_set
+	j	exit_next_instr
+
+mie_set:
+	csrs	mie, t6
 	j	exit_next_instr
 
 mcpuid_get:
@@ -399,7 +429,7 @@ send_ipi:
 	/* cpuid in t6 */
 
 	li	t0, (4096 * 1024 * 1024 + 2 * 4096)
-	li	t2, 4096
+	li	t2, (4096*8)
 	mulw	t2, t6, t2
 	add	t0, t0, t2	/* t0 = cpu mmio base */
 	li	t2, (0x783 * 8)

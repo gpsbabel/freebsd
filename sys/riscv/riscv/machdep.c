@@ -747,7 +747,7 @@ initriscv(struct riscv_bootparams *rvbp)
 	if (kmdp == NULL)
 		kmdp = preload_search_by_type("elf64 kernel");
 
-	boothowto = RB_SINGLE;
+	boothowto = 0;
 
 	kern_envp = NULL;
 
