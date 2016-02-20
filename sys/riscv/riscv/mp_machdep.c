@@ -299,7 +299,6 @@ ipi_handler(void *arg)
 			sched_preempt(curthread);
 			break;
 		case IPI_RENDEZVOUS:
-			printf("%d ipi %d\n", PCPU_GET(cpuid), ipi);
 			CTR0(KTR_SMP, "IPI_RENDEZVOUS");
 			smp_rendezvous_action();
 			break;
