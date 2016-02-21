@@ -123,9 +123,7 @@ _start:
 	build_ring
 
 	/* Setup machine-mode stack for CPU 0 */
-	la	t0, hardstack
-	li	t1, PAGE_SIZE
-	add	t0, t0, t1
+	la	t0, hardstack_end
 	csrw	mscratch, t0
 
 	la	t0, mentry
@@ -344,13 +342,10 @@ ENTRY(mpentry)
 	csrw	mstatus, s0
 
 	/* Setup stack for machine mode exceptions */
-	//addi	t3, a0, 1
-	la	t0, hardstack
+	la	t0, hardstack_end
 	li	t1, PAGE_SIZE
-	add	t0, t0, t1
-
 	mulw	t1, t1, a0
-	add	t0, t0, t1
+	sub	t0, t0, t1
 	csrw	mscratch, t0
 
 	li	t0, 0
