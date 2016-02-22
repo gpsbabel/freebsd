@@ -52,6 +52,4 @@ void ipi_selected(cpuset_t cpus, u_int ipi);
 
 extern struct pcb stoppcbs[];
 
-//int ipi_handler(void *arg);
-
 #endif /* !_MACHINE_SMP_H_ */
