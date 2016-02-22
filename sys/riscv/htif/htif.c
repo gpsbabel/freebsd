@@ -126,8 +126,6 @@ htif_intr(void *arg)
 
 	sc = arg;
 
-	//printf(".");
-
 	csr_clear(sip, SIP_SSIP);
 
 	htif_handle_entry(sc);
