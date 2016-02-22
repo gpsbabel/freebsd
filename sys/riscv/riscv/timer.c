@@ -145,9 +145,9 @@ riscv_tmr_intr(void *arg)
 
 	/*
 	 * Clear interrupt pending bit.
-	 * Note SIP_STIP bit is unimplemented in sip register
+	 * Note: SIP_STIP bit is not implemented in sip register
 	 * in Spike simulator, so use machine command to clear
-	 * it in mip.
+	 * interrupt pending bit in mip.
 	 */
 	machine_command(ECALL_CLEAR_PENDING, 0);
 
@@ -196,7 +196,6 @@ riscv_tmr_attach(device_t dev)
 
 	if (sc->clkfreq == 0)
 		sc->clkfreq = DEFAULT_FREQ;
-	//sc->clkfreq = 10000000;
 
 	if (sc->clkfreq == 0) {
 		device_printf(dev, "No clock frequency specified\n");
