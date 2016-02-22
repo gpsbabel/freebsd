@@ -42,7 +42,6 @@ __FBSDID("$FreeBSD$");
 
 #include <machine/vmparam.h>
 #include <machine/pcb.h>
-#include <machine/stack.h>
 
 void
 stack_save_td(struct stack *st, struct thread *td)
