@@ -140,8 +140,6 @@ htif_blk_attach(device_t dev)
 	char *str;
 	long size;
 
-	//return (-1);
-
 	sc = device_get_softc(dev);
 	sc->dev = dev;
 
