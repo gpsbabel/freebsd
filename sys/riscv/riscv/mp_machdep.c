@@ -1,6 +1,10 @@
 /*-
- * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
+ * Copyright (c) 2015 The FreeBSD Foundation
+ * Copyright (c) 2016 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
+ *
+ * Portions of this software was developed by Andrew Turner under
+ * sponsorship from the FreeBSD Foundation.
  *
  * Portions of this software were developed by SRI International and the
  * University of Cambridge Computer Laboratory under DARPA/AFRL contract
@@ -273,7 +277,11 @@ ipi_handler(void *arg)
 	u_int cpu, ipi;
 	int bit;
 
-	//machine_command(ECALL_CLEAR_IPI, 0);
+	/*
+	 * No need to clear interrupt here as we clear it later
+	 * in htif_intr (we have shared interrupt line).
+	 * machine_command(ECALL_CLEAR_IPI, 0);
+	 */
 
 	cpu = PCPU_GET(cpuid);
 
@@ -353,8 +361,6 @@ cpu_init_fdt(u_int id, phandle_t node, u_int addr_size, pcell_t *reg)
 	uint64_t target_cpu;
 	struct pcpu *pcpup;
 	vm_paddr_t pa;
-
-	printf("%s\n", __func__);
 
 	/* Check we are able to start this cpu */
 	if (id > mp_maxid)
