@@ -239,8 +239,6 @@ init_secondary(uint64_t cpu)
 
 	/* Enable SOFT interrupts */
 	riscv_unmask_ipi();
-	csr_set(sie, SIE_SSIE);
-	csr_set(sie, SIE_STIE);
 
 	/* Start per-CPU event timers. */
 	cpu_initclocks_ap();
