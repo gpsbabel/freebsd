@@ -45,6 +45,7 @@
 
 #define	HTIF_RING_SIZE	(1024)
 #define	HTIF_RING_LAST	(24 * (HTIF_RING_SIZE - 1))
+#define	HW_STACK_SIZE	(96)
 
 /*
  * struct htif_ring {
@@ -250,7 +251,7 @@ initstack:
 	.space  (PAGE_SIZE * KSTACK_PAGES)
 initstack_end:
 hardstack:
-	.space  (PAGE_SIZE * MAXCPU)
+	.space  (HW_STACK_SIZE * MAXCPU)
 hardstack_end:
 
 	.globl htif_ring
@@ -347,7 +348,7 @@ ENTRY(mpentry)
 
 	/* Setup stack for machine mode exceptions */
 	la	t0, hardstack_end
-	li	t1, PAGE_SIZE
+	li	t1, HW_STACK_SIZE
 	mulw	t1, t1, a0
 	sub	t0, t0, t1
 	csrw	mscratch, t0
