@@ -282,9 +282,6 @@ machine_interrupt:
 	j	1b
 
 software_interrupt:
-	//csrr	t0, mip
-	//and	MIP_MSIP, t1, t1
-
 	li	t0, MIP_MSIP
 	csrc	mip, t0
 	li	t0, MIP_SSIP
