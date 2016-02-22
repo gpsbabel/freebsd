@@ -427,12 +427,15 @@ mimpid_get:
 
 send_ipi:
 	/* cpuid in t6 */
+	csrr	t0, miobase
+	li	t2, (8 * 4096)
+	add	t0, t0, t2	/* Skip FDT */
 
-	li	t0, (4096 * 1024 * 1024 + 2 * 4096)
-	li	t2, (4096*8)
+	li	t2, (NCSRS * XLEN)
 	mulw	t2, t6, t2
 	add	t0, t0, t2	/* t0 = cpu mmio base */
-	li	t2, (0x783 * 8)
+
+	li	t2, (CSR_IPI * XLEN)
 	add	t0, t0, t2	/* t0 = CSR_IPI */
 	li	t2, 1
 	sd	t2, 0(t0)
