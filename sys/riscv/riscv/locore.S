@@ -206,6 +206,10 @@ _start:
 		     (MSTATUS_PRV_U << MSTATUS_PRV2_SHIFT));
 	csrw	mstatus, s0
 
+	/*
+	 * Enable machine-mode software interrupts
+	 * so we can deliver IPI to this core.
+	 */
 	li	t0, MIE_MSIE
 	csrs	mie, t0
 
@@ -351,6 +355,10 @@ ENTRY(mpentry)
 	li	t0, 0
 	csrw	sscratch, t0
 
+	/*
+	 * Enable machine-mode software interrupts
+	 * so we can deliver IPI to this core.
+	 */
 	li	t0, MIE_MSIE
 	csrs	mie, t0
 
