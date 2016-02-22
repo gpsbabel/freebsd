@@ -428,7 +428,8 @@ mimpid_get:
 send_ipi:
 	/* cpuid in t6 */
 	csrr	t0, miobase
-	li	t2, (8 * 4096)
+	/* RISCVTODO: dehardcode the amount of cores */
+	li	t2, (2 * 4096)	/* 2 cpu cores */
 	add	t0, t0, t2	/* Skip FDT */
 
 	li	t2, (NCSRS * XLEN)
