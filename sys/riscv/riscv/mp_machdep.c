@@ -356,7 +356,6 @@ cpu_init_fdt(u_int id, phandle_t node, u_int addr_size, pcell_t *reg)
 {
 	uint64_t target_cpu;
 	struct pcpu *pcpup;
-	vm_paddr_t pa;
 
 	/* Check we are able to start this cpu */
 	if (id > mp_maxid)
@@ -371,26 +370,28 @@ cpu_init_fdt(u_int id, phandle_t node, u_int addr_size, pcell_t *reg)
 		cpu_reg[id][1] = reg[1];
 #endif
 
-	/* We are already running on cpu 0 */
-	if (id == 0)
-		return (1);
-
-	pcpup = &__pcpu[id];
-	pcpu_init(pcpup, id, sizeof(struct pcpu));
-
-	dpcpu[id - 1] = (void *)kmem_malloc(kernel_arena, DPCPU_SIZE,
-	    M_WAITOK | M_ZERO);
-	dpcpu_init(dpcpu[id - 1], id);
-
 	target_cpu = reg[0];
 	if (addr_size == 2) {
 		target_cpu <<= 32;
 		target_cpu |= reg[1];
 	}
 
-	printf("Starting CPU %u (%lx)\n", id, target_cpu);
-	pa = pmap_extract(kernel_pmap, (vm_offset_t)mpentry);
+	pcpup = &__pcpu[id];
 
+	/* We are already running on cpu 0 */
+	if (id == 0) {
+		pcpup->pc_reg = target_cpu;
+		return (1);
+	}
+
+	pcpu_init(pcpup, id, sizeof(struct pcpu));
+	pcpup->pc_reg = target_cpu;
+
+	dpcpu[id - 1] = (void *)kmem_malloc(kernel_arena, DPCPU_SIZE,
+	    M_WAITOK | M_ZERO);
+	dpcpu_init(dpcpu[id - 1], id);
+
+	printf("Starting CPU %u (%lx)\n", id, target_cpu);
 	__riscv_boot_ap[id] = 1;
 
 	CPU_SET(id, &all_cpus);

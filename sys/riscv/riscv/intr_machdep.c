@@ -255,7 +255,7 @@ ipi_send(struct pcpu *pc, int ipi)
 	CTR3(KTR_SMP, "%s: cpu=%d, ipi=%x", __func__, pc->pc_cpuid, ipi);
 
 	atomic_set_32(&pc->pc_pending_ipis, ipi);
-	machine_command(ECALL_SEND_IPI, pc->pc_cpuid);
+	machine_command(ECALL_SEND_IPI, pc->pc_reg);
 
 	CTR1(KTR_SMP, "%s: sent", __func__);
 }

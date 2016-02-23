@@ -423,16 +423,8 @@ mimpid_get:
 	j	exit_next_instr
 
 send_ipi:
-	/* cpuid in t6 */
-	csrr	t0, miobase
-	/* RISCVTODO: dehardcode the amount of cores */
-	li	t2, (2 * 4096)	/* 2 cpu cores */
-	add	t0, t0, t2	/* Skip FDT */
-
-	li	t2, (NCSRS * XLEN)
-	mulw	t2, t6, t2
-	add	t0, t0, t2	/* t0 = cpu mmio base */
-
+	/* cpu base reg in t6 */
+	mv	t0, t6
 	li	t2, (CSR_IPI * XLEN)
 	add	t0, t0, t2	/* t0 = CSR_IPI */
 	li	t2, 1

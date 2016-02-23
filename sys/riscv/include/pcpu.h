@@ -47,7 +47,8 @@
 #define	PCPU_MD_FIELDS							\
 	uint32_t pc_pending_ipis;	/* IPIs pending to this CPU */	\
 	uint64_t pc_sptbr;		/* L0 page table base (VA) */	\
-	char __pad[117]
+	uint64_t pc_reg;		/* MIO base (PA) */		\
+	char __pad[109]
 
 #ifdef _KERNEL
 
