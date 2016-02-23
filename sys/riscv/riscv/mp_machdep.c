@@ -185,6 +185,9 @@ release_aps(void *dummy __unused)
 {
 	int cpu, i;
 
+	if (mp_ncpus == 1)
+		return;
+
 	/* Setup the IPI handler */
 	riscv_setup_ipihandler(ipi_handler);
 
@@ -346,8 +349,7 @@ int
 cpu_mp_probe(void)
 {
 
-	/* RISCVTODO */
-	return (1);
+	return (mp_ncpus > 1);
 }
 
 #ifdef FDT
