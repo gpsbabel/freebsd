@@ -305,7 +305,13 @@ pagetable_end:
 init_pt_va:
 	.quad pagetable_l2	/* XXX: Keep page tables VA */
 
-#ifdef SMP
+#ifndef SMP
+ENTRY(mpentry)
+1:
+	wfi
+	j	1b
+END(mpentry)
+#else
 /*
  * mpentry(unsigned long)
  *
