@@ -43,23 +43,28 @@
 #include <machine/riscvreg.h>
 #include <machine/pte.h>
 
-#define	HTIF_RING_SIZE	(1024)
-#define	HTIF_RING_LAST	(24 * (HTIF_RING_SIZE - 1))
-#define	HW_STACK_SIZE	(96)
+#define	HTIF_RING_NENTRIES	(512)
+#define	HTIF_RING_ENTRY_SZ	(24)
+#define	HTIF_RING_SIZE		(HTIF_RING_ENTRY_SZ * HTIF_RING_NENTRIES)
+#define	HW_STACK_SIZE		(96)
 
 /*
+ * Event queue for each CPU core:
+ *
  * struct htif_ring {
  *     uint64_t data;
  *     uint64_t used;
  *     uint64_t next;
- * };
+ * } htif_ring[HTIF_RING_NENTRIES];
+ * uint64_t htif_ring_cursor;
+ * uint64_t htif_ring_last;
  */
 
 .macro build_ring
 	la	t0, htif_ring
 #ifdef SMP
 	csrr	a0, mhartid
-	li	s0, (24 * 1024 + 16)
+	li	s0, (HTIF_RING_SIZE + 16)
 	mulw	s0, a0, s0
 	add	t0, t0, s0
 #endif
@@ -68,7 +73,7 @@
 	sd	t1, 8(t0)	/* zero used */
 	mv	t2, t0
 	mv	t3, t0
-	li	t5, HTIF_RING_LAST
+	li	t5, (HTIF_RING_SIZE - HTIF_RING_ENTRY_SZ)
 	li	t6, 0
 	add	t4, t0, t5
 1:
@@ -81,7 +86,7 @@
 2:
 	sd	t0, 16(t3)	/* last -> first */
 
-	li	t2, (24 * 1024)
+	li	t2, (HTIF_RING_SIZE)
 	add	s0, t0, t2
 	sd	t0, 0(s0)	/* cursor */
 	sd	t0, 8(s0)	/* last */
@@ -256,11 +261,11 @@ hardstack_end:
 
 	.globl htif_ring
 htif_ring:
-	.space ((24 * 1024 + 16) * MAXCPU)
+	.space ((HTIF_RING_SIZE + 16) * MAXCPU)
 
 	.globl console_intr
 console_intr:
-	.space  (8)
+	.space (8)
 
 ENTRY(sigcode)
 	mv	a0, sp
@@ -309,18 +314,17 @@ init_pt_va:
  */
 ENTRY(mpentry)
 	/*
-	 * Calculate the offset for current core,
-	 * cpuid in a0.
+	 * Calculate the offset to __riscv_boot_ap
+	 * for current core, cpuid in a0.
 	 */
 	li	t1, 4
 	mulw	t1, t1, a0
-
 	/* Get pointer */
 	la	t0, __riscv_boot_ap
 	add	t0, t0, t1
 
 1:
-	/* Wait kernel to be ready */
+	/* Wait the kernel to be ready */
 	lw	t1, 0(t0)
 	beqz	t1, 1b
 
