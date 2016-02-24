@@ -3,7 +3,7 @@
  * Copyright (c) 2016 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
  *
- * Portions of this software was developed by Andrew Turner under
+ * Portions of this software were developed by Andrew Turner under
  * sponsorship from the FreeBSD Foundation.
  *
  * Portions of this software were developed by SRI International and the
