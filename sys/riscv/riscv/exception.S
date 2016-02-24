@@ -423,7 +423,7 @@ mimpid_get:
 	j	exit_next_instr
 
 send_ipi:
-	/* cpu base reg in t6 */
+	/* CPU mmio base in t6 */
 	mv	t0, t6
 	li	t2, (CSR_IPI * XLEN)
 	add	t0, t0, t2	/* t0 = CSR_IPI */
