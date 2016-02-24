@@ -52,7 +52,6 @@ riscv_intrcnt_t riscv_intrcnt_create(const char *);
 void riscv_intrcnt_setname(riscv_intrcnt_t, const char *);
 
 #ifdef SMP
-void riscv_init_secondary(void);
 void riscv_setup_ipihandler(driver_filter_t *);
 void riscv_unmask_ipi(void);
 #endif

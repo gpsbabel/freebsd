@@ -235,10 +235,7 @@ init_secondary(uint64_t cpu)
 	 */
 	identify_cpu();
 
-	/* Configure the interrupt controller */
-	riscv_init_secondary();
-
-	/* Enable SOFT interrupts */
+	/* Enable software interrupts */
 	riscv_unmask_ipi();
 
 	/* Start per-CPU event timers. */

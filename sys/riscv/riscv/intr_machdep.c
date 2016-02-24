@@ -241,12 +241,6 @@ riscv_unmask_ipi(void)
 	csr_set(sie, SIE_SSIE);
 }
 
-void
-riscv_init_secondary(void)
-{
-
-}
-
 /* Sending IPI */
 static void
 ipi_send(struct pcpu *pc, int ipi)
