@@ -229,6 +229,7 @@ bad_trap:
 	j bad_trap
 
 user_trap:
+	/* Save state */
 	csrrw	sp, mscratch, sp
 	addi	sp, sp, -64
 	sd	t0, (8 * 0)(sp)
@@ -450,6 +451,7 @@ clear_ipi:
 	ld	t2, 8(t2)	/* load used */
 	bnez	t2, 1f
 
+	/* Clear supervisor software interrupt pending bit */
 	li	t0, MIP_SSIP
 	csrc	mip, t0
 
@@ -457,7 +459,7 @@ clear_ipi:
 	j	exit_next_instr
 
 htif_get_entry:
-
+	/* Get a htif_ring for current core */
 	la	t0, htif_ring
 	csrr	t2, mhartid
 	li	t4, (HTIF_RING_SIZE + 16)
@@ -466,10 +468,13 @@ htif_get_entry:
 	li	t4, (HTIF_RING_SIZE + 8)
 	add	t0, t0, t4	/* t0 == htif_ring_last */
 
+	/* Check for new entries */
 	li	t6, 0		/* preset return value */
 	ld	t2, 0(t0)	/* load ptr to last */
 	ld	t4, 8(t2)	/* get used */
-	beqz	t4, 1f
+	beqz	t4, 1f		/* No new entries. Exit */
+
+	/* Get one */
 	ld	t6, 0(t2)	/* get entry */
 	li	t4, 0
 	sd	t4, 8(t2)	/* mark free */
