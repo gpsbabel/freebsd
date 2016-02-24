@@ -277,10 +277,13 @@ ipi_handler(void *arg)
 	int bit;
 
 	/*
-	 * No need to clear interrupt here as we clear it later
-	 * in htif_intr (we have shared interrupt line).
-	 * machine_command(ECALL_CLEAR_IPI, 0);
+	 * We have shared interrupt line for both IPI and HTIF,
+	 * so we don't really need to clear pending bit here
+	 * as it will be cleared later in htif_intr.
+	 * But lets assume HTIF is optional part, so do clear
+	 * pending bit if there is no new entires in htif_ring.
 	 */
+	machine_command(ECALL_CLEAR_IPI, 0);
 
 	cpu = PCPU_GET(cpuid);
 

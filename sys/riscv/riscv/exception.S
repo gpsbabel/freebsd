@@ -439,16 +439,15 @@ clear_ipi:
 	mulw	t4, t4, t2
 	add	t0, t0, t4
 	li	t4, (HTIF_RING_SIZE)
-	add	t0, t0, t4	/* t0 == htif_ring_cursor */
-	ld	t2, 0(t0)	/* ptr in cursor */
-	ld	t3, 8(t0)	/* ptr in last */
-	ld	t3, 8(t3)	/* get used */
-	bnez	t3, 4f
+	add	t0, t0, t4	/* t0  == ptr to htif_ring_cursor */
+	ld	t2, 8(t0)	/* load htif_ring_last */
+	ld	t2, 8(t2)	/* load used */
+	bnez	t2, 1f
 
 	li	t0, MIP_SSIP
 	csrc	mip, t0
 
-4:
+1:
 	j	exit_next_instr
 
 htif_get_entry:
