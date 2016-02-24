@@ -287,13 +287,13 @@ software_interrupt:
 	li	t0, MIP_SSIP
 	csrs	mip, t0
 
-	/* If PRV1 is PRV_U (user) then serve a trap */
+	/* If PRV1 is PRV_U (user) then serve the trap */
 	csrr	t0, mstatus
 	li	t1, (MSTATUS_PRV_M << MSTATUS_PRV1_SHIFT)
 	and	t0, t0, t1
 	beqz	t0, 1f
 
-	/* If PRV1 is supervisor and interrupts were enabled, then serve a trap */
+	/* If PRV1 is supervisor and interrupts were enabled, then serve the trap */
 	csrr	t0, mstatus
 	li	t1, (SR_IE1 | (MSTATUS_PRV_M << MSTATUS_PRV1_SHIFT))
 	and	t0, t0, t1
@@ -319,13 +319,13 @@ timer_interrupt:
 	li	t0, MIP_STIP
 	csrs	mip, t0
 
-	/* If PRV1 is PRV_U (user) then serve a trap */
+	/* If PRV1 is PRV_U (user) then serve the trap */
 	csrr	t0, mstatus
 	li	t1, (MSTATUS_PRV_M << MSTATUS_PRV1_SHIFT)
 	and	t0, t0, t1
 	beqz	t0, 1f
 
-	/* If PRV1 is supervisor and interrupts were enabled, then serve a trap */
+	/* If PRV1 is supervisor and interrupts were enabled, then serve the trap */
 	csrr	t0, mstatus
 	li	t1, (SR_IE1 | (MSTATUS_PRV_M << MSTATUS_PRV1_SHIFT))
 	and	t0, t0, t1
