@@ -118,7 +118,8 @@ htif_blk_intr(void *arg, uint64_t entry)
 		sc->cmd_done = 1;
 		wakeup(&sc->intr_chan);
 	} else {
-		printf("curtag %d data %d\n", sc->curtag, data);
+		device_printf(sc->dev, "Unexpected tag %d (should be %d)\n",
+		    data, sc->curtag);
 	}
 }
 
