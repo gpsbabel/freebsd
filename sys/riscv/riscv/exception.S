@@ -293,7 +293,10 @@ software_interrupt:
 	and	t0, t0, t1
 	beqz	t0, 1f
 
-	/* If PRV1 is supervisor and interrupts were enabled, then serve the trap */
+	/*
+	 * If PRV1 is supervisor and interrupts were enabled,
+	 * then serve the trap.
+	 */
 	csrr	t0, mstatus
 	li	t1, (SR_IE1 | (MSTATUS_PRV_M << MSTATUS_PRV1_SHIFT))
 	and	t0, t0, t1
@@ -325,7 +328,10 @@ timer_interrupt:
 	and	t0, t0, t1
 	beqz	t0, 1f
 
-	/* If PRV1 is supervisor and interrupts were enabled, then serve the trap */
+	/*
+	 * If PRV1 is supervisor and interrupts were enabled,
+	 * then serve the trap.
+	 */
 	csrr	t0, mstatus
 	li	t1, (SR_IE1 | (MSTATUS_PRV_M << MSTATUS_PRV1_SHIFT))
 	and	t0, t0, t1
