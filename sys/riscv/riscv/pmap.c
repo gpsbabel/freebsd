@@ -433,6 +433,7 @@ pmap_early_vtophys(vm_offset_t l1pt, vm_offset_t va)
 	pt_entry_t *l2;
 	u_int ret;
 
+	//printf("early vtphys va 0x%016lx\n", va);
 	l2 = pmap_early_page_idx(l1pt, va, &l1_slot, &l2_slot);
 
 	/* L2 is superpages */
@@ -463,6 +464,8 @@ pmap_bootstrap_dmap(vm_offset_t l1pt, vm_paddr_t kernstart)
 
 		/* superpages */
 		pn = ((pa >> L1_SHIFT) & Ln_ADDR_MASK);
+		//printf("dmap va 0x%016lx pa 0x%016lx pn 0x%08x\n", va, pa, pn);
+
 		entry = (PTE_VALID | (PTE_TYPE_SRWX << PTE_TYPE_S));
 		entry |= (pn << PTE_PPN2_S);
 
@@ -1343,10 +1346,11 @@ pmap_growkernel(vm_offset_t addr)
 				pmap_zero_page(nkpg);
 			paddr = VM_PAGE_TO_PHYS(nkpg);
 
-			panic("%s: implement grow l1\n", __func__);
-#if 0
-			pmap_load_store(l1, paddr | L1_TABLE);
-#endif
+			pn = (paddr / PAGE_SIZE);
+			entry = (PTE_VALID | (PTE_TYPE_PTR << PTE_TYPE_S));
+			entry |= (pn << PTE_PPN0_S);
+			pmap_load_store(l1, entry);
+
 			PTE_SYNC(l1);
 			continue; /* try again */
 		}
