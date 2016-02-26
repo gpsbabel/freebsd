@@ -451,7 +451,7 @@ pmap_bootstrap_dmap(vm_offset_t l1pt, vm_paddr_t kernstart)
 	pd_entry_t *l1;
 	u_int l1_slot;
 	pt_entry_t entry;
-	u_int pn;
+	pn_t pn;
 
 	pa = kernstart & ~L1_OFFSET;
 	va = DMAP_MIN_ADDRESS;
@@ -927,7 +927,7 @@ pmap_qenter(vm_offset_t sva, vm_page_t *ma, int count)
 	vm_offset_t va;
 	vm_page_t m;
 	pt_entry_t entry;
-	u_int pn;
+	pn_t pn;
 	int i;
 
 	va = sva;
@@ -1146,7 +1146,7 @@ _pmap_alloc_l3(pmap_t pmap, vm_pindex_t ptepindex, struct rwlock **lockp)
 	vm_page_t m, /*pdppg, */pdpg;
 	pt_entry_t entry;
 	vm_paddr_t phys;
-	int pn;
+	pn_t pn;
 
 	PMAP_LOCK_ASSERT(pmap, MA_OWNED);
 
@@ -1326,7 +1326,7 @@ pmap_growkernel(vm_offset_t addr)
 	vm_page_t nkpg;
 	pd_entry_t *l1, *l2;
 	pt_entry_t entry;
-	int pn;
+	pn_t pn;
 
 	mtx_assert(&kernel_map->system_mtx, MA_OWNED);
 
@@ -1937,9 +1937,9 @@ pmap_enter(pmap_t pmap, vm_offset_t va, vm_page_t m, vm_prot_t prot,
 	vm_page_t mpte, om, l2_m, l3_m;
 	boolean_t nosleep;
 	pt_entry_t entry;
-	int l2_pn;
-	int l3_pn;
-	int pn;
+	pn_t l2_pn;
+	pn_t l3_pn;
+	pn_t pn;
 
 	va = trunc_page(va);
 	if ((m->oflags & VPO_UNMANAGED) == 0 && !vm_page_xbusied(m))
@@ -2215,7 +2215,7 @@ pmap_enter_quick_locked(pmap_t pmap, vm_offset_t va, vm_page_t m,
 	pt_entry_t *l3;
 	vm_paddr_t pa;
 	pt_entry_t entry;
-	int pn;
+	pn_t pn;
 
 	KASSERT(va < kmi.clean_sva || va >= kmi.clean_eva ||
 	    (m->oflags & VPO_UNMANAGED) != 0,
@@ -3088,8 +3088,8 @@ pmap_mincore(pmap_t pmap, vm_offset_t addr, vm_paddr_t *locked_pa)
 void
 pmap_activate(struct thread *td)
 {
-	uint64_t entry;
-	uint64_t pn;
+	pt_entry_t entry;
+	pn_t pn;
 	pmap_t pmap;
 
 	critical_enter();
