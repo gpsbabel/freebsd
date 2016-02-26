@@ -592,7 +592,6 @@ fdt_get_reserved_regions(struct mem_region *mr, int *mrcnt)
 	pcell_t reserve[FDT_REG_CELLS * FDT_MEM_REGIONS];
 	pcell_t *reservep;
 	phandle_t memory, root;
-	uint32_t memory_size;
 	int addr_cells, size_cells;
 	int i, max_size, res_len, rv, tuple_size, tuples;
 
@@ -626,7 +625,6 @@ fdt_get_reserved_regions(struct mem_region *mr, int *mrcnt)
 		goto out;
 	}
 
-	memory_size = 0;
 	tuples = res_len / tuple_size;
 	reservep = (pcell_t *)&reserve;
 	for (i = 0; i < tuples; i++) {
@@ -647,12 +645,12 @@ out:
 }
 
 int
-fdt_get_mem_regions(struct mem_region *mr, int *mrcnt, uint32_t *memsize)
+fdt_get_mem_regions(struct mem_region *mr, int *mrcnt, u_long *memsize)
 {
 	pcell_t reg[FDT_REG_CELLS * FDT_MEM_REGIONS];
 	pcell_t *regp;
 	phandle_t memory;
-	uint32_t memory_size;
+	u_long memory_size;
 	int addr_cells, size_cells;
 	int i, max_size, reg_len, rv, tuple_size, tuples;
 
