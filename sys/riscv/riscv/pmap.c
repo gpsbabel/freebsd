@@ -433,7 +433,6 @@ pmap_early_vtophys(vm_offset_t l1pt, vm_offset_t va)
 	pt_entry_t *l2;
 	u_int ret;
 
-	//printf("early vtphys va 0x%016lx\n", va);
 	l2 = pmap_early_page_idx(l1pt, va, &l1_slot, &l2_slot);
 
 	/* L2 is superpages */
@@ -464,8 +463,6 @@ pmap_bootstrap_dmap(vm_offset_t l1pt, vm_paddr_t kernstart)
 
 		/* superpages */
 		pn = ((pa >> L1_SHIFT) & Ln_ADDR_MASK);
-		//printf("dmap va 0x%016lx pa 0x%016lx pn 0x%08x\n", va, pa, pn);
-
 		entry = (PTE_VALID | (PTE_TYPE_SRWX << PTE_TYPE_S));
 		entry |= (pn << PTE_PPN2_S);
 
