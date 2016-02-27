@@ -8,12 +8,9 @@ DIRDEPS = \
 	include/xlocale \
 	lib/${CSU_DIR} \
 	lib/libc \
-	lib/libcapsicum \
-	lib/libcasper \
+	lib/libcasper/libcasper \
 	lib/libcompiler_rt \
 	lib/libnv \
-	lib/libpjdlog \
-	lib/libutil \
 
 
 .include <dirdeps.mk>
