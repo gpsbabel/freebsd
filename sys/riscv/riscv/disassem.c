@@ -33,6 +33,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/systm.h>
 #include <machine/disassem.h>
 #include <machine/riscvreg.h>
+#include <machine/riscv_opcode.h>
 #include <ddb/ddb.h>
 
 #define	ARM64_MAX_TOKEN_LEN	8
@@ -354,6 +355,11 @@ disasm(const struct disasm_interface *di, vm_offset_t loc, int altfmt)
 
 	matchp = 0;
 	insn = di->di_readword(loc);
+
+	InstFmt i;
+	i.word = insn;
+	printf("opcode 0x%08x\n", i.RType.opcode);
+
 	while (i_ptr->name) {
 		/* If mask is 0 then the parser was not initialized yet */
 		if ((i_ptr->mask != 0) &&
