@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
+ * Copyright (c) 2016 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
  *
  * Portions of this software were developed by SRI International and the
@@ -30,74 +30,102 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
- * $FreeBSD$
  */
 
-/dts-v1/;
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
+#include <sys/param.h>
+#include <sys/proc.h>
+#include <sys/kdb.h>
+#include <machine/pcb.h>
+#include <ddb/ddb.h>
+#include <ddb/db_sym.h>
 
-/ {
-	model = "UC Berkeley Spike Simulator RV64I";
-	compatible = "riscv,rv64i";
-	#address-cells = <1>;
-	#size-cells = <1>;
-	#interrupt-cells = <1>;
+#include <machine/riscvreg.h>
+#include <machine/stack.h>
 
-	cpus {
-		#address-cells = <1>;
-		#size-cells = <0>;
+void
+db_md_list_watchpoints()
+{
 
-		cpu@0 {
-			device_type = "cpu";
-			compatible = "riscv,rv64i";
-			reg = <0x40002000>;
-		};
-	};
+}
 
-	aliases {
-		console0 = &console0;
-	};
+int
+db_md_clr_watchpoint(db_expr_t addr, db_expr_t size)
+{
 
-	memory {
-		device_type = "memory";
-		reg = <0x0 0x40000000>; /* 1GB at 0x0 */
-	};
+	return (0);
+}
 
-	soc {
-		#address-cells = <2>;
-		#size-cells = <2>;
-		#interrupt-cells = <1>;
+int
+db_md_set_watchpoint(db_expr_t addr, db_expr_t size)
+{
 
-		compatible = "simple-bus";
-		ranges;
+	return (0);
+}
 
-		pic0: pic@0 {
-			compatible = "riscv,pic";
-			interrupt-controller;
-		};
+static void
+db_stack_trace_cmd(struct unwind_state *frame)
+{
+	const char *name;
+	db_expr_t offset;
+	db_expr_t value;
+	c_db_sym_t sym;
+	uint64_t pc;
 
-		timer0: timer@0 {
-			compatible = "riscv,timer";
-			interrupts = < 1 >;
-			interrupt-parent = < &pic0 >;
-			clock-frequency = < 1000000 >;
-		};
+	while (1) {
+		pc = frame->pc;
 
-		htif0: htif@0 {
-			compatible = "riscv,htif";
-			interrupts = < 0 >;
-			interrupt-parent = < &pic0 >;
+		if (unwind_frame(frame) < 0)
+			break;
 
-			console0: console@0 {
-				compatible = "htif,console";
-				status = "okay";
-			};
-		};
-	};
+		sym = db_search_symbol(pc, DB_STGY_ANY, &offset);
+		if (sym == C_DB_SYM_NULL) {
+			value = 0;
+			name = "(null)";
+		} else
+			db_symbol_values(sym, &name, &value);
 
-	chosen {
-		bootargs = "-v";
-		stdin = "console0";
-		stdout = "console0";
-	};
-};
+		db_printf("%s() at ", name);
+		db_printsym(frame->pc, DB_STGY_PROC);
+		db_printf("\n");
+
+		db_printf("\t pc = 0x%016lx ra = 0x%016lx\n",
+		    pc, frame->pc);
+		db_printf("\t sp = 0x%016lx fp = 0x%016lx\n",
+		    frame->sp, frame->fp);
+		db_printf("\n");
+	}
+}
+
+int
+db_trace_thread(struct thread *thr, int count)
+{
+	struct unwind_state frame;
+	struct pcb *ctx;
+
+	if (thr != curthread) {
+		ctx = kdb_thr_ctx(thr);
+
+		frame.sp = (uint64_t)ctx->pcb_sp;
+		frame.fp = (uint64_t)ctx->pcb_s[0];
+		frame.pc = (uint64_t)ctx->pcb_ra;
+		db_stack_trace_cmd(&frame);
+	} else
+		db_trace_self();
+	return (0);
+}
+
+void
+db_trace_self(void)
+{
+	struct unwind_state frame;
+	uint64_t sp;
+
+	__asm __volatile("mv %0, sp" : "=&r" (sp));
+
+	frame.sp = sp;
+	frame.fp = (uint64_t)__builtin_frame_address(0);
+	frame.pc = (uint64_t)db_trace_self;
+	db_stack_trace_cmd(&frame);
+}

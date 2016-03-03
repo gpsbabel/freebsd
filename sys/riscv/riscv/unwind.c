@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
+ * Copyright (c) 2016 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
  *
  * Portions of this software were developed by SRI International and the
@@ -30,74 +30,28 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
- * $FreeBSD$
  */
 
-/dts-v1/;
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
+#include <sys/param.h>
 
-/ {
-	model = "UC Berkeley Spike Simulator RV64I";
-	compatible = "riscv,rv64i";
-	#address-cells = <1>;
-	#size-cells = <1>;
-	#interrupt-cells = <1>;
+#include <machine/stack.h>
+#include <machine/vmparam.h>
 
-	cpus {
-		#address-cells = <1>;
-		#size-cells = <0>;
+int
+unwind_frame(struct unwind_state *frame)
+{
+	uint64_t fp;
 
-		cpu@0 {
-			device_type = "cpu";
-			compatible = "riscv,rv64i";
-			reg = <0x40002000>;
-		};
-	};
+	fp = frame->fp;
 
-	aliases {
-		console0 = &console0;
-	};
+	if (!INKERNEL(fp))
+		return (-1);
 
-	memory {
-		device_type = "memory";
-		reg = <0x0 0x40000000>; /* 1GB at 0x0 */
-	};
+	frame->sp = fp;
+	frame->fp = *(uint64_t *)(fp - 16);
+	frame->pc = *(uint64_t *)(fp - 8) - 4;
 
-	soc {
-		#address-cells = <2>;
-		#size-cells = <2>;
-		#interrupt-cells = <1>;
-
-		compatible = "simple-bus";
-		ranges;
-
-		pic0: pic@0 {
-			compatible = "riscv,pic";
-			interrupt-controller;
-		};
-
-		timer0: timer@0 {
-			compatible = "riscv,timer";
-			interrupts = < 1 >;
-			interrupt-parent = < &pic0 >;
-			clock-frequency = < 1000000 >;
-		};
-
-		htif0: htif@0 {
-			compatible = "riscv,htif";
-			interrupts = < 0 >;
-			interrupt-parent = < &pic0 >;
-
-			console0: console@0 {
-				compatible = "htif,console";
-				status = "okay";
-			};
-		};
-	};
-
-	chosen {
-		bootargs = "-v";
-		stdin = "console0";
-		stdout = "console0";
-	};
-};
+	return (0);
+}
