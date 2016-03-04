@@ -427,6 +427,25 @@ disasm(const struct disasm_interface *di, vm_offset_t loc, int altfmt)
 		db_printf("%s\t0x%lx", op_name[i.UJType.opcode],
 		    (loc + imm));
 		break;
+#if 0
+	case OP_WFI:
+	case OP_SCALL:
+	case OP_SBREAK:
+	case OP_RDCYCLE:
+	case OP_RDTIME:
+	case OP_RDTIMEH:
+	case OP_RDINSTRET:
+	case OP_RDINSTRETH:
+#endif
+	case OP_SPECIAL:
+		imm = i.IType.imm;
+		switch (imm) {
+		case IMM_WFI:
+			db_printf("wfi");
+			break;
+		default:
+			break;
+		}
 	default:
 		break;
 	}

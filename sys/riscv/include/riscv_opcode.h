@@ -108,6 +108,17 @@ typedef union {
 #define	OP_JAL		0x6f
 #define	OP_JALR		0x67
 
+#define	OP_SPECIAL	0x73
+#define	OP_WFI		0x73
+#define	OP_SCALL	0x73
+#define	OP_SBREAK	0x73
+#define	OP_RDCYCLE	0x73
+#define	OP_RDTIME	0x73
+#define	OP_RDTIMEH	0x73
+#define	OP_RDINSTRET	0x73
+#define	OP_RDINSTRETH	0x73
+#define	IMM_WFI		258
+
 /* MIPS */
 
 /* instruction field decoding macros */
@@ -133,7 +144,7 @@ typedef union {
 /*
  * Values for the 'op' field.
  */
-#define	OP_SPECIAL	000
+//#define	OP_SPECIAL	000
 #define	OP_BCOND	001
 #define	OP_J		002
 //#define	OP_JAL		003
