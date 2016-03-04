@@ -42,6 +42,32 @@ __FBSDID("$FreeBSD$");
 #define	ARM_INSN_SIZE_OFFSET	30
 #define	ARM_INSN_SIZE_MASK	0x3
 
+static char *op_name[128] = {
+/* 00 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 08 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 16 */ "",	"",	"",	"addi", "",	"",	"",	"auipc",
+/* 24 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 32 */ "",	"",	"",	"sd",	"",	"",	"",	"",
+/* 40 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 48 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 56 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 64 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 72 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 80 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 88 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 96 */ "",	"",	"",	"",	"",	"",	"",	"jalr",
+/* 104 */ "",	"",	"",	"",	"",	"",	"",	"j",
+/* 112 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 120 */ "",	"",	"",	"",	"",	"",	"",	"",
+};
+
+static char *reg_name[32] = {
+	"zero",	"ra",	"sp",	"gp",	"tp",	"t0",	"t1",	"t2",
+	"s0",	"s1",	"a0",	"a1",	"a2",	"a3",	"a4",	"a5",
+	"a6",	"a7",	"s2",	"s3",	"s4",	"s5",	"s6",	"s7",
+	"s8",	"s9",	"s10",	"s11",	"t3",	"t4",	"t5",	"t6"
+};
+
 /* Special options for instruction printing */
 #define	OP_SIGN_EXT	(1UL << 0)	/* Sign-extend immediate value */
 #define	OP_LITERAL	(1UL << 1)	/* Use literal (memory offset) */
@@ -357,8 +383,56 @@ disasm(const struct disasm_interface *di, vm_offset_t loc, int altfmt)
 	insn = di->di_readword(loc);
 
 	InstFmt i;
+	//vm_offset_t jimm;
 	i.word = insn;
-	printf("opcode 0x%08x\n", i.RType.opcode);
+
+	//printf("opcode 0x%08x\n", i.RType.opcode);
+
+	switch (i.RType.opcode) {
+	case OP_ADDI:
+		imm = i.IType.imm;
+		if (imm & (1 << 11))
+			imm |= 0xfffff << 12;	/* sign extend */
+		db_printf("%s\t%s, %s, %d", op_name[i.IType.opcode],
+		    reg_name[i.IType.rd], reg_name[i.IType.rs1], imm);
+		break;
+	case OP_JALR:
+		imm = i.IType.imm;
+		if (imm & (1 << 11))
+			imm |= 0xfffff << 12;   /* sign extend */
+		if (i.IType.rd == 0 && i.IType.rs1 == 1 && imm == 0)
+			db_printf("ret");
+		else
+			db_printf("%s\t%s, %d", op_name[i.IType.opcode],
+			    reg_name[i.IType.rs1], imm);
+		break;
+	case OP_SD:
+		imm = i.SType.imm0_4;
+		imm |= (i.SType.imm5_11) << 5;
+		db_printf("%s\t%s,%d(%s)", op_name[i.SType.opcode],
+		    reg_name[i.SType.rs2], imm, reg_name[i.SType.rs1]);
+		break;
+	case OP_AUIPC:
+		imm = i.UType.imm12_31;
+		db_printf("%s\t%s,0x%x", op_name[i.UType.opcode],
+		    reg_name[i.UType.rd], imm);
+		break;
+	case OP_JAL:
+		imm = i.UJType.imm12_19 << 12;
+		imm |= i.UJType.imm11 << 11;
+		imm |= i.UJType.imm1_10 << 1;
+		imm |= i.UJType.imm20 << 20;
+		if (imm & (1 << 20))
+			imm |= (0xfff << 21);	/* sign extend */
+		db_printf("%s\t0x%lx", op_name[i.UJType.opcode],
+		    (loc + imm));
+		break;
+	default:
+		break;
+	}
+
+	di->di_printf("\n");
+	return(loc + INSN_SIZE);
 
 	while (i_ptr->name) {
 		/* If mask is 0 then the parser was not initialized yet */

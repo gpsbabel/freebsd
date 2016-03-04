@@ -50,37 +50,65 @@ typedef union {
 	unsigned word;
 
 	struct {
+		unsigned opcode: 7;
 		unsigned funct7: 7;
 		unsigned rs2: 5;
 		unsigned rs1: 5;
 		unsigned funct3: 3;
 		unsigned rd: 5;
-		unsigned opcode: 7;
 	} RType;
 
 	struct {
-		unsigned imm: 12;
-		unsigned rs1: 5;
-		unsigned funct3: 3;
-		unsigned rd: 5;
 		unsigned opcode: 7;
+		unsigned rd: 5;
+		unsigned funct3: 3;
+		unsigned rs1: 5;
+		unsigned imm: 12;
 	} IType;
 
 	struct {
-		unsigned imm5_11: 7;
-		unsigned rs2: 5;
-		unsigned rs1: 5;
-		unsigned funct3: 3;
-		unsigned imm0_4: 5;
 		unsigned opcode: 7;
+		unsigned imm0_4: 5;
+		unsigned funct3: 3;
+		unsigned rs1: 5;
+		unsigned rs2: 5;
+		unsigned imm5_11: 7;
 	} SType;
 
 	struct {
-		unsigned imm12_31: 20;
-		unsigned rd: 5;
 		unsigned opcode: 7;
+		unsigned imm11: 1;
+		unsigned imm1_4: 4;
+		unsigned funct3: 3;
+		unsigned rs1: 5;
+		unsigned rs2: 5;
+		unsigned imm5_10: 6;
+		unsigned imm12: 1;
+	} SBType;
+
+	struct {
+		unsigned opcode: 7;
+		unsigned rd: 5;
+		unsigned imm12_31: 20;
 	} UType;
+
+	struct {
+		unsigned opcode: 7;
+		unsigned rd: 5;
+		unsigned imm12_19: 8;
+		unsigned imm11: 1;
+		unsigned imm1_10: 10;
+		unsigned imm20: 1;
+	} UJType;
 } InstFmt;
+
+#define	OP_ADDI		0x13
+#define	OP_AUIPC	0x17
+#define	OP_SD		0x23
+#define	OP_JAL		0x6f
+#define	OP_JALR		0x67
+
+/* MIPS */
 
 /* instruction field decoding macros */
 #define	RISCV_INST_OPCODE(val)	(val >> 26)
@@ -108,7 +136,7 @@ typedef union {
 #define	OP_SPECIAL	000
 #define	OP_BCOND	001
 #define	OP_J		002
-#define	OP_JAL		003
+//#define	OP_JAL		003
 #define	OP_BEQ		004
 #define	OP_BNE		005
 #define	OP_BLEZ		006
@@ -116,7 +144,7 @@ typedef union {
 
 #define	OP_REGIMM	OP_BCOND
 
-#define	OP_ADDI		010
+//#define	OP_ADDI		010
 #define	OP_ADDIU	011
 #define	OP_SLTI		012
 #define	OP_SLTIU	013
@@ -182,7 +210,7 @@ typedef union {
 #define	OP_SCD		074
 #define	OP_SDC1		075
 #define	OP_SDC2		076
-#define	OP_SD		077
+//#define	OP_SD		077
 
 /*
  * Values for the 'func' field when 'op' == OP_SPECIAL.
@@ -204,7 +232,7 @@ typedef union {
 #define	OP_F_SRAV	OP_SRAV
 
 #define	OP_JR		010
-#define	OP_JALR		011
+//#define	OP_JALR		011
 #define	OP_MOVZ		012
 #define	OP_MOVN		013
 #define	OP_SYSCALL	014
