@@ -89,6 +89,9 @@ static const char *x_reg[] = {
 	"x24", "x25", "x26", "x27", "x28", "x29", "LR", "SP",
 };
 
+/* Load/Store names */
+static char *ls_name[8] = { "b", "h", "w", "d", "bu", "hu", "wu", "du" };
+
 static const char *shift_2[] = {
 	"LSL", "LSR", "ASR", "RSV"
 };
@@ -406,11 +409,13 @@ disasm(const struct disasm_interface *di, vm_offset_t loc, int altfmt)
 			db_printf("%s\t%s, %d", op_name[i.IType.opcode],
 			    reg_name[i.IType.rs1], imm);
 		break;
-	case OP_SD:
+	case OP_LOAD:
+	case OP_STORE:
 		imm = i.SType.imm0_4;
 		imm |= (i.SType.imm5_11) << 5;
-		db_printf("%s\t%s,%d(%s)", op_name[i.SType.opcode],
-		    reg_name[i.SType.rs2], imm, reg_name[i.SType.rs1]);
+		db_printf("%s%s\t%s,%d(%s)", i.RType.opcode == OP_LOAD ? "l" : "s",
+		    ls_name[i.SType.funct3], reg_name[i.SType.rs2],
+		    imm, reg_name[i.SType.rs1]);
 		break;
 	case OP_AUIPC:
 		imm = i.UType.imm12_31;

@@ -102,6 +102,17 @@ typedef union {
 	} UJType;
 } InstFmt;
 
+#define	OP_LOAD		0x03
+#define	OP_STORE	0x23
+#define	 FUNCT3_B	0x00
+#define	 FUNCT3_H	0x01
+#define	 FUNCT3_W	0x02
+#define	 FUNCT3_D	0x03
+#define	 FUNCT3_BU	0x04
+#define	 FUNCT3_HU	0x05
+#define	 FUNCT3_WU	0x06
+#define	 FUNCT3_DU	0x07
+
 #define	OP_ADDI		0x13
 #define	OP_AUIPC	0x17
 #define	OP_SD		0x23
