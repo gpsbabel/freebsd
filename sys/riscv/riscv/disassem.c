@@ -42,6 +42,46 @@ __FBSDID("$FreeBSD$");
 #define	ARM_INSN_SIZE_OFFSET	30
 #define	ARM_INSN_SIZE_MASK	0x3
 
+struct riscv_op {
+	char *name;
+	char *type;
+	int opcode;
+	int funct3;
+	int funct7;
+};
+
+/* Must be sorted by opcode, func3, func7 */
+static struct riscv_op riscv_opcodes[] = {
+	{ "lb",		"I",	 3, 0, 0 },
+	{ "lh",		"I",	 3, 1, 0 },
+	{ "lw",		"I",	 3, 2, 0 },
+	{ "ld",		"I",	 3, 3, 0 },
+	{ "lbu",	"I",	 3, 4, 0 },
+	{ "lhu",	"I",	 3, 5, 0 },
+	{ "lwu",	"I",	 3, 6, 0 },
+	{ "ldu",	"I",	 3, 7, 0 },
+	{ "sb",		"S",	35, 0, 0 },
+	{ "sh",		"S",	35, 1, 0 },
+	{ "sw",		"S",	35, 2, 0 },
+	{ "sd",		"S",	35, 3, 0 },
+	{ "sbu",	"S",	35, 4, 0 },
+	{ "shu",	"S",	35, 5, 0 },
+	{ "swu",	"S",	35, 6, 0 },
+	{ "sdu",	"S",	35, 7, 0 },
+	{ "addi",	"I",	19, 0, 0 },
+	{ "slti",	"I",	19, 2, 0 },
+	{ "sltiu",	"I",	19, 3, 0 },
+	{ "xori",	"I",	19, 4, 0 },
+	{ "ori",	"I",	19, 5, 0 },
+	{ "andi",	"I",	19, 6, 0 },
+	{ "slli",	"R",	19, 1, 0 },
+	{ "srli",	"R",	19, 5, 0 },
+	{ "srai",	"R",	19, 5, 32 },
+	{ "lui",	"U",	55, 0, 0 },
+	{ "jal",	"UJ",	111, 0, 0 },
+	{ NULL, NULL, 0, 0, 0 }, /* terminator */
+};
+
 static char *op_name[128] = {
 /* 000 */ "",	"",	"",	"",	"",	"",	"",	"",
 /* 008 */ "",	"",	"",	"",	"",	"",	"",	"",
@@ -132,6 +172,7 @@ static const char *x_reg[] = {
 /* Load/Store names */
 static char *ls_name[8] = { "b", "h", "w", "d", "bu", "hu", "wu", "du" };
 static char *branch_name[8] = { "beq", "bne", "", "", "blt", "bge", "bltu", "bgeu" };
+static char *addi_name[8] = { "addi", "", "slti", "sltiu", "xori", "", "ori", "andi" };
 
 static const char *shift_2[] = {
 	"LSL", "LSR", "ASR", "RSV"
@@ -403,6 +444,42 @@ arm64_reg(int b64, int num)
 	return (w_reg[num]);
 }
 
+static int32_t
+get_imm(InstFmt i, char *type)
+{
+	int imm;
+
+	imm = 0;
+
+	if (strcmp(type, "I") == 0) {
+		imm = i.IType.imm;
+		if (imm & (1 << 11))
+			imm |= (0xfffff << 12);	/* sign extend */
+	} else if (strcmp(type, "S") == 0) {
+		imm = i.SType.imm0_4;
+		imm |= (i.SType.imm5_11 << 5);
+		if (imm & (1 << 11))
+			imm |= (0xfffff << 12); /* sign extend */
+	} else if (strcmp(type, "U") == 0) {
+		imm = i.UType.imm12_31;
+	} else if (strcmp(type, "UJ") == 0) {
+		imm = i.UJType.imm12_19 << 12;
+		imm |= i.UJType.imm11 << 11;
+		imm |= i.UJType.imm1_10 << 1;
+		imm |= i.UJType.imm20 << 20;
+		if (imm & (1 << 20))
+			imm |= (0xfff << 21);	/* sign extend */
+	} else if (strcmp(type, "SB") == 0) {
+		imm = i.SBType.imm11 << 11;
+		imm |= i.SBType.imm1_4 << 1;
+		imm |= i.SBType.imm5_10 << 5;
+		imm |= i.SBType.imm12 << 12;
+		if (imm & (1 << 12))
+			imm |= (0xfffff << 12);	/* sign extend */
+	}
+
+	return (imm);
+}
 vm_offset_t
 disasm(const struct disasm_interface *di, vm_offset_t loc, int altfmt)
 {
@@ -427,30 +504,74 @@ disasm(const struct disasm_interface *di, vm_offset_t loc, int altfmt)
 	insn = di->di_readword(loc);
 
 	InstFmt i;
-	//vm_offset_t jimm;
 	i.word = insn;
 
 	//printf("opcode 0x%08x\n", i.RType.opcode);
+	struct riscv_op *op;
+	int j;
+
+	/* First match opcode */
+	for (j = 0; riscv_opcodes[j].name != NULL; j++) {
+		op = &riscv_opcodes[j];
+		imm = get_imm(i, op->type);
+		if (op->opcode == i.RType.opcode) {
+			if (strcmp(op->type, "U") == 0) {
+				/* Match */
+				db_printf("%s\t%s,0x%x", op->name, reg_name[i.UType.rd], imm);
+				break;
+			}
+			if (strcmp(op->type, "UJ") == 0) {
+				/* Match */
+				db_printf("%s\t0x%lx", op->name, (loc + imm));
+				break;
+			}
+			if ((strcmp(op->type, "I") == 0) && \
+			    (op->funct3 == i.IType.funct3)) {
+				/* Match */
+				db_printf("%s\t%s, %s, %d", op->name, reg_name[i.IType.rd],
+				    reg_name[i.IType.rs1], imm);
+				break;
+			}
+			if ((strcmp(op->type, "S") == 0) && \
+			    (op->funct3 == i.SType.funct3)) {
+				/* Match */
+				db_printf("%s\t%s, %s, %d", op->name, reg_name[i.SType.rs1],
+				    reg_name[i.SType.rs2], imm);
+				break;
+			}
+			if ((strcmp(op->type, "R") == 0) && \
+			    (op->funct3 == i.RType.funct3) && \
+			    (op->funct7 == i.RType.funct7)) {
+				/* Match */
+				db_printf("%s\t%s, %s, %d", op->name, reg_name[i.RType.rd],
+				    reg_name[i.RType.rs1], imm);
+				break;
+			}
+		}
+	}
+
+	di->di_printf("\n");
+	return(loc + INSN_SIZE);
 
 	switch (i.RType.opcode) {
 	case OP_ADDI:
-	case OP_ADDIW:
-		imm = i.IType.imm;
-		if (imm & (1 << 11))
-			imm |= (0xfffff << 12);	/* sign extend */
+		imm = get_imm(i, "I");
 		if (imm == 0)
 			db_printf("mv\t%s, %s", reg_name[i.IType.rd],
 			    reg_name[i.IType.rs1]);
+
 		else if (i.IType.rs1 == 0)
 			db_printf("li\t%s, %d", reg_name[i.IType.rd], imm);
 		else
-			db_printf("%s\t%s, %s, %d", op_name[i.IType.opcode],
+			db_printf("%s\t%s, %s, %d", addi_name[i.IType.funct3],
 			    reg_name[i.IType.rd], reg_name[i.IType.rs1], imm);
 		break;
+	case OP_ADDIW:
+		imm = get_imm(i, "I");
+		db_printf("addiw");
+		break;
 	case OP_JALR:
-		imm = i.IType.imm;
-		if (imm & (1 << 11))
-			imm |= 0xfffff << 12;   /* sign extend */
+		imm = get_imm(i, "I");
 		if (i.IType.rd == 0 && i.IType.rs1 == 1 && imm == 0)
 			db_printf("ret");
 		else
@@ -459,35 +580,24 @@ disasm(const struct disasm_interface *di, vm_offset_t loc, int altfmt)
 		break;
 	case OP_LOAD:
 	case OP_STORE:
-		imm = i.SType.imm0_4;
-		imm |= (i.SType.imm5_11 << 5);
+		imm = get_imm(i, "S");
 		db_printf("%s%s\t%s,%d(%s)", i.RType.opcode == OP_LOAD ? "l" : "s",
 		    ls_name[i.SType.funct3], reg_name[i.SType.rs2],
 		    imm, reg_name[i.SType.rs1]);
 		break;
 	case OP_AUIPC:
 	case OP_LUI:
-		imm = i.UType.imm12_31;
+		imm = get_imm(i, "U");
 		db_printf("%s\t%s,0x%x", op_name[i.UType.opcode],
 		    reg_name[i.UType.rd], imm);
 		break;
 	case OP_JAL:
-		imm = i.UJType.imm12_19 << 12;
-		imm |= i.UJType.imm11 << 11;
-		imm |= i.UJType.imm1_10 << 1;
-		imm |= i.UJType.imm20 << 20;
-		if (imm & (1 << 20))
-			imm |= (0xfff << 21);	/* sign extend */
+		imm = get_imm(i, "UJ");
 		db_printf("%s\t0x%lx", op_name[i.UJType.opcode],
 		    (loc + imm));
 		break;
 	case OP_BRANCH:
-		imm = i.SBType.imm11 << 11;
-		imm |= i.SBType.imm1_4 << 1;
-		imm |= i.SBType.imm5_10 << 5;
-		imm |= i.SBType.imm12 << 12;
-		if (imm & (1 << 12))
-			imm |= (0xfffff << 12);	/* sign extend */
+		imm = get_imm(i, "SB");
 		db_printf("%s\t%s, %s, 0x%lx", branch_name[i.SBType.funct3],
 		    reg_name[i.SBType.rs1], reg_name[i.SBType.rs2],
 		    (loc + imm));
