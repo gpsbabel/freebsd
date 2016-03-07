@@ -103,32 +103,15 @@ typedef union {
 } InstFmt;
 
 #define	OP_LOAD		0x03
-#define	OP_STORE	0x23
-#define	 FUNCT3_B	0x00
-#define	 FUNCT3_H	0x01
-#define	 FUNCT3_W	0x02
-#define	 FUNCT3_D	0x03
-#define	 FUNCT3_BU	0x04
-#define	 FUNCT3_HU	0x05
-#define	 FUNCT3_WU	0x06
-#define	 FUNCT3_DU	0x07
-
 #define	OP_ADDI		0x13
 #define	OP_AUIPC	0x17
-#define	OP_SD		0x23
-#define	OP_JAL		0x6f
+#define	OP_ADDIW	0x1b
+#define	OP_STORE	0x23
+#define	OP_LUI		0x37
+#define	OP_BRANCH	0x63
 #define	OP_JALR		0x67
-
+#define	OP_JAL		0x6f
 #define	OP_SPECIAL	0x73
-#define	OP_WFI		0x73
-#define	OP_SCALL	0x73
-#define	OP_SBREAK	0x73
-#define	OP_RDCYCLE	0x73
-#define	OP_RDTIME	0x73
-#define	OP_RDTIMEH	0x73
-#define	OP_RDINSTRET	0x73
-#define	OP_RDINSTRETH	0x73
-#define	IMM_WFI		258
 
 /* MIPS */
 
@@ -173,7 +156,7 @@ typedef union {
 #define	OP_ANDI		014
 #define	OP_ORI		015
 #define	OP_XORI		016
-#define	OP_LUI		017
+//#define	OP_LUI		017
 
 #define	OP_COP0		020
 #define	OP_COP1		021

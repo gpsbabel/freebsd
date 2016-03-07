@@ -43,22 +43,62 @@ __FBSDID("$FreeBSD$");
 #define	ARM_INSN_SIZE_MASK	0x3
 
 static char *op_name[128] = {
-/* 00 */ "",	"",	"",	"",	"",	"",	"",	"",
-/* 08 */ "",	"",	"",	"",	"",	"",	"",	"",
-/* 16 */ "",	"",	"",	"addi", "",	"",	"",	"auipc",
-/* 24 */ "",	"",	"",	"",	"",	"",	"",	"",
-/* 32 */ "",	"",	"",	"sd",	"",	"",	"",	"",
-/* 40 */ "",	"",	"",	"",	"",	"",	"",	"",
-/* 48 */ "",	"",	"",	"",	"",	"",	"",	"",
-/* 56 */ "",	"",	"",	"",	"",	"",	"",	"",
-/* 64 */ "",	"",	"",	"",	"",	"",	"",	"",
-/* 72 */ "",	"",	"",	"",	"",	"",	"",	"",
-/* 80 */ "",	"",	"",	"",	"",	"",	"",	"",
-/* 88 */ "",	"",	"",	"",	"",	"",	"",	"",
-/* 96 */ "",	"",	"",	"",	"",	"",	"",	"jalr",
+/* 000 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 008 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 016 */ "",	"",	"",	"addi",	"",	"",	"",	"auipc",
+/* 024 */ "",	"",	"",	"addiw","",	"",	"",	"",
+/* 032 */ "",	"",	"",	"sd",	"",	"",	"",	"",
+/* 040 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 048 */ "",	"",	"",	"",	"",	"",	"",	"lui",
+/* 056 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 064 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 072 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 080 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 088 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 096 */ "",	"",	"",	"",	"",	"",	"",	"jalr",
 /* 104 */ "",	"",	"",	"",	"",	"",	"",	"j",
 /* 112 */ "",	"",	"",	"",	"",	"",	"",	"",
 /* 120 */ "",	"",	"",	"",	"",	"",	"",	"",
+};
+
+static char *op_special[296] = {
+/* 000 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 008 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 016 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 024 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 032 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 040 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 048 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 056 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 064 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 072 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 080 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 088 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 096 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 104 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 112 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 120 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 128 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 136 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 144 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 152 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 160 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 168 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 176 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 184 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 192 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 200 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 208 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 216 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 224 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 232 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 240 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 248 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 256 */ "",	"sfence.vm","wfi","",	"",	"",	"",	"",
+/* 264 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 272 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 280 */ "",	"",	"",	"",	"",	"",	"",	"",
+/* 288 */ "",	"",	"",	"",	"",	"",	"",	"",
 };
 
 static char *reg_name[32] = {
@@ -91,6 +131,7 @@ static const char *x_reg[] = {
 
 /* Load/Store names */
 static char *ls_name[8] = { "b", "h", "w", "d", "bu", "hu", "wu", "du" };
+static char *branch_name[8] = { "beq", "bne", "", "", "blt", "bge", "bltu", "bgeu" };
 
 static const char *shift_2[] = {
 	"LSL", "LSR", "ASR", "RSV"
@@ -393,11 +434,18 @@ disasm(const struct disasm_interface *di, vm_offset_t loc, int altfmt)
 
 	switch (i.RType.opcode) {
 	case OP_ADDI:
+	case OP_ADDIW:
 		imm = i.IType.imm;
 		if (imm & (1 << 11))
-			imm |= 0xfffff << 12;	/* sign extend */
-		db_printf("%s\t%s, %s, %d", op_name[i.IType.opcode],
-		    reg_name[i.IType.rd], reg_name[i.IType.rs1], imm);
+			imm |= (0xfffff << 12);	/* sign extend */
+		if (imm == 0)
+			db_printf("mv\t%s, %s", reg_name[i.IType.rd],
+			    reg_name[i.IType.rs1]);
+		else if (i.IType.rs1 == 0)
+			db_printf("li\t%s, %d", reg_name[i.IType.rd], imm);
+		else
+			db_printf("%s\t%s, %s, %d", op_name[i.IType.opcode],
+			    reg_name[i.IType.rd], reg_name[i.IType.rs1], imm);
 		break;
 	case OP_JALR:
 		imm = i.IType.imm;
@@ -412,12 +460,13 @@ disasm(const struct disasm_interface *di, vm_offset_t loc, int altfmt)
 	case OP_LOAD:
 	case OP_STORE:
 		imm = i.SType.imm0_4;
-		imm |= (i.SType.imm5_11) << 5;
+		imm |= (i.SType.imm5_11 << 5);
 		db_printf("%s%s\t%s,%d(%s)", i.RType.opcode == OP_LOAD ? "l" : "s",
 		    ls_name[i.SType.funct3], reg_name[i.SType.rs2],
 		    imm, reg_name[i.SType.rs1]);
 		break;
 	case OP_AUIPC:
+	case OP_LUI:
 		imm = i.UType.imm12_31;
 		db_printf("%s\t%s,0x%x", op_name[i.UType.opcode],
 		    reg_name[i.UType.rd], imm);
@@ -432,25 +481,21 @@ disasm(const struct disasm_interface *di, vm_offset_t loc, int altfmt)
 		db_printf("%s\t0x%lx", op_name[i.UJType.opcode],
 		    (loc + imm));
 		break;
-#if 0
-	case OP_WFI:
-	case OP_SCALL:
-	case OP_SBREAK:
-	case OP_RDCYCLE:
-	case OP_RDTIME:
-	case OP_RDTIMEH:
-	case OP_RDINSTRET:
-	case OP_RDINSTRETH:
-#endif
+	case OP_BRANCH:
+		imm = i.SBType.imm11 << 11;
+		imm |= i.SBType.imm1_4 << 1;
+		imm |= i.SBType.imm5_10 << 5;
+		imm |= i.SBType.imm12 << 12;
+		if (imm & (1 << 12))
+			imm |= (0xfffff << 12);	/* sign extend */
+		db_printf("%s\t%s, %s, 0x%lx", branch_name[i.SBType.funct3],
+		    reg_name[i.SBType.rs1], reg_name[i.SBType.rs2],
+		    (loc + imm));
+		break;
 	case OP_SPECIAL:
 		imm = i.IType.imm;
-		switch (imm) {
-		case IMM_WFI:
-			db_printf("wfi");
-			break;
-		default:
-			break;
-		}
+		db_printf("%s", op_special[imm]);
+		break;
 	default:
 		break;
 	}
