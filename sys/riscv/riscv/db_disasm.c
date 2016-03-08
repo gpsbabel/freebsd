@@ -39,7 +39,7 @@ __FBSDID("$FreeBSD$");
 static u_int db_disasm_read_word(vm_offset_t);
 static void db_disasm_printaddr(vm_offset_t);
 
-/* Glue code to interface db_disasm to the generic ARM disassembler */
+/* Glue code to interface db_disasm to the RISC-V disassembler */
 static const struct disasm_interface db_disasm_interface = {
 	.di_readword = db_disasm_read_word,
 	.di_printaddr = db_disasm_printaddr,
