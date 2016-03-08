@@ -50,7 +50,7 @@ struct riscv_op {
 	int funct7; /* or imm, depending on type */
 };
 
-/* Keep sorted by opcode, func3, func7 */
+/* Must be sorted by opcode, func3, func7 */
 static struct riscv_op riscv_opcodes[] = {
 	{ "lb",		"I",	  3,  0, -1 },
 	{ "lh",		"I",	  3,  1, -1 },
@@ -69,6 +69,8 @@ static struct riscv_op riscv_opcodes[] = {
 	{ "srai",	"R",	 19,  5,  0b010000 },
 	{ "ori",	"I",	 19,  6, -1 },
 	{ "andi",	"I",	 19,  7, -1 },
+	{ "sext.w",	"I",	 27,  0,  0 },
+	{ "addiw",	"I",	 27,  0, -1 },
 	{ "add",	"R",	 51,  0,  0 },
 	{ "sub",	"R",	 51,  0,  0b010000 },
 	{ "sll",	"R",	 51,  1,  0 },
@@ -79,12 +81,6 @@ static struct riscv_op riscv_opcodes[] = {
 	{ "sra",	"R",	 51,  5,  0b010000 },
 	{ "or",		"R",	 51,  6,  0 },
 	{ "and",	"R",	 51,  7,  0 },
-	{ "beq",	"SB",	 99,  0, -1 },
-	{ "bne",	"SB",	 99,  1, -1 },
-	{ "blt",	"SB",	 99,  4, -1 },
-	{ "bge",	"SB",	 99,  5, -1 },
-	{ "bltu",	"SB",	 99,  6, -1 },
-	{ "bgeu",	"SB",	 99,  7, -1 },
 	{ "sb",		"S",	 35,  0, -1 },
 	{ "sh",		"S",	 35,  1, -1 },
 	{ "sw",		"S",	 35,  2, -1 },
@@ -95,6 +91,12 @@ static struct riscv_op riscv_opcodes[] = {
 	{ "sdu",	"S",	 35,  7, -1 },
 	{ "auipc",	"U",	 23, -1, -1 },
 	{ "lui",	"U",	 55, -1, -1 },
+	{ "beq",	"SB",	 99,  0, -1 },
+	{ "bne",	"SB",	 99,  1, -1 },
+	{ "blt",	"SB",	 99,  4, -1 },
+	{ "bge",	"SB",	 99,  5, -1 },
+	{ "bltu",	"SB",	 99,  6, -1 },
+	{ "bgeu",	"SB",	 99,  7, -1 },
 	{ "jalr",	"I",	103,  0, -1 },
 	{ "jal",	"UJ",	111, -1, -1 },
 	{ "sfence.vm",	"I",	115,  0, 0b000100000001 },
