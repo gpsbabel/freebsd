@@ -155,12 +155,80 @@ get_imm(InstFmt i, char *type)
 
 	return (imm);
 }
+
+static int
+match_opcode(InstFmt i, struct riscv_op *op, vm_offset_t loc)
+{
+	int imm;
+
+	imm = get_imm(i, op->type);
+
+	if (strcmp(op->type, "U") == 0) {
+		/* Match */
+		db_printf("%s\t%s,0x%x", op->name, reg_name[i.UType.rd], imm);
+		return (1);
+	}
+	if (strcmp(op->type, "UJ") == 0) {
+		/* Match */
+		db_printf("%s\t0x%lx", op->name, (loc + imm));
+		return (1);
+	}
+	if ((strcmp(op->type, "I") == 0) && \
+	    (op->funct3 == i.IType.funct3)) {
+
+		if (op->funct7 != -1) {
+			if (op->funct7 == i.IType.imm) {
+				/* Match */
+				db_printf("%s\t%s, %s, %d", op->name, reg_name[i.IType.rd],
+				    reg_name[i.IType.rs1], imm);
+				return (1);
+			}
+		} else {
+			/* Match */
+			db_printf("%s\t%s, %s, %d", op->name, reg_name[i.IType.rd],
+			    reg_name[i.IType.rs1], imm);
+			return (1);
+		}
+	}
+	if ((strcmp(op->type, "S") == 0) && \
+	    (op->funct3 == i.SType.funct3)) {
+		/* Match */
+		db_printf("%s\t%s, %s, %d", op->name, reg_name[i.SType.rs1],
+		    reg_name[i.SType.rs2], imm);
+		return (1);
+	}
+	if ((strcmp(op->type, "SB") == 0) && \
+	    (op->funct3 == i.SType.funct3)) {
+		/* Match */
+		db_printf("%s\t%s, %s, 0x%lx", op->name, reg_name[i.SBType.rs1],
+		    reg_name[i.SBType.rs2], (loc + imm));
+		return (1);
+	}
+	if ((strcmp(op->type, "R") == 0) && \
+	    (op->funct3 == i.RType.funct3)) {
+		if (op->funct7 != -1) {
+			if (op->funct7 == i.RType.funct7) {
+				/* Match */
+				db_printf("%s\t%s, %s, 0x%x", op->name, reg_name[i.RType.rd],
+				    reg_name[i.RType.rs1], i.RType.rs2);
+				return (1);
+			}
+		} else {
+			/* Match */
+			db_printf("%s\t%s, %s, 0x%x", op->name, reg_name[i.RType.rd],
+			    reg_name[i.RType.rs1], i.RType.rs2);
+			return (1);
+		}
+	}
+
+	return (0);
+}
+
 vm_offset_t
 disasm(const struct disasm_interface *di, vm_offset_t loc, int altfmt)
 {
 	struct riscv_op *op;
 	InstFmt i;
-	int imm;
 	int j;
 
 	i.word = di->di_readword(loc);
@@ -168,65 +236,9 @@ disasm(const struct disasm_interface *di, vm_offset_t loc, int altfmt)
 	/* First match opcode */
 	for (j = 0; riscv_opcodes[j].name != NULL; j++) {
 		op = &riscv_opcodes[j];
-		imm = get_imm(i, op->type);
 		if (op->opcode == i.RType.opcode) {
-			if (strcmp(op->type, "U") == 0) {
-				/* Match */
-				db_printf("%s\t%s,0x%x", op->name, reg_name[i.UType.rd], imm);
+			if (match_opcode(i, op, loc))
 				break;
-			}
-			if (strcmp(op->type, "UJ") == 0) {
-				/* Match */
-				db_printf("%s\t0x%lx", op->name, (loc + imm));
-				break;
-			}
-			if ((strcmp(op->type, "I") == 0) && \
-			    (op->funct3 == i.IType.funct3)) {
-
-				if (op->funct7 != -1) {
-					if (op->funct7 == i.IType.imm) {
-						/* Match */
-						db_printf("%s\t%s, %s, %d", op->name, reg_name[i.IType.rd],
-						    reg_name[i.IType.rs1], imm);
-						break;
-					}
-				} else {
-					/* Match */
-					db_printf("%s\t%s, %s, %d", op->name, reg_name[i.IType.rd],
-					    reg_name[i.IType.rs1], imm);
-					break;
-				}
-			}
-			if ((strcmp(op->type, "S") == 0) && \
-			    (op->funct3 == i.SType.funct3)) {
-				/* Match */
-				db_printf("%s\t%s, %s, %d", op->name, reg_name[i.SType.rs1],
-				    reg_name[i.SType.rs2], imm);
-				break;
-			}
-			if ((strcmp(op->type, "SB") == 0) && \
-			    (op->funct3 == i.SType.funct3)) {
-				/* Match */
-				db_printf("%s\t%s, %s, 0x%lx", op->name, reg_name[i.SBType.rs1],
-				    reg_name[i.SBType.rs2], (loc + imm));
-				break;
-			}
-			if ((strcmp(op->type, "R") == 0) && \
-			    (op->funct3 == i.RType.funct3)) {
-				if (op->funct7 != -1) {
-					if (op->funct7 == i.RType.funct7) {
-						/* Match */
-						db_printf("%s\t%s, %s, 0x%x", op->name, reg_name[i.RType.rd],
-						    reg_name[i.RType.rs1], i.RType.rs2);
-						break;
-					}
-				} else {
-					/* Match */
-					db_printf("%s\t%s, %s, 0x%x", op->name, reg_name[i.RType.rd],
-					    reg_name[i.RType.rs1], i.RType.rs2);
-					break;
-				}
-			}
 		}
 	}
 
