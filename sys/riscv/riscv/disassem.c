@@ -47,7 +47,7 @@ struct riscv_op {
 	char *type;
 	int opcode;
 	int funct3;
-	int funct7; /* or imm */
+	int funct7; /* or imm, depending on type */
 };
 
 /* Keep sorted by opcode, func3, func7 */
@@ -69,7 +69,6 @@ static struct riscv_op riscv_opcodes[] = {
 	{ "srai",	"R",	 19,  5,  0b010000 },
 	{ "ori",	"I",	 19,  6, -1 },
 	{ "andi",	"I",	 19,  7, -1 },
-	{ "jalr",	"I",	103,  0, -1 },
 	{ "add",	"R",	 51,  0,  0 },
 	{ "sub",	"R",	 51,  0,  0b010000 },
 	{ "sll",	"R",	 51,  1,  0 },
@@ -96,6 +95,7 @@ static struct riscv_op riscv_opcodes[] = {
 	{ "sdu",	"S",	 35,  7, -1 },
 	{ "auipc",	"U",	 23, -1, -1 },
 	{ "lui",	"U",	 55, -1, -1 },
+	{ "jalr",	"I",	103,  0, -1 },
 	{ "jal",	"UJ",	111, -1, -1 },
 	{ "sfence.vm",	"I",	115,  0, 257 },
 	{ "wfi",	"I",	115,  0, 258 },
