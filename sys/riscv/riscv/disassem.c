@@ -45,6 +45,7 @@ __FBSDID("$FreeBSD$");
 struct riscv_op {
 	char *name;
 	char *type;
+	char *fmt;
 	int opcode;
 	int funct3;
 	int funct7; /* or imm, depending on type */
@@ -52,124 +53,124 @@ struct riscv_op {
 
 /* Must be sorted by opcode, funct3, funct7 */
 static struct riscv_op riscv_opcodes[] = {
-	{ "lb",		"I",	  3,  0, -1 },
-	{ "lh",		"I",	  3,  1, -1 },
-	{ "lw",		"I",	  3,  2, -1 },
-	{ "ld",		"I",	  3,  3, -1 },
-	{ "lbu",	"I",	  3,  4, -1 },
-	{ "lhu",	"I",	  3,  5, -1 },
-	{ "lwu",	"I",	  3,  6, -1 },
-	{ "ldu",	"I",	  3,  7, -1 },
-	{ "fence",	"I",	 15,  0, -1 },
-	{ "fence.i",	"I",	 15,  1, -1 },
-	{ "addi",	"I",	 19,  0, -1 },
-	{ "slli",	"R",	 19,  1,  0 },
-	{ "slti",	"I",	 19,  2, -1 },
-	{ "sltiu",	"I",	 19,  3, -1 },
-	{ "xori",	"I",	 19,  4, -1 },
-	{ "srli",	"R",	 19,  5,  0 },
-	{ "srai",	"R",	 19,  5,  0b010000 },
-	{ "ori",	"I",	 19,  6, -1 },
-	{ "andi",	"I",	 19,  7, -1 },
-	{ "auipc",	"U",	 23, -1, -1 },
-	{ "sext.w",	"I",	 27,  0,  0 },
-	{ "addiw",	"I",	 27,  0, -1 },
-	{ "sb",		"S",	 35,  0, -1 },
-	{ "sh",		"S",	 35,  1, -1 },
-	{ "sw",		"S",	 35,  2, -1 },
-	{ "sd",		"S",	 35,  3, -1 },
-	{ "sbu",	"S",	 35,  4, -1 },
-	{ "shu",	"S",	 35,  5, -1 },
-	{ "swu",	"S",	 35,  6, -1 },
-	{ "sdu",	"S",	 35,  7, -1 },
-	{ "lr.w",	"RA",	 47,  2, 0b0001000 },
-	{ "sc.w",	"RA",	 47,  2, 0b0001100 },
-	{ "amoswap.w",	"RA",	 47,  2, 0b0000100 },
-	{ "amoadd.w",	"RA",	 47,  2, 0b0000000 },
-	{ "amoxor.w",	"RA",	 47,  2, 0b0010000 },
-	{ "amoand.w",	"RA",	 47,  2, 0b0110000 },
-	{ "amoor.w",	"RA",	 47,  2, 0b0100000 },
-	{ "amomin.w",	"RA",	 47,  2, 0b1000000 },
-	{ "amomax.w",	"RA",	 47,  2, 0b1010000 },
-	{ "amominu.w",	"RA",	 47,  2, 0b1100000 },
-	{ "amomaxu.w",	"RA",	 47,  2, 0b1110000 },
-	{ "lr.w.aq",	"RA",	 47,  2, 0b0001000 },
-	{ "sc.w.aq",	"RA",	 47,  2, 0b0001100 },
-	{ "amoswap.w.aq","RA",	 47,  2, 0b0000110 },
-	{ "amoadd.w.aq","RA",	 47,  2, 0b0000010 },
-	{ "amoxor.w.aq","RA",	 47,  2, 0b0010010 },
-	{ "amoand.w.aq","RA",	 47,  2, 0b0110010 },
-	{ "amoor.w.aq",	"RA",	 47,  2, 0b0100010 },
-	{ "amomin.w.aq","RA",	 47,  2, 0b1000010 },
-	{ "amomax.w.aq","RA",	 47,  2, 0b1010010 },
-	{ "amominu.w.aq","RA",	 47,  2, 0b1100010 },
-	{ "amomaxu.w.aq","RA",	 47,  2, 0b1110010 },
-	{ "amoswap.w.rl","RA",	 47,  2, 0b0000110 },
-	{ "amoadd.w.rl","RA",	 47,  2, 0b0000001 },
-	{ "amoxor.w.rl","RA",	 47,  2, 0b0010001 },
-	{ "amoand.w.rl","RA",	 47,  2, 0b0110001 },
-	{ "amoor.w.rl",	"RA",	 47,  2, 0b0100001 },
-	{ "amomin.w.rl","RA",	 47,  2, 0b1000001 },
-	{ "amomax.w.rl","RA",	 47,  2, 0b1010001 },
-	{ "amominu.w.rl","RA",	 47,  2, 0b1100001 },
-	{ "amomaxu.w.rl","RA",	 47,  2, 0b1110001 },
-	{ "amoswap.d",	"RA",	 47,  3, 0b0000100 },
-	{ "amoadd.d",	"RA",	 47,  3, 0b0000000 },
-	{ "amoxor.d",	"RA",	 47,  3, 0b0010000 },
-	{ "amoand.d",	"RA",	 47,  3, 0b0110000 },
-	{ "amoor.d",	"RA",	 47,  3, 0b0100000 },
-	{ "amomin.d",	"RA",	 47,  3, 0b1000000 },
-	{ "amomax.d",	"RA",	 47,  3, 0b1010000 },
-	{ "amominu.d",	"RA",	 47,  3, 0b1100000 },
-	{ "amomaxu.d",	"RA",	 47,  3, 0b1110000 },
-	{ "lr.d.aq",	"RA",	 47,  3, 0b0001000 },
-	{ "sc.d.aq",	"RA",	 47,  3, 0b0001100 },
-	{ "amoswap.d.aq","RA",	 47,  3, 0b0000110 },
-	{ "amoadd.d.aq","RA",	 47,  3, 0b0000010 },
-	{ "amoxor.d.aq","RA",	 47,  3, 0b0010010 },
-	{ "amoand.d.aq","RA",	 47,  3, 0b0110010 },
-	{ "amoor.d.aq",	"RA",	 47,  3, 0b0100010 },
-	{ "amomin.d.aq","RA",	 47,  3, 0b1000010 },
-	{ "amomax.d.aq","RA",	 47,  3, 0b1010010 },
-	{ "amominu.d.aq","RA",	 47,  3, 0b1100010 },
-	{ "amomaxu.d.aq","RA",	 47,  3, 0b1110010 },
-	{ "amoswap.d.rl","RA",	 47,  3, 0b0000110 },
-	{ "amoadd.d.rl","RA",	 47,  3, 0b0000001 },
-	{ "amoxor.d.rl","RA",	 47,  3, 0b0010001 },
-	{ "amoand.d.rl","RA",	 47,  3, 0b0110001 },
-	{ "amoor.d.rl",	"RA",	 47,  3, 0b0100001 },
-	{ "amomin.d.rl","RA",	 47,  3, 0b1000001 },
-	{ "amomax.d.rl","RA",	 47,  3, 0b1010001 },
-	{ "amominu.d.rl","RA",	 47,  3, 0b1100001 },
-	{ "amomaxu.d.rl","RA",	 47,  3, 0b1110001 },
-	{ "add",	"R",	 51,  0,  0 },
-	{ "sub",	"R",	 51,  0,  0b010000 },
-	{ "sll",	"R",	 51,  1,  0 },
-	{ "slt",	"R",	 51,  2,  0 },
-	{ "sltu",	"R",	 51,  3,  0 },
-	{ "xor",	"R",	 51,  4,  0 },
-	{ "srl",	"R",	 51,  5,  0 },
-	{ "sra",	"R",	 51,  5,  0b010000 },
-	{ "or",		"R",	 51,  6,  0 },
-	{ "and",	"R",	 51,  7,  0 },
-	{ "lui",	"U",	 55, -1, -1 },
-	{ "beq",	"SB",	 99,  0, -1 },
-	{ "bne",	"SB",	 99,  1, -1 },
-	{ "blt",	"SB",	 99,  4, -1 },
-	{ "bge",	"SB",	 99,  5, -1 },
-	{ "bltu",	"SB",	 99,  6, -1 },
-	{ "bgeu",	"SB",	 99,  7, -1 },
-	{ "jalr",	"I",	103,  0, -1 },
-	{ "jal",	"UJ",	111, -1, -1 },
-	{ "sfence.vm",	"I",	115,  0, 0b000100000001 },
-	{ "wfi",	"I",	115,  0, 0b000100000010 },
-	{ "rdcycle",	"I",	115,  2, 0b110000000000 },
-	{ "rdcycleh",	"I",	115,  2, 0b110010000000 },
-	{ "rdtime",	"I",	115,  2, 0b110000000001 },
-	{ "rdtimeh",	"I",	115,  2, 0b110010000001 },
-	{ "rdinstret",	"I",	115,  2, 0b110000000010 },
-	{ "rdinstreth",	"I",	115,  2, 0b110010000010 },
-	{ NULL, NULL, 0, 0, 0 }, /* terminator */
+	{ "lb",		"I",	"d,o(s)",	3,  0, -1 },
+	{ "lh",		"I",	"d,o(s)",	3,  1, -1 },
+	{ "lw",		"I",	"d,o(s)",	3,  2, -1 },
+	{ "ld",		"I",	"d,o(s)",	3,  3, -1 },
+	{ "lbu",	"I",	"d,o(s)",	3,  4, -1 },
+	{ "lhu",	"I",	"d,o(s)",	3,  5, -1 },
+	{ "lwu",	"I",	"d,o(s)",	3,  6, -1 },
+	{ "ldu",	"I",	"d,o(s)",	3,  7, -1 },
+	{ "fence",	"I",	"",		15,  0, -1 },
+	{ "fence.i",	"I",	"",		15,  1, -1 },
+	{ "addi",	"I",	"d,s,j",	19,  0, -1 },
+	{ "slli",	"R",	"d,s,j",	19,  1,  0 },
+	{ "slti",	"I",	"d,s,j",	19,  2, -1 },
+	{ "sltiu",	"I",	"d,s,j",	19,  3, -1 },
+	{ "xori",	"I",	"d,s,j",	19,  4, -1 },
+	{ "srli",	"R",	"d,s,j",	19,  5,  0 },
+	{ "srai",	"R",	"d,s,j",	19,  5,  0b010000 },
+	{ "ori",	"I",	"d,s,j",	19,  6, -1 },
+	{ "andi",	"I",	"d,s,j",	19,  7, -1 },
+	{ "auipc",	"U",	"d,u",		23, -1, -1 },
+	{ "sext.w",	"I",	"d,s",		27,  0,  0 },
+	{ "addiw",	"I",	"d,s,j",	27,  0, -1 },
+	{ "sb",		"S",	"t,q(s)",	35,  0, -1 },
+	{ "sh",		"S",	"t,q(s)",	35,  1, -1 },
+	{ "sw",		"S",	"t,q(s)",	35,  2, -1 },
+	{ "sd",		"S",	"t,q(s)",	35,  3, -1 },
+	{ "sbu",	"S",	"t,q(s)",	35,  4, -1 },
+	{ "shu",	"S",	"t,q(s)",	35,  5, -1 },
+	{ "swu",	"S",	"t,q(s)",	35,  6, -1 },
+	{ "sdu",	"S",	"t,q(s)",	35,  7, -1 },
+	{ "lr.w",	"RA",	"d,t,0(s)",	47,  2, 0b0001000 },
+	{ "sc.w",	"RA",	"d,t,0(s)",	47,  2, 0b0001100 },
+	{ "amoswap.w",	"RA",	"d,t,0(s)",	47,  2, 0b0000100 },
+	{ "amoadd.w",	"RA",	"d,t,0(s)",	47,  2, 0b0000000 },
+	{ "amoxor.w",	"RA",	"d,t,0(s)",	47,  2, 0b0010000 },
+	{ "amoand.w",	"RA",	"d,t,0(s)",	47,  2, 0b0110000 },
+	{ "amoor.w",	"RA",	"d,t,0(s)",	47,  2, 0b0100000 },
+	{ "amomin.w",	"RA",	"d,t,0(s)",	47,  2, 0b1000000 },
+	{ "amomax.w",	"RA",	"d,t,0(s)",	47,  2, 0b1010000 },
+	{ "amominu.w",	"RA",	"d,t,0(s)",	47,  2, 0b1100000 },
+	{ "amomaxu.w",	"RA",	"d,t,0(s)",	47,  2, 0b1110000 },
+	{ "lr.w.aq",	"RA",	"d,t,0(s)",	47,  2, 0b0001000 },
+	{ "sc.w.aq",	"RA",	"d,t,0(s)",	47,  2, 0b0001100 },
+	{ "amoswap.w.aq","RA",	"d,t,0(s)",	47,  2, 0b0000110 },
+	{ "amoadd.w.aq","RA",	"d,t,0(s)",	47,  2, 0b0000010 },
+	{ "amoxor.w.aq","RA",	"d,t,0(s)",	47,  2, 0b0010010 },
+	{ "amoand.w.aq","RA",	"d,t,0(s)",	47,  2, 0b0110010 },
+	{ "amoor.w.aq",	"RA",	"d,t,0(s)",	47,  2, 0b0100010 },
+	{ "amomin.w.aq","RA",	"d,t,0(s)",	47,  2, 0b1000010 },
+	{ "amomax.w.aq","RA",	"d,t,0(s)",	47,  2, 0b1010010 },
+	{ "amominu.w.aq","RA",	"d,t,0(s)",	47,  2, 0b1100010 },
+	{ "amomaxu.w.aq","RA",	"d,t,0(s)",	47,  2, 0b1110010 },
+	{ "amoswap.w.rl","RA",	"d,t,0(s)",	47,  2, 0b0000110 },
+	{ "amoadd.w.rl","RA",	"d,t,0(s)",	47,  2, 0b0000001 },
+	{ "amoxor.w.rl","RA",	"d,t,0(s)",	47,  2, 0b0010001 },
+	{ "amoand.w.rl","RA",	"d,t,0(s)",	47,  2, 0b0110001 },
+	{ "amoor.w.rl",	"RA",	"d,t,0(s)",	47,  2, 0b0100001 },
+	{ "amomin.w.rl","RA",	"d,t,0(s)",	47,  2, 0b1000001 },
+	{ "amomax.w.rl","RA",	"d,t,0(s)",	47,  2, 0b1010001 },
+	{ "amominu.w.rl","RA",	"d,t,0(s)",	47,  2, 0b1100001 },
+	{ "amomaxu.w.rl","RA",	"d,t,0(s)",	47,  2, 0b1110001 },
+	{ "amoswap.d",	"RA",	"d,t,0(s)",	47,  3, 0b0000100 },
+	{ "amoadd.d",	"RA",	"d,t,0(s)",	47,  3, 0b0000000 },
+	{ "amoxor.d",	"RA",	"d,t,0(s)",	47,  3, 0b0010000 },
+	{ "amoand.d",	"RA",	"d,t,0(s)",	47,  3, 0b0110000 },
+	{ "amoor.d",	"RA",	"d,t,0(s)",	47,  3, 0b0100000 },
+	{ "amomin.d",	"RA",	"d,t,0(s)",	47,  3, 0b1000000 },
+	{ "amomax.d",	"RA",	"d,t,0(s)",	47,  3, 0b1010000 },
+	{ "amominu.d",	"RA",	"d,t,0(s)",	47,  3, 0b1100000 },
+	{ "amomaxu.d",	"RA",	"d,t,0(s)",	47,  3, 0b1110000 },
+	{ "lr.d.aq",	"RA",	"d,t,0(s)",	47,  3, 0b0001000 },
+	{ "sc.d.aq",	"RA",	"d,t,0(s)",	47,  3, 0b0001100 },
+	{ "amoswap.d.aq","RA",	"d,t,0(s)",	47,  3, 0b0000110 },
+	{ "amoadd.d.aq","RA",	"d,t,0(s)",	47,  3, 0b0000010 },
+	{ "amoxor.d.aq","RA",	"d,t,0(s)",	47,  3, 0b0010010 },
+	{ "amoand.d.aq","RA",	"d,t,0(s)",	47,  3, 0b0110010 },
+	{ "amoor.d.aq",	"RA",	"d,t,0(s)",	47,  3, 0b0100010 },
+	{ "amomin.d.aq","RA",	"d,t,0(s)",	47,  3, 0b1000010 },
+	{ "amomax.d.aq","RA",	"d,t,0(s)",	47,  3, 0b1010010 },
+	{ "amominu.d.aq","RA",	"d,t,0(s)",	47,  3, 0b1100010 },
+	{ "amomaxu.d.aq","RA",	"d,t,0(s)",	47,  3, 0b1110010 },
+	{ "amoswap.d.rl","RA",	"d,t,0(s)",	47,  3, 0b0000110 },
+	{ "amoadd.d.rl","RA",	"d,t,0(s)",	47,  3, 0b0000001 },
+	{ "amoxor.d.rl","RA",	"d,t,0(s)",	47,  3, 0b0010001 },
+	{ "amoand.d.rl","RA",	"d,t,0(s)",	47,  3, 0b0110001 },
+	{ "amoor.d.rl",	"RA",	"d,t,0(s)",	47,  3, 0b0100001 },
+	{ "amomin.d.rl","RA",	"d,t,0(s)",	47,  3, 0b1000001 },
+	{ "amomax.d.rl","RA",	"d,t,0(s)",	47,  3, 0b1010001 },
+	{ "amominu.d.rl","RA",	"d,t,0(s)",	47,  3, 0b1100001 },
+	{ "amomaxu.d.rl","RA",	"d,t,0(s)",	47,  3, 0b1110001 },
+	{ "add",	"R",	"d,s,t",	51,  0,  0 },
+	{ "sub",	"R",	"d,s,t",	51,  0,  0b010000 },
+	{ "sll",	"R",	"d,s,t",	51,  1,  0 },
+	{ "slt",	"R",	"d,s,t",	51,  2,  0 },
+	{ "sltu",	"R",	"d,s,t",	51,  3,  0 },
+	{ "xor",	"R",	"d,s,t",	51,  4,  0 },
+	{ "srl",	"R",	"d,s,t",	51,  5,  0 },
+	{ "sra",	"R",	"d,s,t",	51,  5,  0b010000 },
+	{ "or",		"R",	"d,s,t",	51,  6,  0 },
+	{ "and",	"R",	"d,s,t",	51,  7,  0 },
+	{ "lui",	"U",	"d,u",		55, -1, -1 },
+	{ "beq",	"SB",	"s,t,p",	99,  0, -1 },
+	{ "bne",	"SB",	"s,t,p",	99,  1, -1 },
+	{ "blt",	"SB",	"s,t,p",	99,  4, -1 },
+	{ "bge",	"SB",	"s,t,p",	99,  5, -1 },
+	{ "bltu",	"SB",	"s,t,p",	99,  6, -1 },
+	{ "bgeu",	"SB",	"s,t,p",	99,  7, -1 },
+	{ "jalr",	"I",	"d,s,j",	103,  0, -1 },
+	{ "jal",	"UJ",	"a",		111, -1, -1 },
+	{ "sfence.vm",	"I",	"",		115,  0, 0b000100000001 },
+	{ "wfi",	"I",	"",		115,  0, 0b000100000010 },
+	{ "rdcycle",	"I",	"",		115,  2, 0b110000000000 },
+	{ "rdcycleh",	"I",	"",		115,  2, 0b110010000000 },
+	{ "rdtime",	"I",	"",		115,  2, 0b110000000001 },
+	{ "rdtimeh",	"I",	"",		115,  2, 0b110010000001 },
+	{ "rdinstret",	"I",	"",		115,  2, 0b110000000010 },
+	{ "rdinstreth",	"I",	"",		115,  2, 0b110010000010 },
+	{ NULL, NULL, NULL, 0, 0, 0 }, /* terminator */
 };
 
 static char *reg_name[32] = {
@@ -217,6 +218,48 @@ get_imm(InstFmt i, char *type)
 }
 
 static int
+oprint(struct riscv_op *op, int rd, int rs1, int rs2, int imm)
+{
+	char *p;
+
+	p = op->fmt;
+
+	db_printf("%s\t", op->name);
+
+	while (*p) {
+		if (strncmp("d", p, 1) == 0) {
+			db_printf("%s", reg_name[rd]);
+		}
+		if (strncmp("s", p, 1) == 0) {
+			db_printf("%s", reg_name[rs1]);
+		}
+		if (strncmp("t", p, 1) == 0) {
+			db_printf("%s", reg_name[rs2]);
+		}
+		if (strncmp("j", p, 1) == 0) {
+			db_printf("%d", imm);
+		}
+		if (strncmp("p", p, 1) == 0) {
+			db_printf("0x%x", imm);
+		}
+		if (strlen(p) >= 4 && strncmp("q(s)", p, 4) == 0) {
+			db_printf("%d(%s)", imm, reg_name[rs1]);
+		}
+
+		while (*p && strncmp(p, ",", 1) != 0)
+			p++;
+
+		if (*p) {
+			db_printf(", ");
+			p++;
+		}
+	}
+
+
+	return (0);
+}
+
+static int
 match_opcode(InstFmt i, struct riscv_op *op, vm_offset_t loc)
 {
 	int imm;
@@ -224,14 +267,18 @@ match_opcode(InstFmt i, struct riscv_op *op, vm_offset_t loc)
 	imm = get_imm(i, op->type);
 
 	if (strcmp(op->type, "U") == 0) {
+		oprint(op, i.UType.rd, 0, 0, imm);
+
 		/* Match */
-		db_printf("%s\t%s,0x%x", op->name,
-		    reg_name[i.UType.rd], imm);
+		//db_printf("%s\t%s,0x%x", op->name,
+		//   reg_name[i.UType.rd], imm);
 		return (1);
 	}
 	if (strcmp(op->type, "UJ") == 0) {
+		oprint(op, 0, 0, 0, (loc + imm));
+
 		/* Match */
-		db_printf("%s\t0x%lx", op->name, (loc + imm));
+		//db_printf("%s\t0x%lx", op->name, (loc + imm));
 		return (1);
 	}
 	if ((strcmp(op->type, "I") == 0) && \
@@ -239,53 +286,66 @@ match_opcode(InstFmt i, struct riscv_op *op, vm_offset_t loc)
 
 		if (op->funct7 != -1) {
 			if (op->funct7 == i.IType.imm) {
+				oprint(op, i.IType.rd, i.IType.rs1, 0, imm);
+
 				/* Match */
-				db_printf("%s\t%s, %s, %d", op->name,
-				    reg_name[i.IType.rd],
-				    reg_name[i.IType.rs1], imm);
+				//db_printf("%s\t%s, %s, %d", op->name,
+				//   reg_name[i.IType.rd],
+				//   reg_name[i.IType.rs1], imm);
 				return (1);
 			}
 		} else {
+			oprint(op, i.IType.rd, i.IType.rs1, 0, imm);
+
 			/* Match */
-			db_printf("%s\t%s, %s, %d", op->name,
-			    reg_name[i.IType.rd],
-			    reg_name[i.IType.rs1], imm);
+			//db_printf("%s\t%s, %s, %d", op->name,
+			//   reg_name[i.IType.rd],
+			//   reg_name[i.IType.rs1], imm);
 			return (1);
 		}
 	}
 	if ((strcmp(op->type, "S") == 0) && \
 	    (op->funct3 == i.SType.funct3)) {
 		/* Match */
-		db_printf("%s\t%s, %s, %d", op->name,
-		    reg_name[i.SType.rs1],
-		    reg_name[i.SType.rs2], imm);
+		oprint(op, 0, i.SType.rs1, i.SType.rs2, imm);
+
+		//db_printf("%s\t%s, %s, %d", op->name,
+		//   reg_name[i.SType.rs1],
+		//   reg_name[i.SType.rs2], imm);
 		return (1);
 	}
 	if ((strcmp(op->type, "SB") == 0) && \
-	    (op->funct3 == i.SType.funct3)) {
+	    (op->funct3 == i.SBType.funct3)) {
+		oprint(op, 0, i.SBType.rs1, i.SBType.rs2, imm);
+
 		/* Match */
-		db_printf("%s\t%s, %s, 0x%lx", op->name,
-		    reg_name[i.SBType.rs1],
-		    reg_name[i.SBType.rs2], (loc + imm));
+		//db_printf("%s\t%s, %s, 0x%lx", op->name,
+		//   reg_name[i.SBType.rs1],
+		//   reg_name[i.SBType.rs2], (loc + imm));
 		return (1);
 	}
 	if ((strcmp(op->type, "R") == 0) && \
 	    (op->funct3 == i.RType.funct3) && \
 	    (op->funct7 == i.RType.funct7)) {
+		oprint(op, i.RType.rd, i.RType.rs1, i.RType.rs2, imm);
+
 		/* Match */
-		db_printf("%s\t%s, %s, 0x%x", op->name,
-		    reg_name[i.RType.rd],
-		    reg_name[i.RType.rs1], i.RType.rs2);
+		//db_printf("%s\t%s, %s, 0x%x", op->name,
+		//   reg_name[i.RType.rd],
+		//   reg_name[i.RType.rs1],
+		//   reg_name[i.RType.rs2]);
 		return (1);
 	}
 	if ((strcmp(op->type, "RA") == 0) && \
 	    (op->funct3 == i.RAType.funct3) && \
 	    (op->funct7 == i.RAType.funct7)) {
+		oprint(op, i.RAType.rd, i.RAType.rs1, i.RAType.rs2, imm);
+
 		/* Match */
-		db_printf("%s\t%s, %s, %s", op->name,
-		    reg_name[i.RAType.rd],
-		    reg_name[i.RAType.rs2],
-		    reg_name[i.RAType.rs1]);
+		//db_printf("%s\t%s, %s, %s", op->name,
+		//   reg_name[i.RAType.rd],
+		//   reg_name[i.RAType.rs2],
+		//   reg_name[i.RAType.rs1]);
 		return (1);
 	}
 
