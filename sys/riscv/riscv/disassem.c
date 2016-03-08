@@ -83,6 +83,66 @@ static struct riscv_op riscv_opcodes[] = {
 	{ "sra",	"R",	 51,  5,  0b010000 },
 	{ "or",		"R",	 51,  6,  0 },
 	{ "and",	"R",	 51,  7,  0 },
+	{ "lr.w",	"RA",	 47,  2, 0b0001000 },
+	{ "sc.w",	"RA",	 47,  2, 0b0001100 },
+	{ "amoswap.w",	"RA",	 47,  2, 0b0000100 },
+	{ "amoadd.w",	"RA",	 47,  2, 0b0000000 },
+	{ "amoxor.w",	"RA",	 47,  2, 0b0010000 },
+	{ "amoand.w",	"RA",	 47,  2, 0b0110000 },
+	{ "amoor.w",	"RA",	 47,  2, 0b0100000 },
+	{ "amomin.w",	"RA",	 47,  2, 0b1000000 },
+	{ "amomax.w",	"RA",	 47,  2, 0b1010000 },
+	{ "amominu.w",	"RA",	 47,  2, 0b1100000 },
+	{ "amomaxu.w",	"RA",	 47,  2, 0b1110000 },
+	{ "lr.w.aq",	"RA",	 47,  2, 0b0001000 },
+	{ "sc.w.aq",	"RA",	 47,  2, 0b0001100 },
+	{ "amoswap.w.aq","RA",	 47,  2, 0b0000110 },
+	{ "amoadd.w.aq","RA",	 47,  2, 0b0000010 },
+	{ "amoxor.w.aq","RA",	 47,  2, 0b0010010 },
+	{ "amoand.w.aq","RA",	 47,  2, 0b0110010 },
+	{ "amoor.w.aq",	"RA",	 47,  2, 0b0100010 },
+	{ "amomin.w.aq","RA",	 47,  2, 0b1000010 },
+	{ "amomax.w.aq","RA",	 47,  2, 0b1010010 },
+	{ "amominu.w.aq","RA",	 47,  2, 0b1100010 },
+	{ "amomaxu.w.aq","RA",	 47,  2, 0b1110010 },
+	{ "amoswap.w.rl","RA",	 47,  2, 0b0000110 },
+	{ "amoadd.w.rl","RA",	 47,  2, 0b0000001 },
+	{ "amoxor.w.rl","RA",	 47,  2, 0b0010001 },
+	{ "amoand.w.rl","RA",	 47,  2, 0b0110001 },
+	{ "amoor.w.rl",	"RA",	 47,  2, 0b0100001 },
+	{ "amomin.w.rl","RA",	 47,  2, 0b1000001 },
+	{ "amomax.w.rl","RA",	 47,  2, 0b1010001 },
+	{ "amominu.w.rl","RA",	 47,  2, 0b1100001 },
+	{ "amomaxu.w.rl","RA",	 47,  2, 0b1110001 },
+	{ "amoswap.d",	"RA",	 47,  3, 0b0000100 },
+	{ "amoadd.d",	"RA",	 47,  3, 0b0000000 },
+	{ "amoxor.d",	"RA",	 47,  3, 0b0010000 },
+	{ "amoand.d",	"RA",	 47,  3, 0b0110000 },
+	{ "amoor.d",	"RA",	 47,  3, 0b0100000 },
+	{ "amomin.d",	"RA",	 47,  3, 0b1000000 },
+	{ "amomax.d",	"RA",	 47,  3, 0b1010000 },
+	{ "amominu.d",	"RA",	 47,  3, 0b1100000 },
+	{ "amomaxu.d",	"RA",	 47,  3, 0b1110000 },
+	{ "lr.d.aq",	"RA",	 47,  3, 0b0001000 },
+	{ "sc.d.aq",	"RA",	 47,  3, 0b0001100 },
+	{ "amoswap.d.aq","RA",	 47,  3, 0b0000110 },
+	{ "amoadd.d.aq","RA",	 47,  3, 0b0000010 },
+	{ "amoxor.d.aq","RA",	 47,  3, 0b0010010 },
+	{ "amoand.d.aq","RA",	 47,  3, 0b0110010 },
+	{ "amoor.d.aq",	"RA",	 47,  3, 0b0100010 },
+	{ "amomin.d.aq","RA",	 47,  3, 0b1000010 },
+	{ "amomax.d.aq","RA",	 47,  3, 0b1010010 },
+	{ "amominu.d.aq","RA",	 47,  3, 0b1100010 },
+	{ "amomaxu.d.aq","RA",	 47,  3, 0b1110010 },
+	{ "amoswap.d.rl","RA",	 47,  3, 0b0000110 },
+	{ "amoadd.d.rl","RA",	 47,  3, 0b0000001 },
+	{ "amoxor.d.rl","RA",	 47,  3, 0b0010001 },
+	{ "amoand.d.rl","RA",	 47,  3, 0b0110001 },
+	{ "amoor.d.rl",	"RA",	 47,  3, 0b0100001 },
+	{ "amomin.d.rl","RA",	 47,  3, 0b1000001 },
+	{ "amomax.d.rl","RA",	 47,  3, 0b1010001 },
+	{ "amominu.d.rl","RA",	 47,  3, 0b1100001 },
+	{ "amomaxu.d.rl","RA",	 47,  3, 0b1110001 },
 	{ "sb",		"S",	 35,  0, -1 },
 	{ "sh",		"S",	 35,  1, -1 },
 	{ "sw",		"S",	 35,  2, -1 },
@@ -210,22 +270,23 @@ match_opcode(InstFmt i, struct riscv_op *op, vm_offset_t loc)
 		return (1);
 	}
 	if ((strcmp(op->type, "R") == 0) && \
-	    (op->funct3 == i.RType.funct3)) {
-		if (op->funct7 != -1) {
-			if (op->funct7 == i.RType.funct7) {
-				/* Match */
-				db_printf("%s\t%s, %s, 0x%x", op->name,
-				    reg_name[i.RType.rd],
-				    reg_name[i.RType.rs1], i.RType.rs2);
-				return (1);
-			}
-		} else {
-			/* Match */
-			db_printf("%s\t%s, %s, 0x%x", op->name,
-			    reg_name[i.RType.rd],
-			    reg_name[i.RType.rs1], i.RType.rs2);
-			return (1);
-		}
+	    (op->funct3 == i.RType.funct3) && \
+	    (op->funct7 == i.RType.funct7)) {
+		/* Match */
+		db_printf("%s\t%s, %s, 0x%x", op->name,
+		    reg_name[i.RType.rd],
+		    reg_name[i.RType.rs1], i.RType.rs2);
+		return (1);
+	}
+	if ((strcmp(op->type, "RA") == 0) && \
+	    (op->funct3 == i.RAType.funct3) && \
+	    (op->funct7 == i.RAType.funct7)) {
+		/* Match */
+		db_printf("%s\t%s, %s, %s", op->name,
+		    reg_name[i.RAType.rd],
+		    reg_name[i.RAType.rs2],
+		    reg_name[i.RAType.rs1]);
+		return (1);
 	}
 
 	return (0);
