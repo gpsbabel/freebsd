@@ -47,38 +47,64 @@ struct riscv_op {
 	char *type;
 	int opcode;
 	int funct3;
-	int funct7;
+	int funct7; /* or imm */
 };
 
-/* Must be sorted by opcode, func3, func7 */
+/* Keep sorted by opcode, func3, func7 */
 static struct riscv_op riscv_opcodes[] = {
-	{ "lb",		"I",	 3, 0, 0 },
-	{ "lh",		"I",	 3, 1, 0 },
-	{ "lw",		"I",	 3, 2, 0 },
-	{ "ld",		"I",	 3, 3, 0 },
-	{ "lbu",	"I",	 3, 4, 0 },
-	{ "lhu",	"I",	 3, 5, 0 },
-	{ "lwu",	"I",	 3, 6, 0 },
-	{ "ldu",	"I",	 3, 7, 0 },
-	{ "sb",		"S",	35, 0, 0 },
-	{ "sh",		"S",	35, 1, 0 },
-	{ "sw",		"S",	35, 2, 0 },
-	{ "sd",		"S",	35, 3, 0 },
-	{ "sbu",	"S",	35, 4, 0 },
-	{ "shu",	"S",	35, 5, 0 },
-	{ "swu",	"S",	35, 6, 0 },
-	{ "sdu",	"S",	35, 7, 0 },
-	{ "addi",	"I",	19, 0, 0 },
-	{ "slti",	"I",	19, 2, 0 },
-	{ "sltiu",	"I",	19, 3, 0 },
-	{ "xori",	"I",	19, 4, 0 },
-	{ "ori",	"I",	19, 5, 0 },
-	{ "andi",	"I",	19, 6, 0 },
-	{ "slli",	"R",	19, 1, 0 },
-	{ "srli",	"R",	19, 5, 0 },
-	{ "srai",	"R",	19, 5, 32 },
-	{ "lui",	"U",	55, 0, 0 },
-	{ "jal",	"UJ",	111, 0, 0 },
+	{ "lb",		"I",	  3,  0, -1 },
+	{ "lh",		"I",	  3,  1, -1 },
+	{ "lw",		"I",	  3,  2, -1 },
+	{ "ld",		"I",	  3,  3, -1 },
+	{ "lbu",	"I",	  3,  4, -1 },
+	{ "lhu",	"I",	  3,  5, -1 },
+	{ "lwu",	"I",	  3,  6, -1 },
+	{ "ldu",	"I",	  3,  7, -1 },
+	{ "addi",	"I",	 19,  0, -1 },
+	{ "slli",	"R",	 19,  1,  0 },
+	{ "slti",	"I",	 19,  2, -1 },
+	{ "sltiu",	"I",	 19,  3, -1 },
+	{ "xori",	"I",	 19,  4, -1 },
+	{ "srli",	"R",	 19,  5,  0 },
+	{ "srai",	"R",	 19,  5,  0b010000 },
+	{ "ori",	"I",	 19,  6, -1 },
+	{ "andi",	"I",	 19,  7, -1 },
+	{ "jalr",	"I",	103,  0, -1 },
+	{ "add",	"R",	 51,  0,  0 },
+	{ "sub",	"R",	 51,  0,  0b010000 },
+	{ "sll",	"R",	 51,  1,  0 },
+	{ "slt",	"R",	 51,  2,  0 },
+	{ "sltu",	"R",	 51,  3,  0 },
+	{ "xor",	"R",	 51,  4,  0 },
+	{ "srl",	"R",	 51,  5,  0 },
+	{ "sra",	"R",	 51,  5,  0b010000 },
+	{ "or",		"R",	 51,  6,  0 },
+	{ "and",	"R",	 51,  7,  0 },
+	{ "beq",	"SB",	 99,  0, -1 },
+	{ "bne",	"SB",	 99,  1, -1 },
+	{ "blt",	"SB",	 99,  4, -1 },
+	{ "bge",	"SB",	 99,  5, -1 },
+	{ "bltu",	"SB",	 99,  6, -1 },
+	{ "bgeu",	"SB",	 99,  7, -1 },
+	{ "sb",		"S",	 35,  0, -1 },
+	{ "sh",		"S",	 35,  1, -1 },
+	{ "sw",		"S",	 35,  2, -1 },
+	{ "sd",		"S",	 35,  3, -1 },
+	{ "sbu",	"S",	 35,  4, -1 },
+	{ "shu",	"S",	 35,  5, -1 },
+	{ "swu",	"S",	 35,  6, -1 },
+	{ "sdu",	"S",	 35,  7, -1 },
+	{ "auipc",	"U",	 23, -1, -1 },
+	{ "lui",	"U",	 55, -1, -1 },
+	{ "jal",	"UJ",	111, -1, -1 },
+	{ "sfence.vm",	"I",	115,  0, 257 },
+	{ "wfi",	"I",	115,  0, 258 },
+	{ "rdcycle",	"I",	115,  2, 0b110000000000},
+	{ "rdcycleh",	"I",	115,  2, 0b110010000000},
+	{ "rdtime",	"I",	115,  2, 0b110000000001},
+	{ "rdtimeh",	"I",	115,  2, 0b110010000001},
+	{ "rdinstret",	"I",	115,  2, 0b110000000010},
+	{ "rdinstreth",	"I",	115,  2, 0b110010000010},
 	{ NULL, NULL, 0, 0, 0 }, /* terminator */
 };
 
@@ -527,10 +553,20 @@ disasm(const struct disasm_interface *di, vm_offset_t loc, int altfmt)
 			}
 			if ((strcmp(op->type, "I") == 0) && \
 			    (op->funct3 == i.IType.funct3)) {
-				/* Match */
-				db_printf("%s\t%s, %s, %d", op->name, reg_name[i.IType.rd],
-				    reg_name[i.IType.rs1], imm);
-				break;
+
+				if (op->funct7 != -1) {
+					if (op->funct7 == i.IType.imm) {
+						/* Match */
+						db_printf("%s\t%s, %s, %d", op->name, reg_name[i.IType.rd],
+						    reg_name[i.IType.rs1], imm);
+						break;
+					}
+				} else {
+					/* Match */
+					db_printf("%s\t%s, %s, %d", op->name, reg_name[i.IType.rd],
+					    reg_name[i.IType.rs1], imm);
+					break;
+				}
 			}
 			if ((strcmp(op->type, "S") == 0) && \
 			    (op->funct3 == i.SType.funct3)) {
@@ -539,13 +575,28 @@ disasm(const struct disasm_interface *di, vm_offset_t loc, int altfmt)
 				    reg_name[i.SType.rs2], imm);
 				break;
 			}
-			if ((strcmp(op->type, "R") == 0) && \
-			    (op->funct3 == i.RType.funct3) && \
-			    (op->funct7 == i.RType.funct7)) {
+			if ((strcmp(op->type, "SB") == 0) && \
+			    (op->funct3 == i.SType.funct3)) {
 				/* Match */
-				db_printf("%s\t%s, %s, %d", op->name, reg_name[i.RType.rd],
-				    reg_name[i.RType.rs1], imm);
+				db_printf("%s\t%s, %s, 0x%lx", op->name, reg_name[i.SBType.rs1],
+				    reg_name[i.SBType.rs2], (loc + imm));
 				break;
+			}
+			if ((strcmp(op->type, "R") == 0) && \
+			    (op->funct3 == i.RType.funct3)) {
+				if (op->funct7 != -1) {
+					if (op->funct7 == i.RType.funct7) {
+						/* Match */
+						db_printf("%s\t%s, %s, 0x%x", op->name, reg_name[i.RType.rd],
+						    reg_name[i.RType.rs1], i.RType.rs2);
+						break;
+					}
+				} else {
+					/* Match */
+					db_printf("%s\t%s, %s, 0x%x", op->name, reg_name[i.RType.rd],
+					    reg_name[i.RType.rs1], i.RType.rs2);
+					break;
+				}
 			}
 		}
 	}

@@ -51,11 +51,11 @@ typedef union {
 
 	struct {
 		unsigned opcode: 7;
-		unsigned funct7: 7;
-		unsigned rs2: 5;
-		unsigned rs1: 5;
-		unsigned funct3: 3;
 		unsigned rd: 5;
+		unsigned funct3: 3;
+		unsigned rs1: 5;
+		unsigned rs2: 6;
+		unsigned funct7: 6;
 	} RType;
 
 	struct {
