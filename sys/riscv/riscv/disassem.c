@@ -165,7 +165,8 @@ match_opcode(InstFmt i, struct riscv_op *op, vm_offset_t loc)
 
 	if (strcmp(op->type, "U") == 0) {
 		/* Match */
-		db_printf("%s\t%s,0x%x", op->name, reg_name[i.UType.rd], imm);
+		db_printf("%s\t%s,0x%x", op->name,
+		    reg_name[i.UType.rd], imm);
 		return (1);
 	}
 	if (strcmp(op->type, "UJ") == 0) {
@@ -179,13 +180,15 @@ match_opcode(InstFmt i, struct riscv_op *op, vm_offset_t loc)
 		if (op->funct7 != -1) {
 			if (op->funct7 == i.IType.imm) {
 				/* Match */
-				db_printf("%s\t%s, %s, %d", op->name, reg_name[i.IType.rd],
+				db_printf("%s\t%s, %s, %d", op->name,
+				    reg_name[i.IType.rd],
 				    reg_name[i.IType.rs1], imm);
 				return (1);
 			}
 		} else {
 			/* Match */
-			db_printf("%s\t%s, %s, %d", op->name, reg_name[i.IType.rd],
+			db_printf("%s\t%s, %s, %d", op->name,
+			    reg_name[i.IType.rd],
 			    reg_name[i.IType.rs1], imm);
 			return (1);
 		}
@@ -193,14 +196,16 @@ match_opcode(InstFmt i, struct riscv_op *op, vm_offset_t loc)
 	if ((strcmp(op->type, "S") == 0) && \
 	    (op->funct3 == i.SType.funct3)) {
 		/* Match */
-		db_printf("%s\t%s, %s, %d", op->name, reg_name[i.SType.rs1],
+		db_printf("%s\t%s, %s, %d", op->name,
+		    reg_name[i.SType.rs1],
 		    reg_name[i.SType.rs2], imm);
 		return (1);
 	}
 	if ((strcmp(op->type, "SB") == 0) && \
 	    (op->funct3 == i.SType.funct3)) {
 		/* Match */
-		db_printf("%s\t%s, %s, 0x%lx", op->name, reg_name[i.SBType.rs1],
+		db_printf("%s\t%s, %s, 0x%lx", op->name,
+		    reg_name[i.SBType.rs1],
 		    reg_name[i.SBType.rs2], (loc + imm));
 		return (1);
 	}
@@ -209,13 +214,15 @@ match_opcode(InstFmt i, struct riscv_op *op, vm_offset_t loc)
 		if (op->funct7 != -1) {
 			if (op->funct7 == i.RType.funct7) {
 				/* Match */
-				db_printf("%s\t%s, %s, 0x%x", op->name, reg_name[i.RType.rd],
+				db_printf("%s\t%s, %s, 0x%x", op->name,
+				    reg_name[i.RType.rd],
 				    reg_name[i.RType.rs1], i.RType.rs2);
 				return (1);
 			}
 		} else {
 			/* Match */
-			db_printf("%s\t%s, %s, 0x%x", op->name, reg_name[i.RType.rd],
+			db_printf("%s\t%s, %s, 0x%x", op->name,
+			    reg_name[i.RType.rd],
 			    reg_name[i.RType.rs1], i.RType.rs2);
 			return (1);
 		}
