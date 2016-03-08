@@ -227,23 +227,31 @@ oprint(struct riscv_op *op, int rd, int rs1, int rs2, int imm)
 	db_printf("%s\t", op->name);
 
 	while (*p) {
-		if (strncmp("d", p, 1) == 0) {
+		if (strncmp("d", p, 1) == 0)
 			db_printf("%s", reg_name[rd]);
-		}
-		if (strncmp("s", p, 1) == 0) {
+
+		else if (strncmp("s", p, 1) == 0)
 			db_printf("%s", reg_name[rs1]);
-		}
-		if (strncmp("t", p, 1) == 0) {
+
+		else if (strncmp("t", p, 1) == 0)
 			db_printf("%s", reg_name[rs2]);
-		}
-		if (strncmp("j", p, 1) == 0) {
+
+		else if (strncmp("j", p, 1) == 0)
 			db_printf("%d", imm);
-		}
-		if (strncmp("p", p, 1) == 0) {
+
+		else if (strncmp("a", p, 1) == 0)
 			db_printf("0x%x", imm);
-		}
-		if (strlen(p) >= 4 && strncmp("q(s)", p, 4) == 0) {
-			db_printf("%d(%s)", imm, reg_name[rs1]);
+
+		else if (strncmp("p", p, 1) == 0)
+			db_printf("0x%x", imm);
+
+		else if (strlen(p) >= 4) {
+			if (strncmp("o(s)", p, 4) == 0)
+				db_printf("%d(%s)", imm, reg_name[rs1]);
+			else if (strncmp("q(s)", p, 4) == 0)
+				db_printf("%d(%s)", imm, reg_name[rs1]);
+			else if (strncmp("0(s)", p, 4) == 0)
+				db_printf("(%s)", reg_name[rs1]);
 		}
 
 		while (*p && strncmp(p, ",", 1) != 0)
