@@ -200,13 +200,16 @@ get_imm(InstFmt i, char *type)
 		imm = i.IType.imm;
 		if (imm & (1 << 11))
 			imm |= (0xfffff << 12);	/* sign extend */
+
 	} else if (strcmp(type, "S") == 0) {
 		imm = i.SType.imm0_4;
 		imm |= (i.SType.imm5_11 << 5);
 		if (imm & (1 << 11))
 			imm |= (0xfffff << 12); /* sign extend */
+
 	} else if (strcmp(type, "U") == 0) {
 		imm = i.UType.imm12_31;
+
 	} else if (strcmp(type, "UJ") == 0) {
 		imm = i.UJType.imm12_19 << 12;
 		imm |= i.UJType.imm11 << 11;
@@ -214,6 +217,7 @@ get_imm(InstFmt i, char *type)
 		imm |= i.UJType.imm20 << 20;
 		if (imm & (1 << 20))
 			imm |= (0xfff << 21);	/* sign extend */
+
 	} else if (strcmp(type, "SB") == 0) {
 		imm = i.SBType.imm11 << 11;
 		imm |= i.SBType.imm1_4 << 1;
@@ -286,8 +290,9 @@ oprint(struct riscv_op *op, int rd, int rs1, int rs2, vm_offset_t imm)
 }
 
 static int
-match_opcode(InstFmt i, struct riscv_op *op, vm_offset_t loc)
+match_type(InstFmt i, struct riscv_op *op, vm_offset_t loc)
 {
+	int found;
 	int imm;
 
 	imm = get_imm(i, op->type);
@@ -302,12 +307,14 @@ match_opcode(InstFmt i, struct riscv_op *op, vm_offset_t loc)
 	}
 	if ((strcmp(op->type, "I") == 0) && \
 	    (op->funct3 == i.IType.funct3)) {
+		found = 0;
 		if (op->funct7 != -1) {
-			if (op->funct7 == i.IType.imm) {
-				oprint(op, i.IType.rd, i.IType.rs1, 0, imm);
-				return (1);
-			}
-		} else {
+			if (op->funct7 == i.IType.imm)
+				found = 1;
+		} else
+			found = 1;
+
+		if (found) {
 			oprint(op, i.IType.rd, i.IType.rs1, 0, imm);
 			return (1);
 		}
@@ -351,7 +358,7 @@ disasm(const struct disasm_interface *di, vm_offset_t loc, int altfmt)
 	for (j = 0; riscv_opcodes[j].name != NULL; j++) {
 		op = &riscv_opcodes[j];
 		if (op->opcode == i.RType.opcode) {
-			if (match_opcode(i, op, loc))
+			if (match_type(i, op, loc))
 				break;
 		}
 	}
