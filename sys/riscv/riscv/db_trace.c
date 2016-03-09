@@ -1,6 +1,10 @@
 /*-
+ * Copyright (c) 2015 The FreeBSD Foundation
  * Copyright (c) 2016 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
+ *
+ * Portions of this software were developed by Semihalf under
+ * the sponsorship of the FreeBSD Foundation.
  *
  * Portions of this software were developed by SRI International and the
  * University of Cambridge Computer Laboratory under DARPA/AFRL contract
