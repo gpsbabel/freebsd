@@ -51,7 +51,13 @@ struct riscv_op {
 	int funct7; /* or imm, depending on type */
 };
 
-/* Must be sorted by opcode, funct3, funct7 */
+/*
+ * Values taken from RISC-V Instruction Set Manual,
+ * version 2.0, May 6, 2014.
+ *
+ * Must be sorted by opcode, funct3, funct7.
+ * Use same print format as binutils do.
+ */
 static struct riscv_op riscv_opcodes[] = {
 	{ "lb",		"I",	"d,o(s)",	3,   0, -1 },
 	{ "lh",		"I",	"d,o(s)",	3,   1, -1 },
