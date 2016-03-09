@@ -167,6 +167,7 @@ static struct riscv_op riscv_opcodes[] = {
 	{ "lui",	"U",	"d,u",		55, -1, -1 },
 	{ "addw",	"R",	"d,s,t",	59,  0,  0 },
 	{ "subw",	"R",	"d,s,t",	59,  0,  0b0100000 },
+	{ "mulw",	"R",	"d,s,t",	59,  0,  1 },
 	{ "sllw",	"R",	"d,s,t",	59,  1,  0 },
 	{ "srlw",	"R",	"d,s,t",	59,  5,  0 },
 	{ "sraw",	"R",	"d,s,t",	59,  5,  0b0100000 },
