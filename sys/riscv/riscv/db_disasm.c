@@ -50,11 +50,12 @@ struct riscv_op {
 	char *fmt;
 	int opcode;
 	int funct3;
-	int funct7; /* or imm, depending on type */
+	int funct7; /* Or imm, depending on type. */
 };
 
 /*
- * Must be sorted by opcode, funct3, funct7.
+ * Keep sorted by opcode, funct3, funct7 so some instructions
+ * aliases will be supported.
  * Use same print format as binutils do.
  */
 static struct riscv_op riscv_opcodes[] = {
@@ -176,7 +177,6 @@ static struct riscv_op riscv_opcodes[] = {
 	{ "bgeu",	"SB",	"s,t,p",	99,  7,  -1 },
 	{ "jalr",	"I",	"d,s,j",	103,  0, -1 },
 	{ "jal",	"UJ",	"a",		111, -1, -1 },
-	/* CSRs */
 	{ "sfence.vm",	"I",	"",		115,  0, 0b000100000001 },
 	{ "wfi",	"I",	"",		115,  0, 0b000100000010 },
 	{ "csrrw",	"I",	"d,E,s",	115,  1, -1},
