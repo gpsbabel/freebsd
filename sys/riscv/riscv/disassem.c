@@ -34,13 +34,15 @@
 
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD$");
-#include <sys/param.h>
 
+#include <sys/param.h>
 #include <sys/systm.h>
-#include <machine/disassem.h>
+#include <ddb/ddb.h>
+#include <ddb/db_access.h>
+#include <ddb/db_sym.h>
+
 #include <machine/riscvreg.h>
 #include <machine/riscv_opcode.h>
-#include <ddb/ddb.h>
 
 struct riscv_op {
 	char *name;
@@ -352,13 +354,13 @@ match_type(InstFmt i, struct riscv_op *op, vm_offset_t loc)
 }
 
 vm_offset_t
-disasm(const struct disasm_interface *di, vm_offset_t loc, int altfmt)
+db_disasm(vm_offset_t loc, bool altfmt)
 {
 	struct riscv_op *op;
 	InstFmt i;
 	int j;
 
-	i.word = di->di_readword(loc);
+	i.word = db_get_value(loc, INSN_SIZE, 0);
 
 	/* First match opcode */
 	for (j = 0; riscv_opcodes[j].name != NULL; j++) {
@@ -369,6 +371,6 @@ disasm(const struct disasm_interface *di, vm_offset_t loc, int altfmt)
 		}
 	}
 
-	di->di_printf("\n");
+	db_printf("\n");
 	return(loc + INSN_SIZE);
 }
