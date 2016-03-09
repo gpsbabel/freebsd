@@ -54,9 +54,6 @@ struct riscv_op {
 };
 
 /*
- * Values taken from RISC-V Instruction Set Manual,
- * version 2.0, May 6, 2014.
- *
  * Must be sorted by opcode, funct3, funct7.
  * Use same print format as binutils do.
  */
@@ -179,15 +176,92 @@ static struct riscv_op riscv_opcodes[] = {
 	{ "bgeu",	"SB",	"s,t,p",	99,  7,  -1 },
 	{ "jalr",	"I",	"d,s,j",	103,  0, -1 },
 	{ "jal",	"UJ",	"a",		111, -1, -1 },
+	/* CSRs */
 	{ "sfence.vm",	"I",	"",		115,  0, 0b000100000001 },
 	{ "wfi",	"I",	"",		115,  0, 0b000100000010 },
-	{ "rdcycle",	"I",	"",		115,  2, 0b110000000000 },
-	{ "rdcycleh",	"I",	"",		115,  2, 0b110010000000 },
-	{ "rdtime",	"I",	"",		115,  2, 0b110000000001 },
-	{ "rdtimeh",	"I",	"",		115,  2, 0b110010000001 },
-	{ "rdinstret",	"I",	"",		115,  2, 0b110000000010 },
-	{ "rdinstreth",	"I",	"",		115,  2, 0b110010000010 },
-	{ NULL, NULL, NULL, 0, 0, 0 }, /* terminator */
+	{ "csrrw",	"I",	"d,E,s",	115,  1, -1},
+	{ "csrrs",	"I",	"d,E,s",	115,  2, -1},
+	{ "csrrc",	"I",	"d,E,s",	115,  3, -1},
+	{ "csrrwi",	"I",	"d,E,Z",	115,  5, -1},
+	{ "csrrsi",	"I",	"d,E,Z",	115,  6, -1},
+	{ "csrrci",	"I",	"d,E,Z",	115,  7, -1},
+	{ NULL, NULL, NULL, 0, 0, 0 }
+};
+
+struct csr_op {
+	char *name;
+	int imm;
+};
+
+static struct csr_op csr_name[] = {
+	{ "fflags",		0x001 },
+	{ "frm",		0x002 },
+	{ "fcsr",		0x003 },
+	{ "cycle",		0xc00 },
+	{ "time",		0xc01 },
+	{ "instret",		0xc02 },
+	{ "stats",		0x0c0 },
+	{ "uarch0",		0xcc0 },
+	{ "uarch1",		0xcc1 },
+	{ "uarch2",		0xcc2 },
+	{ "uarch3",		0xcc3 },
+	{ "uarch4",		0xcc4 },
+	{ "uarch5",		0xcc5 },
+	{ "uarch6",		0xcc6 },
+	{ "uarch7",		0xcc7 },
+	{ "uarch8",		0xcc8 },
+	{ "uarch9",		0xcc9 },
+	{ "uarch10",		0xcca },
+	{ "uarch11",		0xccb },
+	{ "uarch12",		0xccc },
+	{ "uarch13",		0xccd },
+	{ "uarch14",		0xcce },
+	{ "uarch15",		0xccf },
+	{ "sstatus",		0x100 },
+	{ "stvec",		0x101 },
+	{ "sie",		0x104 },
+	{ "sscratch",		0x140 },
+	{ "sepc",		0x141 },
+	{ "sip",		0x144 },
+	{ "sptbr",		0x180 },
+	{ "sasid",		0x181 },
+	{ "cyclew",		0x900 },
+	{ "timew",		0x901 },
+	{ "instretw",		0x902 },
+	{ "stime",		0xd01 },
+	{ "scause",		0xd42 },
+	{ "sbadaddr",		0xd43 },
+	{ "stimew",		0xa01 },
+	{ "mstatus",		0x300 },
+	{ "mtvec",		0x301 },
+	{ "mtdeleg",		0x302 },
+	{ "mie",		0x304 },
+	{ "mtimecmp",		0x321 },
+	{ "mscratch",		0x340 },
+	{ "mepc",		0x341 },
+	{ "mcause",		0x342 },
+	{ "mbadaddr",		0x343 },
+	{ "mip",		0x344 },
+	{ "mtime",		0x701 },
+	{ "mcpuid",		0xf00 },
+	{ "mimpid",		0xf01 },
+	{ "mhartid",		0xf10 },
+	{ "mtohost",		0x780 },
+	{ "mfromhost",		0x781 },
+	{ "mreset",		0x782 },
+	{ "send_ipi",		0x783 },
+	{ "miobase",		0x784 },
+	{ "cycleh",		0xc80 },
+	{ "timeh",		0xc81 },
+	{ "instreth",		0xc82 },
+	{ "cyclehw",		0x980 },
+	{ "timehw",		0x981 },
+	{ "instrethw",		0x982 },
+	{ "stimeh",		0xd81 },
+	{ "stimehw",		0xa81 },
+	{ "mtimecmph",		0x361 },
+	{ "mtimeh",		0x741 },
+	{ NULL,	0 }
 };
 
 static char *reg_name[32] = {
@@ -242,6 +316,7 @@ static int
 oprint(struct riscv_op *op, int rd, int rs1, int rs2, vm_offset_t imm)
 {
 	char *p;
+	int i;
 
 	p = op->fmt;
 
@@ -259,6 +334,13 @@ oprint(struct riscv_op *op, int rd, int rs1, int rs2, vm_offset_t imm)
 
 		else if (strncmp(">", p, 1) == 0)
 			db_printf("0x%x", rs2);
+
+		else if (strncmp("E", p, 1) == 0) {
+			for (i = 0; csr_name[i].name != NULL; i++)
+				if (csr_name[i].imm == imm)
+					db_printf("%s", csr_name[i].name);
+		} else if (strncmp("Z", p, 1) == 0)
+			db_printf("%d", rs1);
 
 		else if (strncmp("<", p, 1) == 0)
 			db_printf("0x%x", rs2);
