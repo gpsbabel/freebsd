@@ -53,16 +53,17 @@ struct riscv_op {
 
 /* Must be sorted by opcode, funct3, funct7 */
 static struct riscv_op riscv_opcodes[] = {
-	{ "lb",		"I",	"d,o(s)",	3,  0, -1 },
-	{ "lh",		"I",	"d,o(s)",	3,  1, -1 },
-	{ "lw",		"I",	"d,o(s)",	3,  2, -1 },
-	{ "ld",		"I",	"d,o(s)",	3,  3, -1 },
-	{ "lbu",	"I",	"d,o(s)",	3,  4, -1 },
-	{ "lhu",	"I",	"d,o(s)",	3,  5, -1 },
-	{ "lwu",	"I",	"d,o(s)",	3,  6, -1 },
-	{ "ldu",	"I",	"d,o(s)",	3,  7, -1 },
+	{ "lb",		"I",	"d,o(s)",	3,   0, -1 },
+	{ "lh",		"I",	"d,o(s)",	3,   1, -1 },
+	{ "lw",		"I",	"d,o(s)",	3,   2, -1 },
+	{ "ld",		"I",	"d,o(s)",	3,   3, -1 },
+	{ "lbu",	"I",	"d,o(s)",	3,   4, -1 },
+	{ "lhu",	"I",	"d,o(s)",	3,   5, -1 },
+	{ "lwu",	"I",	"d,o(s)",	3,   6, -1 },
+	{ "ldu",	"I",	"d,o(s)",	3,   7, -1 },
 	{ "fence",	"I",	"",		15,  0, -1 },
 	{ "fence.i",	"I",	"",		15,  1, -1 },
+	{ "mv",		"I",	"d,s",		19,  0,  0 },
 	{ "addi",	"I",	"d,s,j",	19,  0, -1 },
 	{ "slli",	"R",	"d,s,j",	19,  1,  0 },
 	{ "slti",	"I",	"d,s,j",	19,  2, -1 },
@@ -218,7 +219,7 @@ get_imm(InstFmt i, char *type)
 }
 
 static int
-oprint(struct riscv_op *op, int rd, int rs1, int rs2, int imm)
+oprint(struct riscv_op *op, int rd, int rs1, int rs2, vm_offset_t imm)
 {
 	char *p;
 
@@ -239,11 +240,14 @@ oprint(struct riscv_op *op, int rd, int rs1, int rs2, int imm)
 		else if (strncmp("j", p, 1) == 0)
 			db_printf("%d", imm);
 
-		else if (strncmp("a", p, 1) == 0)
+		else if (strncmp("u", p, 1) == 0)
 			db_printf("0x%x", imm);
 
+		else if (strncmp("a", p, 1) == 0)
+			db_printf("0x%016lx", imm);
+
 		else if (strncmp("p", p, 1) == 0)
-			db_printf("0x%x", imm);
+			db_printf("0x%016lx", imm);
 
 		else if (strlen(p) >= 4) {
 			if (strncmp("o(s)", p, 4) == 0)
@@ -324,7 +328,7 @@ match_opcode(InstFmt i, struct riscv_op *op, vm_offset_t loc)
 	}
 	if ((strcmp(op->type, "SB") == 0) && \
 	    (op->funct3 == i.SBType.funct3)) {
-		oprint(op, 0, i.SBType.rs1, i.SBType.rs2, imm);
+		oprint(op, 0, i.SBType.rs1, i.SBType.rs2, (loc + imm));
 
 		/* Match */
 		//db_printf("%s\t%s, %s, 0x%lx", op->name,
