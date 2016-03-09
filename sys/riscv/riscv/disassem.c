@@ -314,7 +314,6 @@ match_opcode(InstFmt i, struct riscv_op *op, vm_offset_t loc)
 	}
 	if ((strcmp(op->type, "S") == 0) && \
 	    (op->funct3 == i.SType.funct3)) {
-		/* Match */
 		oprint(op, 0, i.SType.rs1, i.SType.rs2, imm);
 		return (1);
 	}
