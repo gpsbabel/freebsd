@@ -63,11 +63,10 @@ typedef long		db_expr_t;
 #define	IS_BREAKPOINT_TRAP(type, code)	(type == T_BREAKPOINT)
 #define	IS_WATCHPOINT_TRAP(type, code)	(type == T_WATCHPOINT)
 
-#define	inst_trap_return(ins)	(0)
-/* ret */
-#define	inst_return(ins)	(((ins) & 0xfffffc1fu) == 0xd65f0000)
-#define	inst_call(ins)		(((ins) & 0xfc000000u) == 0x94000000u || /* BL */ \
-				 ((ins) & 0xfffffc1fu) == 0xd63f0000u) /* BLR */
+#define	inst_trap_return(ins)	(ins == 0x10000073)	/* eret */
+#define	inst_return(ins)	(ins == 0x00008067)	/* ret */
+#define	inst_call(ins)		(((ins) & 0x7f) == 111 || \
+				 ((ins) & 0x7f) == 103) /* jal, jalr */
 
 #define	inst_load(ins) ({							\
 	uint32_t tmp_instr = db_get_value(PC_REGS(), sizeof(uint32_t), FALSE);	\
@@ -79,29 +78,8 @@ typedef long		db_expr_t;
 	is_store_instr(tmp_instr);						\
 })
 
-#define	is_load_instr(ins)	((((ins) & 0x3b000000u) == 0x18000000u) || \
-				 (((ins) & 0x3f400000u) == 0x08400000u) || \
-				 (((ins) & 0x3bc00000u) == 0x28400000u) || \
-				 (((ins) & 0x3bc00000u) == 0x28400000u) || \
-				 (((ins) & 0x3bc00000u) == 0x28c00000u) || \
-				 (((ins) & 0x3bc00000u) == 0x29800000u))
-
-#define	is_store_instr(ins)	((((ins) & 0x3f400000u) == 0x08000000u) || /* exclusive */ \
-				 (((ins) & 0x3bc00000u) == 0x28000000u) || /* no-allocate pair */ \
-				 ((((ins) & 0x3be00c00u) == 0x38000400u) || \
-				  (((ins) & 0xffe00c00u) == 0x3c800400u)) || /* immediate post-indexed */ \
-				 ((((ins) & 0x3be00c00u) == 0x38000c00u) || \
-				  (((ins) & 0xffe00c00u) == 0x3c800c00u)) || /* immediate pre-indexed */ \
-				 ((((ins) & 0x3be00c00u) == 0x38200800u) || \
-				  (((ins) & 0xffe00c00u) == 0x3ca00800u)) || /* register offset */ \
-				 (((ins) & 0x3be00c00u) == 0x38000800u) ||  /* unprivileged */ \
-				 ((((ins) & 0x3be00c00u) == 0x38000000u) || \
-				  (((ins) & 0xffe00c00u) == 0x3c800000u)) ||  /* unscaled immediate */ \
-				 ((((ins) & 0x3bc00000u) == 0x39000000u) || \
-				  (((ins) & 0xffc00000u) == 0x3d800000u)) ||  /* unsigned immediate */ \
-				 (((ins) & 0x3bc00000u) == 0x28000000u) || /* pair (offset) */ \
-				 (((ins) & 0x3bc00000u) == 0x28800000u) || /* pair (post-indexed) */ \
-				 (((ins) & 0x3bc00000u) == 0x29800000u)) /* pair (pre-indexed) */
+#define	is_load_instr(ins)	(((ins) & 0x7f) == 3)
+#define	is_store_instr(ins)	(((ins) & 0x7f) == 35)
 
 #define	next_instr_address(pc, bd)	((bd) ? (pc) : ((pc) + 4))
 
