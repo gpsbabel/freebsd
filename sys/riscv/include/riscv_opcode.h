@@ -54,8 +54,8 @@ typedef union {
 		unsigned rd: 5;
 		unsigned funct3: 3;
 		unsigned rs1: 5;
-		unsigned rs2: 6;
-		unsigned funct7: 6;
+		unsigned rs2: 5;
+		unsigned funct7: 7;
 	} RType;
 
 	struct {
@@ -63,8 +63,8 @@ typedef union {
 		unsigned rd: 5;
 		unsigned funct3: 3;
 		unsigned rs1: 5;
-		unsigned rs2: 5;
-		unsigned funct7: 7;
+		unsigned rs2: 6;
+		unsigned funct7: 6;
 	} R2Type;
 
 	struct {
