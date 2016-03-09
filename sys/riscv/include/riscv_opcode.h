@@ -65,7 +65,7 @@ typedef union {
 		unsigned rs1: 5;
 		unsigned rs2: 5;
 		unsigned funct7: 7;
-	} RAType;
+	} R2Type;
 
 	struct {
 		unsigned opcode: 7;
