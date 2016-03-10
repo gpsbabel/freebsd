@@ -55,7 +55,7 @@ struct riscv_op {
 
 /*
  * Keep sorted by opcode, funct3, funct7 so some instructions
- * aliases will be supported.
+ * aliases will be supported (e.g. "mv" instruction alias)
  * Use same print format as binutils do.
  */
 static struct riscv_op riscv_opcodes[] = {
