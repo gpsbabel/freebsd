@@ -274,7 +274,7 @@ static char *reg_name[32] = {
 };
 
 static int32_t
-get_imm(InstFmt i, char *type)
+get_imm(InstFmt i, char *type, int *val)
 {
 	int imm;
 
@@ -282,23 +282,27 @@ get_imm(InstFmt i, char *type)
 
 	if (strcmp(type, "I") == 0) {
 		imm = i.IType.imm;
+		*val = imm;
 		if (imm & (1 << 11))
 			imm |= (0xfffff << 12);	/* sign extend */
 
 	} else if (strcmp(type, "S") == 0) {
 		imm = i.SType.imm0_4;
 		imm |= (i.SType.imm5_11 << 5);
+		*val = imm;
 		if (imm & (1 << 11))
 			imm |= (0xfffff << 12); /* sign extend */
 
 	} else if (strcmp(type, "U") == 0) {
 		imm = i.UType.imm12_31;
+		*val = imm;
 
 	} else if (strcmp(type, "UJ") == 0) {
 		imm = i.UJType.imm12_19 << 12;
 		imm |= i.UJType.imm11 << 11;
 		imm |= i.UJType.imm1_10 << 1;
 		imm |= i.UJType.imm20 << 20;
+		*val = imm;
 		if (imm & (1 << 20))
 			imm |= (0xfff << 21);	/* sign extend */
 
@@ -307,6 +311,7 @@ get_imm(InstFmt i, char *type)
 		imm |= i.SBType.imm1_4 << 1;
 		imm |= i.SBType.imm5_10 << 5;
 		imm |= i.SBType.imm12 << 12;
+		*val = imm;
 		if (imm & (1 << 12))
 			imm |= (0xfffff << 12);	/* sign extend */
 	}
@@ -315,7 +320,8 @@ get_imm(InstFmt i, char *type)
 }
 
 static int
-oprint(struct riscv_op *op, int rd, int rs1, int rs2, vm_offset_t imm)
+oprint(struct riscv_op *op, int rd, int rs1, int rs2,
+    int val, vm_offset_t imm)
 {
 	char *p;
 	int i;
@@ -339,8 +345,9 @@ oprint(struct riscv_op *op, int rd, int rs1, int rs2, vm_offset_t imm)
 
 		else if (strncmp("E", p, 1) == 0) {
 			for (i = 0; csr_name[i].name != NULL; i++)
-				if (csr_name[i].imm == imm)
-					db_printf("%s", csr_name[i].name);
+				if (csr_name[i].imm == val)
+					db_printf("%s",
+					    csr_name[i].name);
 		} else if (strncmp("Z", p, 1) == 0)
 			db_printf("%d", rs1);
 
@@ -386,15 +393,17 @@ match_type(InstFmt i, struct riscv_op *op, vm_offset_t loc)
 {
 	int found;
 	int imm;
+	int val;
 
-	imm = get_imm(i, op->type);
+	val = 0;
+	imm = get_imm(i, op->type, &val);
 
 	if (strcmp(op->type, "U") == 0) {
-		oprint(op, i.UType.rd, 0, 0, imm);
+		oprint(op, i.UType.rd, 0, 0, val, imm);
 		return (1);
 	}
 	if (strcmp(op->type, "UJ") == 0) {
-		oprint(op, 0, 0, 0, (loc + imm));
+		oprint(op, 0, 0, 0, val, (loc + imm));
 		return (1);
 	}
 	if ((strcmp(op->type, "I") == 0) && \
@@ -407,30 +416,35 @@ match_type(InstFmt i, struct riscv_op *op, vm_offset_t loc)
 			found = 1;
 
 		if (found) {
-			oprint(op, i.IType.rd, i.IType.rs1, 0, imm);
+			oprint(op, i.IType.rd, i.IType.rs1,
+			    0, val, imm);
 			return (1);
 		}
 	}
 	if ((strcmp(op->type, "S") == 0) && \
 	    (op->funct3 == i.SType.funct3)) {
-		oprint(op, 0, i.SType.rs1, i.SType.rs2, imm);
+		oprint(op, 0, i.SType.rs1, i.SType.rs2,
+		    val, imm);
 		return (1);
 	}
 	if ((strcmp(op->type, "SB") == 0) && \
 	    (op->funct3 == i.SBType.funct3)) {
-		oprint(op, 0, i.SBType.rs1, i.SBType.rs2, (loc + imm));
+		oprint(op, 0, i.SBType.rs1, i.SBType.rs2,
+		    val, (loc + imm));
 		return (1);
 	}
 	if ((strcmp(op->type, "R2") == 0) && \
 	    (op->funct3 == i.R2Type.funct3) && \
 	    (op->funct7 == i.R2Type.funct7)) {
-		oprint(op, i.R2Type.rd, i.R2Type.rs1, i.R2Type.rs2, imm);
+		oprint(op, i.R2Type.rd, i.R2Type.rs1,
+		    i.R2Type.rs2, val, imm);
 		return (1);
 	}
 	if ((strcmp(op->type, "R") == 0) && \
 	    (op->funct3 == i.RType.funct3) && \
 	    (op->funct7 == i.RType.funct7)) {
-		oprint(op, i.RType.rd, i.RType.rs1, i.RType.rs2, imm);
+		oprint(op, i.RType.rd, i.RType.rs1,
+		    val, i.RType.rs2, imm);
 		return (1);
 	}
 
