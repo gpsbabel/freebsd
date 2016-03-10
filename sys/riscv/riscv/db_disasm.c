@@ -320,8 +320,8 @@ get_imm(InstFmt i, char *type, int *val)
 }
 
 static int
-oprint(struct riscv_op *op, int rd, int rs1, int rs2,
-    int val, vm_offset_t imm)
+oprint(struct riscv_op *op, vm_offset_t loc, int rd,
+    int rs1, int rs2, int val, vm_offset_t imm)
 {
 	char *p;
 	int i;
@@ -364,7 +364,7 @@ oprint(struct riscv_op *op, int rd, int rs1, int rs2,
 			db_printf("0x%016lx", imm);
 
 		else if (strncmp("p", p, 1) == 0)
-			db_printf("0x%016lx", imm);
+			db_printf("0x%016lx", (loc + imm));
 
 		else if (strlen(p) >= 4) {
 			if (strncmp("o(s)", p, 4) == 0)
@@ -399,11 +399,11 @@ match_type(InstFmt i, struct riscv_op *op, vm_offset_t loc)
 	imm = get_imm(i, op->type, &val);
 
 	if (strcmp(op->type, "U") == 0) {
-		oprint(op, i.UType.rd, 0, 0, val, imm);
+		oprint(op, loc, i.UType.rd, 0, 0, val, imm);
 		return (1);
 	}
 	if (strcmp(op->type, "UJ") == 0) {
-		oprint(op, 0, 0, 0, val, (loc + imm));
+		oprint(op, loc, 0, 0, 0, val, (loc + imm));
 		return (1);
 	}
 	if ((strcmp(op->type, "I") == 0) && \
@@ -416,34 +416,34 @@ match_type(InstFmt i, struct riscv_op *op, vm_offset_t loc)
 			found = 1;
 
 		if (found) {
-			oprint(op, i.IType.rd, i.IType.rs1,
-			    0, val, imm);
+			oprint(op, loc, i.IType.rd,
+			    i.IType.rs1, 0, val, imm);
 			return (1);
 		}
 	}
 	if ((strcmp(op->type, "S") == 0) && \
 	    (op->funct3 == i.SType.funct3)) {
-		oprint(op, 0, i.SType.rs1, i.SType.rs2,
+		oprint(op, loc, 0, i.SType.rs1, i.SType.rs2,
 		    val, imm);
 		return (1);
 	}
 	if ((strcmp(op->type, "SB") == 0) && \
 	    (op->funct3 == i.SBType.funct3)) {
-		oprint(op, 0, i.SBType.rs1, i.SBType.rs2,
-		    val, (loc + imm));
+		oprint(op, loc, 0, i.SBType.rs1, i.SBType.rs2,
+		    val, imm);
 		return (1);
 	}
 	if ((strcmp(op->type, "R2") == 0) && \
 	    (op->funct3 == i.R2Type.funct3) && \
 	    (op->funct7 == i.R2Type.funct7)) {
-		oprint(op, i.R2Type.rd, i.R2Type.rs1,
+		oprint(op, loc, i.R2Type.rd, i.R2Type.rs1,
 		    i.R2Type.rs2, val, imm);
 		return (1);
 	}
 	if ((strcmp(op->type, "R") == 0) && \
 	    (op->funct3 == i.RType.funct3) && \
 	    (op->funct7 == i.RType.funct7)) {
-		oprint(op, i.RType.rd, i.RType.rs1,
+		oprint(op, loc, i.RType.rd, i.RType.rs1,
 		    val, i.RType.rs2, imm);
 		return (1);
 	}
