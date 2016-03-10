@@ -179,6 +179,7 @@ static struct riscv_op riscv_opcodes[] = {
 	{ "bgeu",	"SB",	"s,t,p",	99,  7,  -1 },
 	{ "jalr",	"I",	"d,s,j",	103,  0, -1 },
 	{ "jal",	"UJ",	"a",		111, -1, -1 },
+	{ "eret",	"I",	"",		115,  0, 0b000100000000 },
 	{ "sfence.vm",	"I",	"",		115,  0, 0b000100000001 },
 	{ "wfi",	"I",	"",		115,  0, 0b000100000010 },
 	{ "csrrw",	"I",	"d,E,s",	115,  1, -1},
@@ -274,7 +275,7 @@ static char *reg_name[32] = {
 };
 
 static int32_t
-get_imm(InstFmt i, char *type, int *val)
+get_imm(InstFmt i, char *type, uint32_t *val)
 {
 	int imm;
 
@@ -321,7 +322,7 @@ get_imm(InstFmt i, char *type, int *val)
 
 static int
 oprint(struct riscv_op *op, vm_offset_t loc, int rd,
-    int rs1, int rs2, int val, vm_offset_t imm)
+    int rs1, int rs2, uint32_t val, vm_offset_t imm)
 {
 	char *p;
 	int i;
@@ -391,9 +392,9 @@ oprint(struct riscv_op *op, vm_offset_t loc, int rd,
 static int
 match_type(InstFmt i, struct riscv_op *op, vm_offset_t loc)
 {
+	uint32_t val;
 	int found;
 	int imm;
-	int val;
 
 	val = 0;
 	imm = get_imm(i, op->type, &val);
