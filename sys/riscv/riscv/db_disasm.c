@@ -292,7 +292,7 @@ get_imm(InstFmt i, char *type, uint32_t *val)
 		imm |= (i.SType.imm5_11 << 5);
 		*val = imm;
 		if (imm & (1 << 11))
-			imm |= (0xfffff << 12); /* sign extend */
+			imm |= (0xfffff << 12);	/* sign extend */
 
 	} else if (strcmp(type, "U") == 0) {
 		imm = i.UType.imm12_31;
