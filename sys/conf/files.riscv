@@ -2,6 +2,7 @@
 crypto/blowfish/bf_enc.c	optional	crypto | ipsec
 crypto/des/des_enc.c		optional	crypto | ipsec | netsmb
 dev/ofw/ofw_cpu.c		optional	fdt
+dev/uart/uart_cpu_fdt.c		optional	uart fdt
 kern/kern_clocksource.c		standard
 kern/subr_dummy_vdso_tc.c	standard
 libkern/bcmp.c			standard
@@ -38,6 +39,7 @@ riscv/riscv/minidump_machdep.c	standard
 riscv/riscv/mp_machdep.c	optional	smp
 riscv/riscv/mem.c		standard
 riscv/riscv/nexus.c		standard
+riscv/riscv/ofw_machdep.c	optional	fdt
 riscv/riscv/pmap.c		standard
 riscv/riscv/stack_machdep.c	optional	ddb | stack
 riscv/riscv/support.S		standard
