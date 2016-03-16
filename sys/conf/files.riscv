@@ -19,6 +19,7 @@ riscv/htif/htif_console.c	standard
 riscv/riscv/autoconf.c		standard
 riscv/riscv/bcopy.c		standard
 riscv/riscv/bus_machdep.c	standard
+riscv/riscv/bus_space_asm.S	standard
 riscv/riscv/busdma_machdep.c	standard
 riscv/riscv/clock.c		standard
 riscv/riscv/copyinout.S		standard
