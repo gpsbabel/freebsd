@@ -1,8 +1,9 @@
 # $FreeBSD$
 
-.PATH: ${.CURDIR}/../../../dev/usb/wlan
+.PATH: ${.CURDIR}/../../dev/urtwn
 
-.include <src.opts.mk>
+SYSDIR?=${.CURDIR}/../..
+.include "${SYSDIR}/conf/kern.opts.mk"
 
 KMOD    = if_urtwn
 SRCS    = if_urtwn.c if_urtwnreg.h if_urtwnvar.h \
