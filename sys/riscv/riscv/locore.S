@@ -73,18 +73,19 @@
 	sd	t1, 8(t0)	/* zero used */
 	mv	t2, t0
 	mv	t3, t0
-	li	t5, (HTIF_RING_SIZE - HTIF_RING_ENTRY_SZ)
+	li	t5, (HTIF_RING_SIZE)
 	li	t6, 0
 	add	t4, t0, t5
 1:
-	addi	t3, t3, 24	/* pointer to next */
-	beq	t3, t4, 2f	/* finish */
-	sd	t3, 16(t2)	/* store pointer */
-	addi	t2, t2, 24	/* next entry */
-	addi	t6, t6, 1	/* counter */
+	addi	t3, t3, HTIF_RING_ENTRY_SZ	/* pointer to next */
+	beq	t3, t4, 2f			/* finish */
+	sd	t3, 16(t2)			/* store pointer */
+	addi	t2, t2, HTIF_RING_ENTRY_SZ	/* next entry */
+	addi	t6, t6, 1			/* counter */
 	j	1b
 2:
-	sd	t0, 16(t3)	/* last -> first */
+	addi	t3, t3, -HTIF_RING_ENTRY_SZ
+	sd	t0, 16(t3)			/* last -> first */
 
 	li	t2, (HTIF_RING_SIZE)
 	add	s0, t0, t2
@@ -133,7 +134,7 @@ _start:
 	csrw	mscratch, t0
 
 	la	t0, mentry
-	csrw	mtvec, t0
+	//csrw	mtvec, t0
 
 	li	t0, 0
 	csrw	sscratch, t0
@@ -142,29 +143,6 @@ _start:
 	li	s9, (PAGE_SIZE * KSTACK_PAGES)
 
 	/* Page tables */
-
-	/* Level 0 */
-	la	s1, pagetable_l0
-	la	s2, pagetable_l1	/* Link to next level PN */
-	srli	s2, s2, PAGE_SHIFT
-
-	li	t4, (PTE_VALID | (PTE_TYPE_PTR << PTE_TYPE_S))
-	slli	t5, s2, PTE_PPN0_S	/* (s2 << PTE_PPN0_S) */
-	or	t6, t4, t5
-
-	/* Store single level0 PTE entry to position */
-	li	a5, 0x1ff
-	li	a6, PTE_SIZE
-	mulw	a5, a5, a6
-	add	t0, s1, a5
-	/* Store it to pagetable_l0 for each cpu */
-	li	t1, MAXCPU
-	li	t2, PAGE_SIZE
-1:
-	sd	t6, 0(t0)
-	add	t0, t0, t2
-	addi	t1, t1, -1
-	bnez	t1, 1b
 
 	/* Level 1 */
 	la	s1, pagetable_l1
@@ -200,13 +178,13 @@ _start:
 	bltu	t4, t3, 2b
 
 	/* Set page tables base register */
-	la	s1, pagetable_l0
+	la	s1, pagetable_l1
 	csrw	sptbr, s1
 
 	/* Page tables END */
 
 	/* Enter supervisor mode */
-	li	s0, ((MSTATUS_VM_SV48 << MSTATUS_VM_SHIFT) | \
+	li	s0, ((MSTATUS_VM_SV39 << MSTATUS_VM_SHIFT) | \
 		     (MSTATUS_PRV_M << MSTATUS_PRV_SHIFT) | \
 		     (MSTATUS_PRV_S << MSTATUS_PRV1_SHIFT) | \
 		     (MSTATUS_PRV_U << MSTATUS_PRV2_SHIFT));
@@ -292,9 +270,6 @@ szsigcode:
 	.quad	esigcode - sigcode
 
 	.align	12
-	.globl pagetable_l0
-pagetable_l0:
-	.space (PAGE_SIZE * MAXCPU)
 pagetable_l1:
 	.space	PAGE_SIZE
 pagetable_l2:
@@ -342,15 +317,11 @@ ENTRY(mpentry)
 	build_ring
 
 	/* Set page tables base register */
-	la	t0, pagetable_l0
-	li	t1, PAGE_SIZE
-	mulw	t1, t1, a0
-	add	t0, t0, t1
+	la	t0, pagetable_l1
 	csrw	sptbr, t0
-	/* Page tables END */
 
 	/* Configure mstatus */
-	li	s0, ((MSTATUS_VM_SV48 << MSTATUS_VM_SHIFT) | \
+	li	s0, ((MSTATUS_VM_SV39 << MSTATUS_VM_SHIFT) | \
 		     (MSTATUS_PRV_M << MSTATUS_PRV_SHIFT) | \
 		     (MSTATUS_PRV_S << MSTATUS_PRV1_SHIFT) | \
 		     (MSTATUS_PRV_U << MSTATUS_PRV2_SHIFT));

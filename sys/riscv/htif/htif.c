@@ -162,8 +162,6 @@ htif_enumerate(struct htif_softc *sc)
 
 	device_printf(sc->dev, "Enumerating devices\n");
 
-	breakpoint();
-
 	for (i = 0; i < HTIF_NDEV; i++) {
 		paddr = pmap_kextract((vm_offset_t)&id);
 		data = (paddr << IDENTIFY_PADDR_SHIFT);

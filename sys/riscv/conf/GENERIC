@@ -92,7 +92,7 @@ options 	INVARIANT_SUPPORT	# Extra sanity checks of internal structures, require
 options 	MALLOC_DEBUG_MAXZONES=8	# Separate malloc(9) zones
 
 options 	ROOTDEVNAME=\"ufs:/dev/htif_blk0\"
-# options 	EARLY_PRINTF
+options 	EARLY_PRINTF
 
 # Serial (COM) ports
 device		uart		# Generic UART driver
