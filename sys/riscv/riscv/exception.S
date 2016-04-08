@@ -493,6 +493,18 @@ htif_cmd:
 	j	exit_next_instr
 
 htif_lowputc:
+	li	t0, 0x80001000
+	li	t3, 0x40
+
+1:	
+	lw	t2, UART_LSR(t0)
+	and	t2, t2, t3
+	beqz	t2, 1b
+	sw	t6, 0(t0)
+
+	j	exit_next_instr
+
+
 1:
 	mv	t0, t6
 	csrrw	t0, mtohost, t0

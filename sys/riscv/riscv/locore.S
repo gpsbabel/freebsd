@@ -48,6 +48,13 @@
 #define	HTIF_RING_SIZE		(HTIF_RING_ENTRY_SZ * HTIF_RING_NENTRIES)
 #define	HW_STACK_SIZE		(96)
 
+#define UART_LCR 0x3*4
+#define UART_IER 0x1*4
+#define UART_DLL 0x0*4
+#define UART_DLM 0x1*4
+#define UART_THR 0x0*4
+#define UART_LSR 0x5*4
+
 /*
  * Event queue for each CPU core:
  *
@@ -125,6 +132,42 @@ _start:
 	/* Direct secondary cores to mpentry */
 	csrr	a0, mhartid
 	bnez	a0, mpentry
+
+	/* Clear DDR */
+	la	t0, _end
+	li	t1, 0x08000000;
+1:
+	sd	zero, 0(t0)
+	fence
+	addi	t0, t0, 8
+	bltu	t0, t1, 1b
+	/* End */
+
+	/* Configure UART */
+	li	t0, 0x80001000
+	li	t2, 0x80
+	sw	t2, UART_LCR(t0)
+	li	t2, 13
+	sw	t2, UART_DLL(t0)
+	li	t2, 0
+	sw	t2, UART_DLM(t0)
+	li	t2, 0x0b /* 8-bit data, 1-bit odd parity */
+	sw	t2, UART_LCR(t0)
+	li	t2, 0	/* Disable interrupts */
+	li	t2, 1	/* Enable interrupts */
+	sw	t2, UART_IER(t0)
+
+#if 1
+	/* put test char */
+	li	t0, 0x80001000
+	li	t3, 0x40
+1:	lw	t2, UART_LSR(t0)
+	and	t2, t2, t3
+	beqz	t2, 1b
+	li	t2, 0x62
+	sw	t2, 0(t0)
+	/* end put char */
+#endif
 
 	/* Build event queue for current core */
 	build_ring

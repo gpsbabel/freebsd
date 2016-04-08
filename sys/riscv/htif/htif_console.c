@@ -110,6 +110,8 @@ htif_putc(int c)
 	cmd |= (CONSOLE_DEFAULT_ID << HTIF_DEV_ID_SHIFT);
 	cmd |= c;
 
+	//cmd = c;
+
 #ifdef SPIN_IN_MACHINE_MODE
 	machine_command(ECALL_HTIF_LOWPUTC, cmd);
 #else
@@ -275,6 +277,7 @@ riscv_cngetc(struct consdev *cp)
 	uint8_t data;
 	int ch;
 
+	if (1 == 0)
 	htif_getc();
 
 #if defined(KDB)
