@@ -816,10 +816,10 @@ pmap_kextract(vm_offset_t va)
 void
 pmap_kenter_device(vm_offset_t sva, vm_size_t size, vm_paddr_t pa)
 {
+	pt_entry_t entry;
 	pt_entry_t *l3;
 	vm_offset_t va;
-
-	panic("%s: implement me\n", __func__);
+	pn_t pn;
 
 	KASSERT((pa & L3_OFFSET) == 0,
 	   ("pmap_kenter_device: Invalid physical address"));
@@ -832,11 +832,12 @@ pmap_kenter_device(vm_offset_t sva, vm_size_t size, vm_paddr_t pa)
 	while (size != 0) {
 		l3 = pmap_l3(kernel_pmap, va);
 		KASSERT(l3 != NULL, ("Invalid page table, va: 0x%lx", va));
-		panic("%s: unimplemented", __func__);
-#if 0 /* implement me */
-		pmap_load_store(l3, (pa & ~L3_OFFSET) | ATTR_DEFAULT |
-		    ATTR_IDX(DEVICE_MEMORY) | L3_PAGE);
-#endif
+
+		pn = (pa / PAGE_SIZE);
+		entry = (PTE_VALID | (PTE_TYPE_SRWX << PTE_TYPE_S));
+		entry |= (pn << PTE_PPN0_S);
+		pmap_load_store(l3, entry);
+
 		PTE_SYNC(l3);
 
 		va += PAGE_SIZE;
