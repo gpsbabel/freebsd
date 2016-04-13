@@ -130,6 +130,8 @@ struct ispmdvec {
 #define	SYNC_SFORCPU	3	/* scratch, sync for CPU */
 #define	SYNC_REG	4	/* for registers */
 #define	SYNC_ATIOQ	5	/* atio result queue (24xx) */
+#define	SYNC_IFORDEV	6	/* synchrounous IOCB, sync for ISP */
+#define	SYNC_IFORCPU	7	/* synchrounous IOCB, sync for CPU */
 
 /*
  * Request/Response Queue defines and macros.
@@ -596,6 +598,12 @@ struct ispsoftc {
 	isp_hdl_t		*isp_xffree;
 
 	/*
+	 * DMA mapped in area for synchronous IOCB requests.
+	 */
+	void *			isp_iocb;
+	XS_DMA_ADDR_T		isp_iocb_dma;
+
+	/*
 	 * request/result queue pointers and DMA handles for them.
 	 */
 	void *			isp_rquest;
@@ -637,11 +645,12 @@ struct ispsoftc {
  * ISP Runtime Configuration Options
  */
 #define	ISP_CFG_FULL_DUPLEX	0x01	/* Full Duplex (Fibre Channel only) */
-#define	ISP_CFG_PORT_PREF	0x0c	/* Mask for Port Prefs (all FC except 2100) */
-#define	ISP_CFG_LPORT		0x00	/* prefer {N/F}L-Port connection */
-#define	ISP_CFG_NPORT		0x04	/* prefer {N/F}-Port connection */
-#define	ISP_CFG_NPORT_ONLY	0x08	/* insist on {N/F}-Port connection */
-#define	ISP_CFG_LPORT_ONLY	0x0c	/* insist on {N/F}L-Port connection */
+#define	ISP_CFG_PORT_PREF	0x0e	/* Mask for Port Prefs (all FC except 2100) */
+#define	ISP_CFG_PORT_DEF	0x00	/* prefer connection type from NVRAM */
+#define	ISP_CFG_LPORT_ONLY	0x02	/* insist on {N/F}L-Port connection */
+#define	ISP_CFG_NPORT_ONLY	0x04	/* insist on {N/F}-Port connection */
+#define	ISP_CFG_LPORT		0x06	/* prefer {N/F}L-Port connection */
+#define	ISP_CFG_NPORT		0x08	/* prefer {N/F}-Port connection */
 #define	ISP_CFG_1GB		0x10	/* force 1GB connection (23XX only) */
 #define	ISP_CFG_2GB		0x20	/* force 2GB connection (23XX only) */
 #define	ISP_CFG_NORELOAD	0x80	/* don't download f/w */
