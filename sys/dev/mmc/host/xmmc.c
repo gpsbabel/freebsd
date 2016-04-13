@@ -1091,50 +1091,22 @@ select(struct dwmmc_softc *sc)
 }
 
 static int
-dwmmc_request(device_t brdev, device_t reqdev, struct mmc_request *req)
+xmmc_req(struct dwmmc_softc *sc, struct mmc_command *cmd, struct mmc_command *cmd_stop)
 {
-	//struct spi_command spi_cmd;
-	struct mmc_command *cmd;
-	struct dwmmc_softc *sc;
-#if 0
-	uint8_t *msg_dout;
-	uint8_t *msg_dinp;
-#endif
-	uint8_t crc;
+	//struct mmc_command *cmd;
+	struct mmc_data *data;
+	uint32_t timeout;
+	uint8_t *ptr;
 	uint32_t reg;
+	int success;
+	uint8_t crc;
+	uint8_t d;
 	int ret;
 	int i;
 	int j;
-	//uint32_t len;
-	struct mmc_data *data;
 
-	sc = device_get_softc(brdev);
-
-	cmd = req->cmd;
+	//cmd = req->cmd;
 	data = cmd->data;
-
-	dprintf("%s: opcode %d\n", __func__, cmd->opcode);
-	//if (data) {
-	//	len = data->len;
-	//	printf("DATA req: len %d\n", len);
-	//}
-
-	DWMMC_LOCK(sc);
-
-#if 0
-	msg_dout = malloc(32, M_DEVBUF, M_NOWAIT | M_ZERO);
-	msg_dinp = malloc(32, M_DEVBUF, M_NOWAIT | M_ZERO);
-#endif
-
-	/* 80 Dummy clocks */
-	if (flag == 0) {
-		flag = 1;
-		for (i = 0; i < 10; i++) {
-			xchg_spi(sc, 0xff);
-		}
-	}
-
-	select(sc);
 
 	xchg_spi(sc, 0xff);
 	xchg_spi(sc, (0x40 | cmd->opcode));
@@ -1155,7 +1127,6 @@ dwmmc_request(device_t brdev, device_t reqdev, struct mmc_request *req)
 	/* Wait response */
 	ret = 0;
 	cmd->error = MMC_ERR_NONE;
-	int success;
 	success = 0;
 
 	for (i = 0; i < 10; i++) {
@@ -1176,28 +1147,7 @@ dwmmc_request(device_t brdev, device_t reqdev, struct mmc_request *req)
 		cmd->error = MMC_ERR_TIMEOUT;
 	}
 
-	uint32_t timeout;
-
-	if (success && cmd->opcode == 17) {
-		/* Wait for data */
-		timeout = 20;
-		do {
-			reg = xchg_spi(sc, 0xff);
-			timeout--;
-		} while ((reg == 0xff) && timeout);
-		if (reg != 0xFE) {
-			printf("FAILED to wait DATA\n");
-		}
-		uint8_t *ptr;
-		uint8_t d;
-		ptr = data->data;
-		for (i = 0; i < 512; i++) {
-			d = xchg_spi(sc, 0xff);
-			*ptr++ = d;
-			//printf("%2x ", d);
-		}
-		printf("\n");
-	} else if (success && cmd->flags & MMC_RSP_PRESENT) {
+	if (success && cmd->flags & MMC_RSP_PRESENT) {
 		if (cmd->flags & MMC_RSP_136) {
 
 			/* Wait for data */
@@ -1223,7 +1173,7 @@ dwmmc_request(device_t brdev, device_t reqdev, struct mmc_request *req)
 		//	printf("short resp: 0x%02x\n", reg);
 		//	cmd->resp[0] = reg;
 		//} else if (cmd->flags & MMC_RSP_R3) {
-		} else {
+		} else if (cmd->opcode != 17 && cmd->opcode != 18) {
 			reg = 0;
 			for (i = 3; i >= 0; i--) {
 				reg |= (xchg_spi(sc, 0xff) << (i * 8));
@@ -1233,8 +1183,82 @@ dwmmc_request(device_t brdev, device_t reqdev, struct mmc_request *req)
 		}
 	}
 
+	int count;
+	if (success && (cmd->opcode == 17 || cmd->opcode == 18)) {
+		count = data->len / 512;
+		ptr = data->data;
+
+		for (j = 0; j < count; j++) {
+			/* Wait for data */
+			timeout = 200;
+			do {
+				reg = xchg_spi(sc, 0xff);
+				timeout--;
+			} while ((reg == 0xff) && timeout);
+			if (reg != 0xFE) {
+				printf("FAILED to wait DATA\n");
+			}
+			for (i = 0; i < 512; i++) {
+				d = xchg_spi(sc, 0xff);
+				*ptr++ = d;
+				//printf("%x ", d);
+			}
+			xchg_spi(sc, 0xFF);
+			xchg_spi(sc, 0xFF);
+		}
+		//printf("\n");
+	}
+
 	xchg_spi(sc, 0xff);
 
+	if (success && cmd->opcode == 18) {
+		if (cmd_stop) {
+			xmmc_req(sc, cmd_stop, NULL);
+		}
+	}
+
+	return (0);
+}
+
+static int
+dwmmc_request(device_t brdev, device_t reqdev, struct mmc_request *req)
+{
+	//struct spi_command spi_cmd;
+	struct mmc_command *cmd;
+	struct dwmmc_softc *sc;
+	int i;
+#if 0
+	uint8_t *msg_dout;
+	uint8_t *msg_dinp;
+#endif
+
+	sc = device_get_softc(brdev);
+
+	cmd = req->cmd;
+
+	//dprintf("%s: opcode %d\n", __func__, cmd->opcode);
+	//if (data) {
+	//	len = data->len;
+	//	printf("DATA req: len %d\n", len);
+	//}
+
+	DWMMC_LOCK(sc);
+
+#if 0
+	msg_dout = malloc(32, M_DEVBUF, M_NOWAIT | M_ZERO);
+	msg_dinp = malloc(32, M_DEVBUF, M_NOWAIT | M_ZERO);
+#endif
+
+	/* 80 Dummy clocks */
+	if (flag == 0) {
+		flag = 1;
+		for (i = 0; i < 10; i++) {
+			xchg_spi(sc, 0xff);
+		}
+	}
+
+	select(sc);
+	xmmc_req(sc, req->cmd, req->stop);
 	spi_select(0);
 
 #if 0
@@ -1343,7 +1367,7 @@ dwmmc_read_ivar(device_t bus, device_t child, int which, uintptr_t *result)
 {
 	struct dwmmc_softc *sc;
 
-	dprintf("%s\n", __func__);
+	//dprintf("%s\n", __func__);
 
 	sc = device_get_softc(bus);
 
@@ -1388,7 +1412,8 @@ dwmmc_read_ivar(device_t bus, device_t child, int which, uintptr_t *result)
 		*(int *)result = sc->host.caps;
 		break;
 	case MMCBR_IVAR_MAX_DATA:
-		*(int *)result = 1; //65535; //sc->desc_count;
+		//*(int *)result = 1;
+		*(int *)result = 65535;
 	}
 	return (0);
 }
@@ -1398,7 +1423,7 @@ dwmmc_write_ivar(device_t bus, device_t child, int which, uintptr_t value)
 {
 	struct dwmmc_softc *sc;
 
-	dprintf("%s\n", __func__);
+	//dprintf("%s\n", __func__);
 
 	sc = device_get_softc(bus);
 
