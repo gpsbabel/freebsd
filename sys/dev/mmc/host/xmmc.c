@@ -1091,7 +1091,7 @@ select(struct dwmmc_softc *sc)
 }
 
 static int
-xmmc_req(struct dwmmc_softc *sc, struct mmc_command *cmd, struct mmc_command *cmd_stop)
+xmmc_req(struct dwmmc_softc *sc, struct mmc_command *cmd)
 {
 	//struct mmc_command *cmd;
 	struct mmc_data *data;
@@ -1185,7 +1185,7 @@ xmmc_req(struct dwmmc_softc *sc, struct mmc_command *cmd, struct mmc_command *cm
 
 	int count;
 	if (success && (cmd->opcode == 17 || cmd->opcode == 18)) {
-		count = data->len / 512;
+		count = (data->len / 512);
 		ptr = data->data;
 
 		for (j = 0; j < count; j++) {
@@ -1211,11 +1211,10 @@ xmmc_req(struct dwmmc_softc *sc, struct mmc_command *cmd, struct mmc_command *cm
 
 	xchg_spi(sc, 0xff);
 
-	if (success && cmd->opcode == 18) {
-		if (cmd_stop) {
-			xmmc_req(sc, cmd_stop, NULL);
-		}
-	}
+	//if (success && cmd->opcode == 18) {
+	//	if (cmd_stop) {
+	//	}
+	//}
 
 	return (0);
 }
@@ -1226,7 +1225,7 @@ dwmmc_request(device_t brdev, device_t reqdev, struct mmc_request *req)
 	//struct spi_command spi_cmd;
 	struct mmc_command *cmd;
 	struct dwmmc_softc *sc;
-	int i;
+	//int i;
 #if 0
 	uint8_t *msg_dout;
 	uint8_t *msg_dinp;
@@ -1249,6 +1248,7 @@ dwmmc_request(device_t brdev, device_t reqdev, struct mmc_request *req)
 	msg_dinp = malloc(32, M_DEVBUF, M_NOWAIT | M_ZERO);
 #endif
 
+#if 0
 	/* 80 Dummy clocks */
 	if (flag == 0) {
 		flag = 1;
@@ -1256,9 +1256,13 @@ dwmmc_request(device_t brdev, device_t reqdev, struct mmc_request *req)
 			xchg_spi(sc, 0xff);
 		}
 	}
+#endif
 
 	select(sc);
-	xmmc_req(sc, req->cmd, req->stop);
+	xmmc_req(sc, req->cmd);
+	if (req->stop) {
+		xmmc_req(sc, req->stop);
+	}
 	spi_select(0);
 
 #if 0
@@ -1302,6 +1306,7 @@ dwmmc_request(device_t brdev, device_t reqdev, struct mmc_request *req)
 #endif
 
 	req->done(req);
+	DWMMC_UNLOCK(sc);
 
 #if 0
 	if (sc->req != NULL) {
@@ -1316,7 +1321,6 @@ dwmmc_request(device_t brdev, device_t reqdev, struct mmc_request *req)
 	dwmmc_next_operation(sc);
 #endif
 
-	DWMMC_UNLOCK(sc);
 	return (0);
 }
 
