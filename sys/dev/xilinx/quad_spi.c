@@ -69,6 +69,7 @@ __FBSDID("$FreeBSD$");
 #define	WRITE1(_sc, _reg, _val)	\
 	bus_space_write_1(_sc->bst, _sc->bsh, _reg, _val)
 
+#if 0
 #define	SPI_FIFO_SIZE	4
 
 #define	SPI_MCR		0x00		/* Module Configuration */
@@ -102,7 +103,7 @@ __FBSDID("$FreeBSD$");
 #define	 CTAR_CSSCK_S	12		/* PCS to SCK Delay Scaler */
 #define	 CTAR_BR_M	0xf
 #define	 CTAR_BR_S	0		/* Baud Rate Scaler */
-//#define	SPI_SR		0x2C		/* Status Register */
+#define	SPI_SR		0x2C		/* Status Register */
 #define	 SR_TCF		(1 << 31)	/* Transfer Complete Flag */
 #define	 SR_EOQF	(1 << 28)	/* End of Queue Flag */
 #define	 SR_TFFF	(1 << 25)	/* Transmit FIFO Fill Flag */
@@ -127,7 +128,6 @@ __FBSDID("$FreeBSD$");
 #define	SPI_RXFR2	0x84
 #define	SPI_RXFR3	0x88
 
-#if 0
 #define	SPI_GIER	0x07	/* Global interrupt enable register */
 #define	SPI_ISR		0x08	/* IP interrupt status register */
 #define	SPI_IER		0x0A	/* IP interrupt enable register */
@@ -175,7 +175,7 @@ struct spi_softc {
 	void			*ih;
 };
 
-//{ SYS_RES_IRQ,		0,	RF_ACTIVE },
+//struct spi_softc *spi_sc;
 
 static struct resource_spec spi_spec[] = {
 	{ SYS_RES_MEMORY,	0,	RF_ACTIVE },
@@ -197,12 +197,40 @@ spi_probe(device_t dev)
 }
 
 static int
+spi_chip_select(device_t dev, device_t child)
+{
+	struct spi_softc *sc;
+	uint32_t cs;
+
+	sc = device_get_softc(dev);
+
+	spibus_get_cs(child, &cs);
+
+	WRITE4(sc, SPI_SSR, ~(1 << cs));
+
+	return (0);
+}
+
+static int
+spi_chip_deselect(device_t dev, device_t child)
+{
+	struct spi_softc *sc;
+
+	sc = device_get_softc(dev);
+
+	WRITE4(sc, SPI_SSR, 0xFFFFFFFF);
+
+	return (0);
+}
+
+static int
 spi_attach(device_t dev)
 {
 	struct spi_softc *sc;
 	uint32_t reg;
 
 	sc = device_get_softc(dev);
+	//spi_sc = sc;
 
 	if (bus_alloc_resources(dev, spi_spec, sc->res)) {
 		device_printf(dev, "could not allocate resources\n");
@@ -213,17 +241,19 @@ spi_attach(device_t dev)
 	sc->bst = rman_get_bustag(sc->res[0]);
 	sc->bsh = rman_get_bushandle(sc->res[0]);
 
+	printf("SPI_CR is 0x%08x\n", READ4(sc, SPI_CR));
+
+#if 1
 	WRITE4(sc, SPI_SRR, SRR_RESET);
 	DELAY(10000);
 
-	printf("SPI_CR is 0x%08x\n", READ4(sc, SPI_CR));
-
 	reg = (CR_MASTER | CR_MSS | CR_RST_RX | CR_RST_TX);
 	WRITE4(sc, SPI_CR, reg);
-	WRITE4(sc, SPI_DGIER, 0);
+	WRITE4(sc, SPI_DGIER, 0);	/* Disable interrupts */
 
 	reg = (CR_MASTER | CR_SPE | CR_MSS);
 	WRITE4(sc, SPI_CR, reg);
+#endif
 
 	device_add_child(dev, "spibus", 0);
 	return (bus_generic_attach(dev));
@@ -236,19 +266,26 @@ spi_txrx(struct spi_softc *sc, uint8_t *out_buf,
 	//uint32_t reg, wreg;
 	//uint32_t txcnt;
 	uint32_t i;
+	uint32_t data;
 
 	//txcnt = 0;
 
 	for (i = 0; i < bufsz; i++) {
 
+		//printf("write: %x\n", out_buf[i]);
 		WRITE4(sc, SPI_DTR, out_buf[i]);
 		while(!(READ4(sc, SPI_SR) & SR_TX_EMPTY))
 			continue;
 
 		/* Reset RX */
-		WRITE4(sc, SPI_CR, (CR_MASTER | CR_MSS | CR_SPE | CR_RST_RX));
+		//WRITE4(sc, SPI_CR, (CR_MASTER | CR_MSS | CR_SPE | CR_RST_RX));
 
-		//in_buf[i] = READ1(sc, SPI_POPR);
+		//printf("reading\n");
+		data = READ4(sc, SPI_DRR);
+		//printf("read: %x\n", data);
+
+		in_buf[i] = (data & 0xff);
+		//printf("read %x\n", in_buf[i]);
 	}
 
 	return (0);
@@ -261,6 +298,8 @@ spi_transfer(device_t dev, device_t child, struct spi_command *cmd)
 	uint32_t cs;
 
 	sc = device_get_softc(dev);
+
+	//printf("spi_transfer\n");
 
 	KASSERT(cmd->tx_cmd_sz == cmd->rx_cmd_sz,
 	    ("%s: TX/RX command sizes should be equal", __func__));
@@ -285,6 +324,8 @@ static device_method_t spi_methods[] = {
 	DEVMETHOD(device_attach,	spi_attach),
 	/* SPI interface */
 	DEVMETHOD(spibus_transfer,	spi_transfer),
+	DEVMETHOD(spibus_chip_select,	spi_chip_select),
+	DEVMETHOD(spibus_chip_deselect,	spi_chip_deselect),
 	{ 0, 0 }
 };
 

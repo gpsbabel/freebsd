@@ -1082,10 +1082,10 @@ static int
 select(struct dwmmc_softc *sc)
 {
 
-	spi_select(1);
+	SPIBUS_CHIP_SELECT(device_get_parent(sc->dev), sc->dev);
 	if (wait_ready(sc, 500))
 		return (1);
-	spi_select(0);
+	SPIBUS_CHIP_DESELECT(device_get_parent(sc->dev), sc->dev);
 
 	return (0);
 }
@@ -1263,7 +1263,7 @@ dwmmc_request(device_t brdev, device_t reqdev, struct mmc_request *req)
 	if (req->stop) {
 		xmmc_req(sc, req->stop);
 	}
-	spi_select(0);
+	SPIBUS_CHIP_DESELECT(device_get_parent(sc->dev), sc->dev);
 
 #if 0
 	/* Request */

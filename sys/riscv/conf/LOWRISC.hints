@@ -1,7 +1,5 @@
 # $FreeBSD$
 
-# Chrome Embedded Controller
-#hint.chrome_ec.0.at="iicbus0"
-#hint.chrome_ec.0.addr=0x1e
+# MMC device
 hint.xmmc.0.at="spibus0"
-hint.xmmc.0.addr=0x1e
+hint.xmmc.0.cs=0

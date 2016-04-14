@@ -258,8 +258,8 @@ struct mmc_request {
 #define	MMC_APP_CMD		55
 #define	MMC_GEN_CMD		56
 			/* reserved: 57 */
-			/* reserved: 58 */
-			/* reserved: 59 */
+#define	MMC_SPI_READ_OCR	58
+#define	MMC_SPI_CRC_ON_OFF	59
 			/* reserved for mfg: 60 */
 			/* reserved for mfg: 61 */
 			/* reserved for mfg: 62 */
