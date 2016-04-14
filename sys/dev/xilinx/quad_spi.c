@@ -68,14 +68,6 @@ __FBSDID("$FreeBSD$");
 	bus_space_read_4(_sc->bst, _sc->bsh, _reg)
 #define	WRITE4(_sc, _reg, _val)	\
 	bus_space_write_4(_sc->bst, _sc->bsh, _reg, _val)
-#define	READ2(_sc, _reg)	\
-	bus_space_read_2(_sc->bst, _sc->bsh, _reg)
-#define	WRITE2(_sc, _reg, _val)	\
-	bus_space_write_2(_sc->bst, _sc->bsh, _reg, _val)
-#define	READ1(_sc, _reg)	\
-	bus_space_read_1(_sc->bst, _sc->bsh, _reg)
-#define	WRITE1(_sc, _reg, _val)	\
-	bus_space_write_1(_sc->bst, _sc->bsh, _reg, _val)
 
 #define	SPI_SRR		0x40		/* Software reset register */
 #define	 SRR_RESET	0x0A		/* The only reset value */
@@ -152,7 +144,7 @@ spi_chip_deselect(device_t dev, device_t child)
 
 	sc = device_get_softc(dev);
 
-	WRITE4(sc, SPI_SSR, 0xFFFFFFFF);
+	WRITE4(sc, SPI_SSR, ~0);
 
 	return (0);
 }
