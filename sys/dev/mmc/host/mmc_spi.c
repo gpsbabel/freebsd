@@ -142,7 +142,7 @@ static struct resource_spec dwmmc_spec[] = {
 
 #if 0
 static struct ofw_compat_data compat_data[] = {
-	{"xlnx,xmmc",			HWTYPE_ALTERA},
+	{"xlnx,mmc_spi",			HWTYPE_ALTERA},
 	{"samsung,exynos5420-dw-mshc",	HWTYPE_EXYNOS},
 	{"rockchip,rk2928-dw-mshc",	HWTYPE_ROCKCHIP},
 	{NULL,				HWTYPE_NONE},
@@ -1089,7 +1089,7 @@ select(struct dwmmc_softc *sc)
 }
 
 static int
-xmmc_req(struct dwmmc_softc *sc, struct mmc_command *cmd)
+mmc_spi_req(struct dwmmc_softc *sc, struct mmc_command *cmd)
 {
 	//struct mmc_command *cmd;
 	struct mmc_data *data;
@@ -1257,9 +1257,9 @@ dwmmc_request(device_t brdev, device_t reqdev, struct mmc_request *req)
 #endif
 
 	select(sc);
-	xmmc_req(sc, req->cmd);
+	mmc_spi_req(sc, req->cmd);
 	if (req->stop) {
-		xmmc_req(sc, req->stop);
+		mmc_spi_req(sc, req->stop);
 	}
 	SPIBUS_CHIP_DESELECT(device_get_parent(sc->dev), sc->dev);
 
@@ -1486,15 +1486,15 @@ static device_method_t dwmmc_methods[] = {
 };
 
 driver_t dwmmc_driver = {
-	"xmmc",
+	"mmc_spi",
 	dwmmc_methods,
 	sizeof(struct dwmmc_softc),
 };
 
 static devclass_t dwmmc_devclass;
 
-DRIVER_MODULE(xmmc, spibus, dwmmc_driver, dwmmc_devclass, 0, 0);
-MODULE_VERSION(xmmc, 1);
-MODULE_DEPEND(xmmc, spibus, 1, 1, 1);
-DRIVER_MODULE(mmc, xmmc, mmc_driver, mmc_devclass, NULL, NULL);
-MODULE_DEPEND(xmmc, mmc, 1, 1, 1);
+DRIVER_MODULE(mmc_spi, spibus, dwmmc_driver, dwmmc_devclass, 0, 0);
+MODULE_DEPEND(mmc_spi, spibus, 1, 1, 1);
+MODULE_DEPEND(mmc_spi, mmc, 1, 1, 1);
+MODULE_VERSION(mmc_spi, 1);
+DRIVER_MODULE(mmc, mmc_spi, mmc_driver, mmc_devclass, NULL, NULL);

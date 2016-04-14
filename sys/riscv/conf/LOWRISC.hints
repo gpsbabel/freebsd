@@ -1,5 +1,5 @@
 # $FreeBSD$
 
 # MMC device
-hint.xmmc.0.at="spibus0"
-hint.xmmc.0.cs=0
+hint.mmc_spi.0.at="spibus0"
+hint.mmc_spi.0.cs=0
