@@ -650,7 +650,7 @@ dwmmc_attach(device_t dev)
 	sc->host.f_min = 400000;
 	sc->host.f_max = min(200000000, sc->bus_hz);
 	sc->host.host_ocr = MMC_OCR_320_330 | MMC_OCR_330_340;
-	sc->host.caps = MMC_CAP_4_BIT_DATA;
+	sc->host.caps = MMC_CAP_4_BIT_DATA | MMC_CAP_SPI;
 
 	device_add_child(dev, "mmc", -1);
 	return (bus_generic_attach(dev));

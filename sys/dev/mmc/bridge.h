@@ -130,9 +130,10 @@ struct mmc_host {
 	uint32_t host_ocr;
 	uint32_t ocr;
 	uint32_t caps;
-#define MMC_CAP_4_BIT_DATA	(1 << 0) /* Can do 4-bit data transfers */
-#define MMC_CAP_8_BIT_DATA	(1 << 1) /* Can do 8-bit data transfers */
-#define MMC_CAP_HSPEED		(1 << 2) /* Can do High Speed transfers */
+#define	MMC_CAP_4_BIT_DATA	(1 << 0) /* Can do 4-bit data transfers */
+#define	MMC_CAP_8_BIT_DATA	(1 << 1) /* Can do 8-bit data transfers */
+#define	MMC_CAP_HSPEED		(1 << 2) /* Can do High Speed transfers */
+#define	MMC_CAP_SPI		(1 << 3) /* SPI protocol only */
 	enum mmc_card_mode mode;
 	struct mmc_ios ios;	/* Current state of the host */
 };
