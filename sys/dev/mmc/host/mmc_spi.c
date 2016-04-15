@@ -107,6 +107,28 @@ const uint8_t crc7_be_syndrome[256] = {
 	0x8c, 0x9e, 0xa8, 0xba, 0xc4, 0xd6, 0xe0, 0xf2,
 };
 
+#define dprintf(x, arg...)	printf(x, arg)
+
+#define	READ4(_sc, _reg) \
+	bus_read_4((_sc)->res[0], _reg)
+#define	WRITE4(_sc, _reg, _val) \
+	bus_write_4((_sc)->res[0], _reg, _val)
+
+//#define	DIV_ROUND_UP(n, d)		(((n) + (d) - 1) / (d))
+
+#define	DWMMC_LOCK(_sc)			mtx_lock(&(_sc)->sc_mtx)
+#define	DWMMC_UNLOCK(_sc)		mtx_unlock(&(_sc)->sc_mtx)
+#define	DWMMC_LOCK_INIT(_sc) \
+	mtx_init(&_sc->sc_mtx, device_get_nameunit(_sc->dev), \
+	    "dwmmc", MTX_DEF)
+#define	DWMMC_LOCK_DESTROY(_sc)		mtx_destroy(&_sc->sc_mtx);
+#define	DWMMC_ASSERT_LOCKED(_sc)	mtx_assert(&_sc->sc_mtx, MA_OWNED);
+#define	DWMMC_ASSERT_UNLOCKED(_sc)	mtx_assert(&_sc->sc_mtx, MA_NOTOWNED);
+
+//#define	PENDING_CMD	0x01
+//#define	PENDING_STOP	0x02
+//#define	CARD_INIT_DONE	0x04
+
 static uint8_t
 crc7(uint8_t crc, const uint8_t *buffer, size_t len)
 {
@@ -119,28 +141,6 @@ crc7(uint8_t crc, const uint8_t *buffer, size_t len)
 
 	return crc;
 }
-
-#define dprintf(x, arg...)	printf(x, arg)
-
-#define	READ4(_sc, _reg) \
-	bus_read_4((_sc)->res[0], _reg)
-#define	WRITE4(_sc, _reg, _val) \
-	bus_write_4((_sc)->res[0], _reg, _val)
-
-#define	DIV_ROUND_UP(n, d)		(((n) + (d) - 1) / (d))
-
-#define	DWMMC_LOCK(_sc)			mtx_lock(&(_sc)->sc_mtx)
-#define	DWMMC_UNLOCK(_sc)		mtx_unlock(&(_sc)->sc_mtx)
-#define	DWMMC_LOCK_INIT(_sc) \
-	mtx_init(&_sc->sc_mtx, device_get_nameunit(_sc->dev), \
-	    "dwmmc", MTX_DEF)
-#define	DWMMC_LOCK_DESTROY(_sc)		mtx_destroy(&_sc->sc_mtx);
-#define	DWMMC_ASSERT_LOCKED(_sc)	mtx_assert(&_sc->sc_mtx, MA_OWNED);
-#define	DWMMC_ASSERT_UNLOCKED(_sc)	mtx_assert(&_sc->sc_mtx, MA_NOTOWNED);
-
-#define	PENDING_CMD	0x01
-#define	PENDING_STOP	0x02
-#define	CARD_INIT_DONE	0x04
 
 static int
 dwmmc_probe(device_t dev)
