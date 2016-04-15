@@ -117,7 +117,7 @@ struct mmc_ivars {
 
 static SYSCTL_NODE(_hw, OID_AUTO, mmc, CTLFLAG_RD, NULL, "mmc driver");
 
-static int mmc_debug;
+static int mmc_debug = 100;
 SYSCTL_INT(_hw_mmc, OID_AUTO, debug, CTLFLAG_RWTUN, &mmc_debug, 0, "Debug level");
 
 /* bus entry points */
@@ -271,6 +271,16 @@ mmc_resume(device_t dev)
 
 	mmc_scan(sc);
 	return (bus_generic_resume(dev));
+}
+
+static int
+mmc_host_is_spi(device_t dev)
+{
+
+	if (mmcbr_get_caps(dev) & MMC_CAP_SPI)
+		return (1);
+
+	return (0);
 }
 
 static int
@@ -538,7 +548,7 @@ mmc_send_app_op_cond(struct mmc_softc *sc, uint32_t ocr, uint32_t *rocr)
 
 	memset(&cmd, 0, sizeof(cmd));
 	cmd.opcode = ACMD_SD_SEND_OP_COND;
-	cmd.arg = ocr;
+	cmd.arg = (1 << 30); //ocr;
 	cmd.flags = MMC_RSP_R3 | MMC_CMD_BCR;
 	cmd.data = NULL;
 
@@ -554,6 +564,13 @@ mmc_send_app_op_cond(struct mmc_softc *sc, uint32_t ocr, uint32_t *rocr)
 	}
 	if (rocr && err == MMC_ERR_NONE)
 		*rocr = cmd.resp[0];
+
+	if (mmc_host_is_spi(sc->dev)) {
+		//mmc_idle_cards(sc);
+		/* highcap -> (1 << 30) */
+		err = mmc_wait_for_command(sc, MMC_SPI_READ_OCR, (1 << 30), MMC_RSP_R3, rocr, 1);
+	}
+
 	return (err);
 }
 
@@ -565,17 +582,23 @@ mmc_send_op_cond(struct mmc_softc *sc, uint32_t ocr, uint32_t *rocr)
 
 	memset(&cmd, 0, sizeof(cmd));
 	cmd.opcode = MMC_SEND_OP_COND;
-	cmd.arg = ocr;
+	cmd.arg = mmc_host_is_spi(sc->dev) ? 0 : ocr;
 	cmd.flags = MMC_RSP_R3 | MMC_CMD_BCR;
 	cmd.data = NULL;
+
+#define	R1_SPI_IDLE	(1 << 0)
 
 	for (i = 0; i < 1000; i++) {
 		err = mmc_wait_for_cmd(sc, &cmd, CMD_RETRIES);
 		if (err != MMC_ERR_NONE)
 			break;
-		if ((cmd.resp[0] & MMC_OCR_CARD_BUSY) ||
-		    (ocr & MMC_OCR_VOLTAGE) == 0)
+		if (mmc_host_is_spi(sc->dev)) {
+			if (!(cmd.resp[0] & R1_SPI_IDLE))
+				break;
+		} else if ((cmd.resp[0] & MMC_OCR_CARD_BUSY) ||
+		    (ocr & MMC_OCR_VOLTAGE) == 0) {
 			break;
+		}
 		err = MMC_ERR_TIMEOUT;
 		mmc_ms_delay(10);
 	}
@@ -641,6 +664,9 @@ mmc_select_card(struct mmc_softc *sc, uint16_t rca)
 {
 	int flags;
 
+	if (mmc_host_is_spi(sc->dev))
+		return (0);
+
 	flags = (rca ? MMC_RSP_R1B : MMC_RSP_NONE) | MMC_CMD_AC;
 	return (mmc_wait_for_command(sc, MMC_SELECT_CARD, (uint32_t)rca << 16,
 	    flags, NULL, CMD_RETRIES));
@@ -698,6 +724,9 @@ mmc_set_card_bus_width(struct mmc_softc *sc, uint16_t rca, int width)
 	struct mmc_command cmd;
 	int err;
 	uint8_t	value;
+
+	if (mmc_host_is_spi(sc->dev))
+		return (0);
 
 	if (mmcbr_get_mode(sc->dev) == mode_sd) {
 		memset(&cmd, 0, sizeof(cmd));
@@ -1103,7 +1132,10 @@ mmc_all_send_cid(struct mmc_softc *sc, uint32_t *rawcid)
 	int err;
 
 	memset(&cmd, 0, sizeof(cmd));
-	cmd.opcode = MMC_ALL_SEND_CID;
+	if (mmc_host_is_spi(sc->dev))
+		cmd.opcode = MMC_SEND_CID;
+	else
+		cmd.opcode = MMC_ALL_SEND_CID;
 	cmd.arg = 0;
 	cmd.flags = MMC_RSP_R2 | MMC_CMD_BCR;
 	cmd.data = NULL;
@@ -1241,8 +1273,14 @@ mmc_send_status(struct mmc_softc *sc, uint16_t rca, uint32_t *status)
 	struct mmc_command cmd;
 	int err;
 
+	if (mmc_host_is_spi(sc->dev)) {
+		*status = 0;
+		return (0);
+	}
+
 	memset(&cmd, 0, sizeof(cmd));
 	cmd.opcode = MMC_SEND_STATUS;
+	//if (!mmc_host_is_spi(sc->dev))
 	cmd.arg = rca << 16;
 	cmd.flags = MMC_RSP_R1 | MMC_CMD_AC;
 	cmd.data = NULL;
