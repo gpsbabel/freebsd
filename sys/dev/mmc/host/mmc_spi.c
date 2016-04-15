@@ -63,6 +63,15 @@ __FBSDID("$FreeBSD$");
 #include "spibus_if.h"
 #include "mmcbr_if.h"
 
+#define	R1_SPI_ERR_NONE		(0)
+#define	R1_SPI_ERR_IDLE		(1 << 0)
+#define	R1_SPI_ERR_ERASE_RST	(1 << 1)
+#define	R1_SPI_ERR_ILLEGAL	(1 << 2)
+#define	R1_SPI_ERR_CRC		(1 << 3)
+#define	R1_SPI_ERR_ERASE	(1 << 4)
+#define	R1_SPI_ERR_ADDR		(1 << 5)
+#define	R1_SPI_ERR_PARAM	(1 << 6)
+
 const uint8_t crc7_be_syndrome[256] = {
 	0x00, 0x12, 0x24, 0x36, 0x48, 0x5a, 0x6c, 0x7e,
 	0x90, 0x82, 0xb4, 0xa6, 0xd8, 0xca, 0xfc, 0xee,
@@ -137,12 +146,6 @@ static int
 dwmmc_probe(device_t dev)
 {
 
-	//if (!ofw_bus_status_okay(dev))
-	//	return (ENXIO);
-	//hwtype = ofw_bus_search_compatible(dev, compat_data)->ocd_data;
-	//if (hwtype == HWTYPE_NONE)
-	//	return (ENXIO);
-
 	device_set_desc(dev, "MMC SPI");
 	return (BUS_PROBE_DEFAULT);
 }
@@ -195,7 +198,7 @@ xchg_spi(struct dwmmc_softc *sc, uint8_t byte)
 	spi_cmd.tx_cmd = &byte;
 	spi_cmd.rx_cmd = &msg_dinp;
 	spi_cmd.tx_cmd_sz = 1;
-	spi_cmd.rx_cmd_sz = 1; 
+	spi_cmd.rx_cmd_sz = 1;
 
 	SPIBUS_TRANSFER(device_get_parent(sc->dev), sc->dev, &spi_cmd);
 
@@ -235,58 +238,19 @@ wait_ready(struct dwmmc_softc *sc, int timeout)
 }
 
 static int
-mmc_spi_req(struct dwmmc_softc *sc, struct mmc_command *cmd)
+mmc_cmd_done(struct dwmmc_softc *sc, struct mmc_command *cmd)
 {
-	//struct mmc_command *cmd;
 	struct mmc_data *data;
 	uint32_t timeout;
+	int block_count;
 	uint8_t *ptr;
-	uint32_t reg;
-	int success;
-	//uint8_t crc;
-	uint8_t d;
-	uint8_t req_in[7];
-	uint8_t req[7];
-	int ret;
-	int i;
+	int reg;
 	int j;
+	int i;
 
-	//cmd = req->cmd;
 	data = cmd->data;
 
-	req[0] = 0xff;
-	req[1] = (0x40 | cmd->opcode);
-	req[2] = (cmd->arg >> 24);
-	req[3] = (cmd->arg >> 16);
-	req[4] = (cmd->arg >> 8);
-	req[5] = (cmd->arg >> 0);
-	req[6] = crc7(0, &req[1], 5) | 0x01;
-	xchg_spi_multi(sc, req, req_in, 7);
-
-	/* Wait response */
-	ret = 0;
-	cmd->error = MMC_ERR_NONE;
-	success = 0;
-
-	for (i = 0; i < 10; i++) {
-		ret = xchg_spi(sc, 0xff);
-		if ((ret & 0x80) == 0) {
-			success = 1;
-			printf("SUCCESS(%d): 0x%x\n", i, ret);
-			break;
-		}
-	}
-	if (cmd->opcode == 41) {
-		if (ret != 0) {
-			cmd->error = MMC_ERR_TIMEOUT;
-		}
-	}
-	if (!success) {
-		printf("CMD %d FAILED timeout %d\n", cmd->opcode, i);
-		cmd->error = MMC_ERR_TIMEOUT;
-	}
-
-	if (success && cmd->flags & MMC_RSP_PRESENT) {
+	if (cmd->flags & MMC_RSP_PRESENT) {
 		if (cmd->flags & MMC_RSP_136) {
 
 			/* Wait for data */
@@ -307,11 +271,6 @@ mmc_spi_req(struct dwmmc_softc *sc, struct mmc_command *cmd)
 				printf("long resp(%d): 0x%08x\n", j, reg);
 				cmd->resp[j] = reg;
 			}
-		//} else if (cmd->flags & MMC_RSP_R1) {
-		//	reg = xchg_spi(sc, 0xff);
-		//	printf("short resp: 0x%02x\n", reg);
-		//	cmd->resp[0] = reg;
-		//} else if (cmd->flags & MMC_RSP_R3) {
 		} else if (cmd->opcode != 17 && cmd->opcode != 18) {
 			reg = 0;
 			for (i = 3; i >= 0; i--) {
@@ -322,12 +281,11 @@ mmc_spi_req(struct dwmmc_softc *sc, struct mmc_command *cmd)
 		}
 	}
 
-	int count;
-	if (success && (cmd->opcode == 17 || cmd->opcode == 18)) {
-		count = (data->len / 512);
+	if (cmd->opcode == 17 || cmd->opcode == 18) {
+		block_count = (data->len / 512);
 		ptr = data->data;
 
-		for (j = 0; j < count; j++) {
+		for (j = 0; j < block_count; j++) {
 			/* Wait for data */
 			timeout = 200;
 			do {
@@ -338,9 +296,9 @@ mmc_spi_req(struct dwmmc_softc *sc, struct mmc_command *cmd)
 				printf("FAILED to wait DATA\n");
 			}
 			for (i = 0; i < 512; i++) {
-				d = xchg_spi(sc, 0xff);
-				*ptr++ = d;
-				//printf("%x ", d);
+				reg = xchg_spi(sc, 0xff);
+				*ptr++ = reg;
+				//printf("%x ", reg);
 			}
 			xchg_spi(sc, 0xFF);	/* Skip CRC */
 			xchg_spi(sc, 0xFF);
@@ -352,6 +310,58 @@ mmc_spi_req(struct dwmmc_softc *sc, struct mmc_command *cmd)
 
 	return (0);
 }
+
+static int
+mmc_spi_req(struct dwmmc_softc *sc, struct mmc_command *cmd)
+{
+	uint8_t req_in[7];
+	uint8_t req[7];
+	int err;
+	int ret;
+	int i;
+
+	req[0] = 0xff;
+	req[1] = (0x40 | cmd->opcode);
+	req[2] = (cmd->arg >> 24);
+	req[3] = (cmd->arg >> 16);
+	req[4] = (cmd->arg >> 8);
+	req[5] = (cmd->arg >> 0);
+	req[6] = crc7(0, &req[1], 5) | 0x01;
+	xchg_spi_multi(sc, req, req_in, 7);
+
+	/* Wait response */
+	ret = 0;
+	cmd->error = MMC_ERR_NONE;
+
+	for (i = 0; i < 10; i++) {
+		ret = xchg_spi(sc, 0xff);
+		if ((ret & 0x80) == 0) {
+			printf("SUCCESS(%d): 0x%x\n", i, ret);
+			break;
+		}
+	}
+	err = MMC_ERR_TIMEOUT;
+
+	if (cmd->opcode == ACMD_SD_SEND_OP_COND) {
+		if (ret == R1_SPI_ERR_NONE)
+			err = MMC_ERR_NONE;
+	} else {
+		//ret &= ~R1_SPI_ERR_ILLEGAL;
+		if (ret == R1_SPI_ERR_IDLE || ret == R1_SPI_ERR_NONE) {
+			err = MMC_ERR_NONE;
+		}
+	}
+
+	cmd->error = err;
+
+	if (err) {
+		return (1);
+	}
+
+	mmc_cmd_done(sc, cmd);
+	return (0);
+}
+
 
 static int
 dwmmc_request(device_t brdev, device_t reqdev, struct mmc_request *req)

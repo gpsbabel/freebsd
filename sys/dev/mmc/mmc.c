@@ -586,19 +586,13 @@ mmc_send_op_cond(struct mmc_softc *sc, uint32_t ocr, uint32_t *rocr)
 	cmd.flags = MMC_RSP_R3 | MMC_CMD_BCR;
 	cmd.data = NULL;
 
-#define	R1_SPI_IDLE	(1 << 0)
-
 	for (i = 0; i < 1000; i++) {
 		err = mmc_wait_for_cmd(sc, &cmd, CMD_RETRIES);
 		if (err != MMC_ERR_NONE)
 			break;
-		if (mmc_host_is_spi(sc->dev)) {
-			if (!(cmd.resp[0] & R1_SPI_IDLE))
-				break;
-		} else if ((cmd.resp[0] & MMC_OCR_CARD_BUSY) ||
-		    (ocr & MMC_OCR_VOLTAGE) == 0) {
+		if ((cmd.resp[0] & MMC_OCR_CARD_BUSY) ||
+		    (ocr & MMC_OCR_VOLTAGE) == 0)
 			break;
-		}
 		err = MMC_ERR_TIMEOUT;
 		mmc_ms_delay(10);
 	}
@@ -1256,6 +1250,10 @@ mmc_send_relative_addr(struct mmc_softc *sc, uint32_t *resp)
 {
 	struct mmc_command cmd;
 	int err;
+
+	if (mmc_host_is_spi(sc->dev)) {
+		return (0);
+	}
 
 	memset(&cmd, 0, sizeof(cmd));
 	cmd.opcode = SD_SEND_RELATIVE_ADDR;
