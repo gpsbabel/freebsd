@@ -183,45 +183,6 @@ dwmmc_update_ios(device_t brdev, device_t reqdev)
 	return (0);
 }
 
-#if 0
-static void
-dwmmc_next_operation(struct dwmmc_softc *sc)
-{
-	struct mmc_request *req;
-
-	req = sc->req;
-	if (req == NULL)
-		return;
-
-	sc->acd_rcvd = 0;
-	sc->dto_rcvd = 0;
-	sc->cmd_done = 0;
-
-	/*
-	 * XXX: Wait until card is still busy.
-	 * We do need this to prevent data timeouts,
-	 * mostly caused by multi-block write command
-	 * followed by single-read.
-	 */
-	while(READ4(sc, SDMMC_STATUS) & (SDMMC_STATUS_DATA_BUSY))
-		continue;
-
-	if (sc->flags & PENDING_CMD) {
-		sc->flags &= ~PENDING_CMD;
-		dwmmc_start_cmd(sc, req->cmd);
-		return;
-	} else if (sc->flags & PENDING_STOP && !sc->use_auto_stop) {
-		sc->flags &= ~PENDING_STOP;
-		dwmmc_start_cmd(sc, req->stop);
-		return;
-	}
-
-	sc->req = NULL;
-	sc->curcmd = NULL;
-	req->done(req);
-}
-#endif
-
 static uint8_t
 xchg_spi(struct dwmmc_softc *sc, uint8_t byte)
 {
@@ -242,22 +203,20 @@ xchg_spi(struct dwmmc_softc *sc, uint8_t byte)
 }
 
 static uint8_t
-xchg_spi_multi(struct dwmmc_softc *sc, uint8_t *bytes, uint32_t nbytes)
+xchg_spi_multi(struct dwmmc_softc *sc, uint8_t *out_bytes,
+    uint8_t *in_bytes, uint32_t nbytes)
 {
 	struct spi_command spi_cmd;
-	uint8_t msg_dinp;
-
-	msg_dinp = 0;
 
 	memset(&spi_cmd, 0, sizeof(spi_cmd));
-	spi_cmd.tx_cmd = bytes;
-	spi_cmd.rx_cmd = &msg_dinp;
+	spi_cmd.tx_cmd = out_bytes;
+	spi_cmd.rx_cmd = in_bytes;
 	spi_cmd.tx_cmd_sz = nbytes;
 	spi_cmd.rx_cmd_sz = nbytes;
 
 	SPIBUS_TRANSFER(device_get_parent(sc->dev), sc->dev, &spi_cmd);
 
-	return (msg_dinp);
+	return (0);
 }
 
 static int
@@ -286,6 +245,8 @@ mmc_spi_req(struct dwmmc_softc *sc, struct mmc_command *cmd)
 	int success;
 	//uint8_t crc;
 	uint8_t d;
+	uint8_t req_in[7];
+	uint8_t req[7];
 	int ret;
 	int i;
 	int j;
@@ -293,7 +254,6 @@ mmc_spi_req(struct dwmmc_softc *sc, struct mmc_command *cmd)
 	//cmd = req->cmd;
 	data = cmd->data;
 
-	uint8_t req[7];
 	req[0] = 0xff;
 	req[1] = (0x40 | cmd->opcode);
 	req[2] = (cmd->arg >> 24);
@@ -301,7 +261,7 @@ mmc_spi_req(struct dwmmc_softc *sc, struct mmc_command *cmd)
 	req[4] = (cmd->arg >> 8);
 	req[5] = (cmd->arg >> 0);
 	req[6] = crc7(0, &req[1], 5) | 0x01;
-	xchg_spi_multi(sc, req, 7);
+	xchg_spi_multi(sc, req, req_in, 7);
 
 	/* Wait response */
 	ret = 0;
@@ -382,18 +342,13 @@ mmc_spi_req(struct dwmmc_softc *sc, struct mmc_command *cmd)
 				*ptr++ = d;
 				//printf("%x ", d);
 			}
-			xchg_spi(sc, 0xFF);
+			xchg_spi(sc, 0xFF);	/* Skip CRC */
 			xchg_spi(sc, 0xFF);
 		}
 		//printf("\n");
 	}
 
 	xchg_spi(sc, 0xff);
-
-	//if (success && cmd->opcode == 18) {
-	//	if (cmd_stop) {
-	//	}
-	//}
 
 	return (0);
 }
@@ -429,8 +384,6 @@ static int
 dwmmc_get_ro(device_t brdev, device_t reqdev)
 {
 
-	dprintf("%s\n", __func__);
-
 	return (0);
 }
 
@@ -438,8 +391,6 @@ static int
 dwmmc_acquire_host(device_t brdev, device_t reqdev)
 {
 	struct dwmmc_softc *sc;
-
-	//dprintf("%s\n", __func__);
 
 	sc = device_get_softc(brdev);
 
@@ -456,8 +407,6 @@ dwmmc_release_host(device_t brdev, device_t reqdev)
 {
 	struct dwmmc_softc *sc;
 
-	//dprintf("%s\n", __func__);
-
 	sc = device_get_softc(brdev);
 
 	DWMMC_LOCK(sc);
@@ -471,8 +420,6 @@ static int
 dwmmc_read_ivar(device_t bus, device_t child, int which, uintptr_t *result)
 {
 	struct dwmmc_softc *sc;
-
-	//dprintf("%s\n", __func__);
 
 	sc = device_get_softc(bus);
 
@@ -517,7 +464,6 @@ dwmmc_read_ivar(device_t bus, device_t child, int which, uintptr_t *result)
 		*(int *)result = sc->host.caps;
 		break;
 	case MMCBR_IVAR_MAX_DATA:
-		//*(int *)result = 1;
 		*(int *)result = 65535;
 	}
 	return (0);
@@ -527,8 +473,6 @@ static int
 dwmmc_write_ivar(device_t bus, device_t child, int which, uintptr_t value)
 {
 	struct dwmmc_softc *sc;
-
-	//dprintf("%s\n", __func__);
 
 	sc = device_get_softc(bus);
 
