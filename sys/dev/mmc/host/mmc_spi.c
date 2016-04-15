@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2014 Ruslan Bukin <br@bsdpad.com>
+ * Copyright (c) 2016 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
  *
  * This software was developed by SRI International and the University of
@@ -26,11 +26,6 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- */
-
-/*
- * Synopsys DesignWare Mobile Storage Host Controller
- * Chapter 14, Altera Cyclone V Device Handbook (CV-5V2 2014.07.22)
  */
 
 #include <sys/cdefs.h>
@@ -68,7 +63,53 @@ __FBSDID("$FreeBSD$");
 #include "spibus_if.h"
 #include "mmcbr_if.h"
 
-int flag = 0;
+const uint8_t crc7_be_syndrome[256] = {
+	0x00, 0x12, 0x24, 0x36, 0x48, 0x5a, 0x6c, 0x7e,
+	0x90, 0x82, 0xb4, 0xa6, 0xd8, 0xca, 0xfc, 0xee,
+	0x32, 0x20, 0x16, 0x04, 0x7a, 0x68, 0x5e, 0x4c,
+	0xa2, 0xb0, 0x86, 0x94, 0xea, 0xf8, 0xce, 0xdc,
+	0x64, 0x76, 0x40, 0x52, 0x2c, 0x3e, 0x08, 0x1a,
+	0xf4, 0xe6, 0xd0, 0xc2, 0xbc, 0xae, 0x98, 0x8a,
+	0x56, 0x44, 0x72, 0x60, 0x1e, 0x0c, 0x3a, 0x28,
+	0xc6, 0xd4, 0xe2, 0xf0, 0x8e, 0x9c, 0xaa, 0xb8,
+	0xc8, 0xda, 0xec, 0xfe, 0x80, 0x92, 0xa4, 0xb6,
+	0x58, 0x4a, 0x7c, 0x6e, 0x10, 0x02, 0x34, 0x26,
+	0xfa, 0xe8, 0xde, 0xcc, 0xb2, 0xa0, 0x96, 0x84,
+	0x6a, 0x78, 0x4e, 0x5c, 0x22, 0x30, 0x06, 0x14,
+	0xac, 0xbe, 0x88, 0x9a, 0xe4, 0xf6, 0xc0, 0xd2,
+	0x3c, 0x2e, 0x18, 0x0a, 0x74, 0x66, 0x50, 0x42,
+	0x9e, 0x8c, 0xba, 0xa8, 0xd6, 0xc4, 0xf2, 0xe0,
+	0x0e, 0x1c, 0x2a, 0x38, 0x46, 0x54, 0x62, 0x70,
+	0x82, 0x90, 0xa6, 0xb4, 0xca, 0xd8, 0xee, 0xfc,
+	0x12, 0x00, 0x36, 0x24, 0x5a, 0x48, 0x7e, 0x6c,
+	0xb0, 0xa2, 0x94, 0x86, 0xf8, 0xea, 0xdc, 0xce,
+	0x20, 0x32, 0x04, 0x16, 0x68, 0x7a, 0x4c, 0x5e,
+	0xe6, 0xf4, 0xc2, 0xd0, 0xae, 0xbc, 0x8a, 0x98,
+	0x76, 0x64, 0x52, 0x40, 0x3e, 0x2c, 0x1a, 0x08,
+	0xd4, 0xc6, 0xf0, 0xe2, 0x9c, 0x8e, 0xb8, 0xaa,
+	0x44, 0x56, 0x60, 0x72, 0x0c, 0x1e, 0x28, 0x3a,
+	0x4a, 0x58, 0x6e, 0x7c, 0x02, 0x10, 0x26, 0x34,
+	0xda, 0xc8, 0xfe, 0xec, 0x92, 0x80, 0xb6, 0xa4,
+	0x78, 0x6a, 0x5c, 0x4e, 0x30, 0x22, 0x14, 0x06,
+	0xe8, 0xfa, 0xcc, 0xde, 0xa0, 0xb2, 0x84, 0x96,
+	0x2e, 0x3c, 0x0a, 0x18, 0x66, 0x74, 0x42, 0x50,
+	0xbe, 0xac, 0x9a, 0x88, 0xf6, 0xe4, 0xd2, 0xc0,
+	0x1c, 0x0e, 0x38, 0x2a, 0x54, 0x46, 0x70, 0x62,
+	0x8c, 0x9e, 0xa8, 0xba, 0xc4, 0xd6, 0xe0, 0xf2,
+};
+
+static uint8_t
+crc7(uint8_t crc, const uint8_t *buffer, size_t len)
+{
+	uint8_t data;
+
+	while (len--) {
+		data = *buffer++;
+		crc = crc7_be_syndrome[crc ^ data];
+	}
+
+	return crc;
+}
 
 #define dprintf(x, arg...)	printf(x, arg)
 
@@ -92,438 +133,17 @@ int flag = 0;
 #define	PENDING_STOP	0x02
 #define	CARD_INIT_DONE	0x04
 
-#define	DWMMC_DATA_ERR_FLAGS	(SDMMC_INTMASK_DRT | SDMMC_INTMASK_DCRC \
-				|SDMMC_INTMASK_HTO | SDMMC_INTMASK_SBE \
-				|SDMMC_INTMASK_EBE)
-#define	DWMMC_CMD_ERR_FLAGS	(SDMMC_INTMASK_RTO | SDMMC_INTMASK_RCRC \
-				|SDMMC_INTMASK_RE)
-#define	DWMMC_ERR_FLAGS		(DWMMC_DATA_ERR_FLAGS | DWMMC_CMD_ERR_FLAGS \
-				|SDMMC_INTMASK_HLE)
-
-#define	DES0_DIC	(1 << 1)
-#define	DES0_LD		(1 << 2)
-#define	DES0_FS		(1 << 3)
-#define	DES0_CH		(1 << 4)
-#define	DES0_ER		(1 << 5)
-#define	DES0_CES	(1 << 30)
-#define	DES0_OWN	(1 << 31)
-
-#define	DES1_BS1_MASK	0xfff
-#define	DES1_BS1_SHIFT	0
-
-struct idmac_desc {
-	uint32_t	des0;	/* control */
-	uint32_t	des1;	/* bufsize */
-	uint32_t	des2;	/* buf1 phys addr */
-	uint32_t	des3;	/* buf2 phys addr or next descr */
-};
-
-#define	DESC_MAX	256
-#define	DESC_SIZE	(sizeof(struct idmac_desc) * DESC_MAX)
-#define	DEF_MSIZE	0x2	/* Burst size of multiple transaction */
-
-//static void dwmmc_next_operation(struct dwmmc_softc *);
-//static int dwmmc_setup_bus(struct dwmmc_softc *, int);
-//static int dma_done(struct dwmmc_softc *, struct mmc_command *);
-//static int dma_stop(struct dwmmc_softc *);
-//static void pio_read(struct dwmmc_softc *, struct mmc_command *);
-//static void pio_write(struct dwmmc_softc *, struct mmc_command *);
-
-#if 0
-static struct resource_spec dwmmc_spec[] = {
-	{ SYS_RES_MEMORY,	0,	RF_ACTIVE },
-	{ SYS_RES_IRQ,		0,	RF_ACTIVE },
-	{ -1, 0 }
-};
-#endif
-
-#define	HWTYPE_MASK		(0x0000ffff)
-#define	HWFLAG_MASK		(0xffff << 16)
-
-#if 0
-static struct ofw_compat_data compat_data[] = {
-	{"xlnx,mmc_spi",			HWTYPE_ALTERA},
-	{"samsung,exynos5420-dw-mshc",	HWTYPE_EXYNOS},
-	{"rockchip,rk2928-dw-mshc",	HWTYPE_ROCKCHIP},
-	{NULL,				HWTYPE_NONE},
-};
-
-static void
-dwmmc_get1paddr(void *arg, bus_dma_segment_t *segs, int nsegs, int error)
-{
-
-	if (error != 0)
-		return;
-	*(bus_addr_t *)arg = segs[0].ds_addr;
-}
-#endif
-
-#if 0
-static void
-dwmmc_ring_setup(void *arg, bus_dma_segment_t *segs, int nsegs, int error)
-{
-	struct dwmmc_softc *sc;
-	int idx;
-
-	if (error != 0)
-		return;
-
-	sc = arg;
-
-	dprintf("nsegs %d seg0len %lu\n", nsegs, segs[0].ds_len);
-
-	for (idx = 0; idx < nsegs; idx++) {
-		sc->desc_ring[idx].des0 = (DES0_OWN | DES0_DIC | DES0_CH);
-		sc->desc_ring[idx].des1 = segs[idx].ds_len;
-		sc->desc_ring[idx].des2 = segs[idx].ds_addr;
-
-		if (idx == 0)
-			sc->desc_ring[idx].des0 |= DES0_FS;
-
-		if (idx == (nsegs - 1)) {
-			sc->desc_ring[idx].des0 &= ~(DES0_DIC | DES0_CH);
-			sc->desc_ring[idx].des0 |= DES0_LD;
-		}
-	}
-}
-#endif
-
-#if 0
-static int
-dwmmc_ctrl_reset(struct dwmmc_softc *sc, int reset_bits)
-{
-	int reg;
-	int i;
-
-	reg = READ4(sc, SDMMC_CTRL);
-	reg |= (reset_bits);
-	WRITE4(sc, SDMMC_CTRL, reg);
-
-	/* Wait reset done */
-	for (i = 0; i < 100; i++) {
-		if (!(READ4(sc, SDMMC_CTRL) & reset_bits))
-			return (0);
-		DELAY(10);
-	};
-
-	device_printf(sc->dev, "Reset failed\n");
-
-	return (1);
-}
-
-static int
-dma_setup(struct dwmmc_softc *sc)
-{
-	int error;
-	int nidx;
-	int idx;
-
-	/*
-	 * Set up TX descriptor ring, descriptors, and dma maps.
-	 */
-	error = 0;
-#if 0
-bus_dma_tag_create(
-	    bus_get_dma_tag(sc->dev),	/* Parent tag. */
-	    4096, 0,			/* alignment, boundary */
-	    BUS_SPACE_MAXADDR_32BIT,	/* lowaddr */
-	    BUS_SPACE_MAXADDR,		/* highaddr */
-	    NULL, NULL,			/* filter, filterarg */
-	    DESC_SIZE, 1, 		/* maxsize, nsegments */
-	    DESC_SIZE,			/* maxsegsize */
-	    0,				/* flags */
-	    NULL, NULL,			/* lockfunc, lockarg */
-	    &sc->desc_tag);
-#endif
-	if (error != 0) {
-		device_printf(sc->dev,
-		    "could not create ring DMA tag.\n");
-		return (1);
-	}
-
-	error = 0;
-#if 0
-bus_dmamem_alloc(sc->desc_tag, (void**)&sc->desc_ring,
-	    BUS_DMA_COHERENT | BUS_DMA_WAITOK | BUS_DMA_ZERO,
-	    &sc->desc_map);
-#endif
-	if (error != 0) {
-		device_printf(sc->dev,
-		    "could not allocate descriptor ring.\n");
-		return (1);
-	}
-
-	error = 0;
-#if 0
-bus_dmamap_load(sc->desc_tag, sc->desc_map,
-	    sc->desc_ring, DESC_SIZE, dwmmc_get1paddr,
-	    &sc->desc_ring_paddr, 0);
-#endif
-	if (error != 0) {
-		device_printf(sc->dev,
-		    "could not load descriptor ring map.\n");
-		return (1);
-	}
-
-	for (idx = 0; idx < sc->desc_count; idx++) {
-		sc->desc_ring[idx].des0 = DES0_CH;
-		sc->desc_ring[idx].des1 = 0;
-		nidx = (idx + 1) % sc->desc_count;
-		sc->desc_ring[idx].des3 = sc->desc_ring_paddr + \
-		    (nidx * sizeof(struct idmac_desc));
-	}
-
-	error = 0;
-#if 0
-bus_dma_tag_create(
-	    bus_get_dma_tag(sc->dev),	/* Parent tag. */
-	    4096, 0,			/* alignment, boundary */
-	    BUS_SPACE_MAXADDR_32BIT,	/* lowaddr */
-	    BUS_SPACE_MAXADDR,		/* highaddr */
-	    NULL, NULL,			/* filter, filterarg */
-	    sc->desc_count * MMC_SECTOR_SIZE, /* maxsize */
-	    sc->desc_count,		/* nsegments */
-	    MMC_SECTOR_SIZE,		/* maxsegsize */
-	    0,				/* flags */
-	    NULL, NULL,			/* lockfunc, lockarg */
-	    &sc->buf_tag);
-#endif
-	if (error != 0) {
-		device_printf(sc->dev,
-		    "could not create ring DMA tag.\n");
-		return (1);
-	}
-
-	error = 0;
-#if 0
-bus_dmamap_create(sc->buf_tag, 0,
-	    &sc->buf_map);
-#endif
-	if (error != 0) {
-		device_printf(sc->dev,
-		    "could not create TX buffer DMA map.\n");
-		return (1);
-	}
-
-	return (0);
-}
-#endif
-
-#if 0
-static void
-dwmmc_cmd_done(struct dwmmc_softc *sc)
-{
-	struct mmc_command *cmd;
-
-	cmd = sc->curcmd;
-	if (cmd == NULL)
-		return;
-
-	if (cmd->flags & MMC_RSP_PRESENT) {
-		if (cmd->flags & MMC_RSP_136) {
-			cmd->resp[3] = READ4(sc, SDMMC_RESP0);
-			cmd->resp[2] = READ4(sc, SDMMC_RESP1);
-			cmd->resp[1] = READ4(sc, SDMMC_RESP2);
-			cmd->resp[0] = READ4(sc, SDMMC_RESP3);
-		} else {
-			cmd->resp[3] = 0;
-			cmd->resp[2] = 0;
-			cmd->resp[1] = 0;
-			cmd->resp[0] = READ4(sc, SDMMC_RESP0);
-		}
-	}
-}
-
-static void
-dwmmc_tasklet(struct dwmmc_softc *sc)
-{
-	struct mmc_command *cmd;
-
-	cmd = sc->curcmd;
-	if (cmd == NULL)
-		return;
-
-	if (!sc->cmd_done)
-		return;
-
-	if (cmd->error != MMC_ERR_NONE || !cmd->data) {
-		dwmmc_next_operation(sc);
-	} else if (cmd->data && sc->dto_rcvd) {
-		if ((cmd->opcode == MMC_WRITE_MULTIPLE_BLOCK ||
-		     cmd->opcode == MMC_READ_MULTIPLE_BLOCK) &&
-		     sc->use_auto_stop) {
-			if (sc->acd_rcvd)
-				dwmmc_next_operation(sc);
-		} else {
-			dwmmc_next_operation(sc);
-		}
-	}
-}
-#endif
-
-#if 0
-static void
-dwmmc_intr(void *arg)
-{
-	struct mmc_command *cmd;
-	struct dwmmc_softc *sc;
-	uint32_t reg;
-
-	sc = arg;
-
-	DWMMC_LOCK(sc);
-
-	cmd = sc->curcmd;
-
-	/* First handle SDMMC controller interrupts */
-	reg = READ4(sc, SDMMC_MINTSTS);
-	if (reg) {
-		dprintf("%s 0x%08x\n", __func__, reg);
-
-		if (reg & DWMMC_CMD_ERR_FLAGS) {
-			WRITE4(sc, SDMMC_RINTSTS, DWMMC_CMD_ERR_FLAGS);
-			dprintf("cmd err 0x%08x cmd 0x%08x\n",
-				reg, cmd->opcode);
-			cmd->error = MMC_ERR_TIMEOUT;
-		}
-
-		if (reg & DWMMC_DATA_ERR_FLAGS) {
-			WRITE4(sc, SDMMC_RINTSTS, DWMMC_DATA_ERR_FLAGS);
-			dprintf("data err 0x%08x cmd 0x%08x\n",
-				reg, cmd->opcode);
-			cmd->error = MMC_ERR_FAILED;
-			if (!sc->use_pio) {
-				dma_done(sc, cmd);
-				dma_stop(sc);
-			}
-		}
-
-		if (reg & SDMMC_INTMASK_CMD_DONE) {
-			dwmmc_cmd_done(sc);
-			sc->cmd_done = 1;
-			WRITE4(sc, SDMMC_RINTSTS, SDMMC_INTMASK_CMD_DONE);
-		}
-
-		if (reg & SDMMC_INTMASK_ACD) {
-			sc->acd_rcvd = 1;
-			WRITE4(sc, SDMMC_RINTSTS, SDMMC_INTMASK_ACD);
-		}
-
-		if (reg & SDMMC_INTMASK_DTO) {
-			sc->dto_rcvd = 1;
-			WRITE4(sc, SDMMC_RINTSTS, SDMMC_INTMASK_DTO);
-		}
-
-		if (reg & SDMMC_INTMASK_CD) {
-			/* XXX: Handle card detect */
-			WRITE4(sc, SDMMC_RINTSTS, SDMMC_INTMASK_CD);
-		}
-	}
-
-	if (sc->use_pio) {
-		if (reg & (SDMMC_INTMASK_RXDR|SDMMC_INTMASK_DTO)) {
-			pio_read(sc, cmd);
-		}
-		if (reg & (SDMMC_INTMASK_TXDR|SDMMC_INTMASK_DTO)) {
-			pio_write(sc, cmd);
-		}
-	} else {
-		/* Now handle DMA interrupts */
-		reg = READ4(sc, SDMMC_IDSTS);
-		if (reg) {
-			dprintf("dma intr 0x%08x\n", reg);
-			if (reg & (SDMMC_IDINTEN_TI | SDMMC_IDINTEN_RI)) {
-				WRITE4(sc, SDMMC_IDSTS, (SDMMC_IDINTEN_TI |
-							 SDMMC_IDINTEN_RI));
-				WRITE4(sc, SDMMC_IDSTS, SDMMC_IDINTEN_NI);
-				dma_done(sc, cmd);
-			}
-		}
-	}
-
-	dwmmc_tasklet(sc);
-
-	DWMMC_UNLOCK(sc);
-}
-
-static int
-parse_fdt(struct dwmmc_softc *sc)
-{
-	pcell_t dts_value[3];
-	phandle_t node;
-	int len;
-
-	if ((node = ofw_bus_get_node(sc->dev)) == -1)
-		return (ENXIO);
-
-	/* fifo-depth */
-	if ((len = OF_getproplen(node, "fifo-depth")) > 0) {
-		OF_getencprop(node, "fifo-depth", dts_value, len);
-		sc->fifo_depth = dts_value[0];
-	}
-
-	/* num-slots */
-	sc->num_slots = 1;
-	if ((len = OF_getproplen(node, "num-slots")) > 0) {
-		OF_getencprop(node, "num-slots", dts_value, len);
-		sc->num_slots = dts_value[0];
-	}
-
-	/*
-	 * We need some platform-specific code to know
-	 * what the clock is supplied for our device.
-	 * For now rely on the value specified in FDT.
-	 */
-	if (sc->bus_hz == 0) {
-		if ((len = OF_getproplen(node, "bus-frequency")) <= 0)
-			return (ENXIO);
-		OF_getencprop(node, "bus-frequency", dts_value, len);
-		sc->bus_hz = dts_value[0];
-	}
-
-	/*
-	 * Platform-specific stuff
-	 * XXX: Move to separate file
-	 */
-
-	if ((sc->hwtype & HWTYPE_MASK) != HWTYPE_EXYNOS)
-		return (0);
-
-	if ((len = OF_getproplen(node, "samsung,dw-mshc-ciu-div")) <= 0)
-		return (ENXIO);
-	OF_getencprop(node, "samsung,dw-mshc-ciu-div", dts_value, len);
-	sc->sdr_timing = (dts_value[0] << SDMMC_CLKSEL_DIVIDER_SHIFT);
-	sc->ddr_timing = (dts_value[0] << SDMMC_CLKSEL_DIVIDER_SHIFT);
-
-	if ((len = OF_getproplen(node, "samsung,dw-mshc-sdr-timing")) <= 0)
-		return (ENXIO);
-	OF_getencprop(node, "samsung,dw-mshc-sdr-timing", dts_value, len);
-	sc->sdr_timing |= ((dts_value[0] << SDMMC_CLKSEL_SAMPLE_SHIFT) |
-			  (dts_value[1] << SDMMC_CLKSEL_DRIVE_SHIFT));
-
-	if ((len = OF_getproplen(node, "samsung,dw-mshc-ddr-timing")) <= 0)
-		return (ENXIO);
-	OF_getencprop(node, "samsung,dw-mshc-ddr-timing", dts_value, len);
-	sc->ddr_timing |= ((dts_value[0] << SDMMC_CLKSEL_SAMPLE_SHIFT) |
-			  (dts_value[1] << SDMMC_CLKSEL_DRIVE_SHIFT));
-
-	return (0);
-}
-#endif
-
 static int
 dwmmc_probe(device_t dev)
 {
-	//uintptr_t hwtype;
 
-	if (!ofw_bus_status_okay(dev))
-		return (ENXIO);
-
+	//if (!ofw_bus_status_okay(dev))
+	//	return (ENXIO);
 	//hwtype = ofw_bus_search_compatible(dev, compat_data)->ocd_data;
 	//if (hwtype == HWTYPE_NONE)
 	//	return (ENXIO);
 
-	device_set_desc(dev, "XMMC");
+	device_set_desc(dev, "MMC SPI");
 	return (BUS_PROBE_DEFAULT);
 }
 
@@ -531,119 +151,11 @@ int
 dwmmc_attach(device_t dev)
 {
 	struct dwmmc_softc *sc;
-	//int error;
-	//int slot;
 
 	sc = device_get_softc(dev);
 	sc->dev = dev;
 
-#if 0
-	if (sc->hwtype == HWTYPE_NONE) {
-		sc->hwtype =
-		    ofw_bus_search_compatible(dev, compat_data)->ocd_data;
-	}
-
-	/* Why not to use Auto Stop? It save a hundred of irq per second */
-	sc->use_auto_stop = 1;
-
-	error = parse_fdt(sc);
-	if (error != 0) {
-		device_printf(dev, "Can't get FDT property.\n");
-		return (ENXIO);
-	}
-#endif
-
 	DWMMC_LOCK_INIT(sc);
-
-#if 0
-	if (bus_alloc_resources(dev, dwmmc_spec, sc->res)) {
-		device_printf(dev, "could not allocate resources\n");
-		return (ENXIO);
-	}
-
-	/* Setup interrupt handler. */
-	error = bus_setup_intr(dev, sc->res[1], INTR_TYPE_NET | INTR_MPSAFE,
-	    NULL, dwmmc_intr, sc, &sc->intr_cookie);
-	if (error != 0) {
-		device_printf(dev, "could not setup interrupt handler.\n");
-		return (ENXIO);
-	}
-
-	device_printf(dev, "Hardware version ID is %04x\n",
-		READ4(sc, SDMMC_VERID) & 0xffff);
-
-	if (sc->desc_count == 0)
-		sc->desc_count = DESC_MAX;
-
-	if ((sc->hwtype & HWTYPE_MASK) == HWTYPE_ROCKCHIP) {
-		sc->use_pio = 1;
-		sc->pwren_inverted = 1;
-	} else if ((sc->hwtype & HWTYPE_MASK) == HWTYPE_EXYNOS) {
-		WRITE4(sc, EMMCP_MPSBEGIN0, 0);
-		WRITE4(sc, EMMCP_SEND0, 0);
-		WRITE4(sc, EMMCP_CTRL0, (MPSCTRL_SECURE_READ_BIT |
-					 MPSCTRL_SECURE_WRITE_BIT |
-					 MPSCTRL_NON_SECURE_READ_BIT |
-					 MPSCTRL_NON_SECURE_WRITE_BIT |
-					 MPSCTRL_VALID));
-	}
-
-	/* XXX: we support operation for slot index 0 only */
-	slot = 0;
-	if (sc->pwren_inverted) {
-		WRITE4(sc, SDMMC_PWREN, (0 << slot));
-	} else {
-		WRITE4(sc, SDMMC_PWREN, (1 << slot));
-	}
-
-	/* Reset all */
-	if (dwmmc_ctrl_reset(sc, (SDMMC_CTRL_RESET |
-				  SDMMC_CTRL_FIFO_RESET |
-				  SDMMC_CTRL_DMA_RESET)))
-		return (ENXIO);
-
-
-	dwmmc_setup_bus(sc, sc->host.f_min);
-
-	if (sc->fifo_depth == 0) {
-		sc->fifo_depth = 1 +
-		    ((READ4(sc, SDMMC_FIFOTH) >> SDMMC_FIFOTH_RXWMARK_S) & 0xfff);
-		device_printf(dev, "No fifo-depth, using FIFOTH %x\n",
-		    sc->fifo_depth);
-	}
-
-	if (!sc->use_pio) {
-		if (dma_setup(sc))
-			return (ENXIO);
-
-		/* Install desc base */
-		WRITE4(sc, SDMMC_DBADDR, sc->desc_ring_paddr);
-
-		/* Enable DMA interrupts */
-		WRITE4(sc, SDMMC_IDSTS, SDMMC_IDINTEN_MASK);
-		WRITE4(sc, SDMMC_IDINTEN, (SDMMC_IDINTEN_NI |
-					   SDMMC_IDINTEN_RI |
-					   SDMMC_IDINTEN_TI));
-	}
-
-	/* Clear and disable interrups for a while */
-	WRITE4(sc, SDMMC_RINTSTS, 0xffffffff);
-	WRITE4(sc, SDMMC_INTMASK, 0);
-
-	/* Maximum timeout */
-	WRITE4(sc, SDMMC_TMOUT, 0xffffffff);
-
-	/* Enable interrupts */
-	WRITE4(sc, SDMMC_RINTSTS, 0xffffffff);
-	WRITE4(sc, SDMMC_INTMASK, (SDMMC_INTMASK_CMD_DONE |
-				   SDMMC_INTMASK_DTO |
-				   SDMMC_INTMASK_ACD |
-				   SDMMC_INTMASK_TXDR |
-				   SDMMC_INTMASK_RXDR |
-				   DWMMC_ERR_FLAGS |
-				   SDMMC_INTMASK_CD));
-	WRITE4(sc, SDMMC_CTRL, SDMMC_CTRL_INT_ENABLE);
-#endif
 
 	sc->bus_hz = 20000000;
 
@@ -655,62 +167,6 @@ dwmmc_attach(device_t dev)
 	device_add_child(dev, "mmc", -1);
 	return (bus_generic_attach(dev));
 }
-
-#if 0
-static int
-dwmmc_setup_bus(struct dwmmc_softc *sc, int freq)
-{
-	int tout;
-	int div;
-
-	if (freq == 0) {
-		WRITE4(sc, SDMMC_CLKENA, 0);
-		WRITE4(sc, SDMMC_CMD, (SDMMC_CMD_WAIT_PRVDATA |
-			SDMMC_CMD_UPD_CLK_ONLY | SDMMC_CMD_START));
-
-		tout = 1000;
-		do {
-			if (tout-- < 0) {
-				device_printf(sc->dev, "Failed update clk\n");
-				return (1);
-			}
-		} while (READ4(sc, SDMMC_CMD) & SDMMC_CMD_START);
-
-		return (0);
-	}
-
-	WRITE4(sc, SDMMC_CLKENA, 0);
-	WRITE4(sc, SDMMC_CLKSRC, 0);
-
-	div = (sc->bus_hz != freq) ? DIV_ROUND_UP(sc->bus_hz, 2 * freq) : 0;
-
-	WRITE4(sc, SDMMC_CLKDIV, div);
-	WRITE4(sc, SDMMC_CMD, (SDMMC_CMD_WAIT_PRVDATA |
-			SDMMC_CMD_UPD_CLK_ONLY | SDMMC_CMD_START));
-
-	tout = 1000;
-	do {
-		if (tout-- < 0) {
-			device_printf(sc->dev, "Failed to update clk");
-			return (1);
-		}
-	} while (READ4(sc, SDMMC_CMD) & SDMMC_CMD_START);
-
-	WRITE4(sc, SDMMC_CLKENA, (SDMMC_CLKENA_CCLK_EN | SDMMC_CLKENA_LP));
-	WRITE4(sc, SDMMC_CMD, SDMMC_CMD_WAIT_PRVDATA |
-			SDMMC_CMD_UPD_CLK_ONLY | SDMMC_CMD_START);
-
-	tout = 1000;
-	do {
-		if (tout-- < 0) {
-			device_printf(sc->dev, "Failed to enable clk\n");
-			return (1);
-		}
-	} while (READ4(sc, SDMMC_CMD) & SDMMC_CMD_START);
-
-	return (0);
-}
-#endif
 
 static int
 dwmmc_update_ios(device_t brdev, device_t reqdev)
@@ -724,282 +180,8 @@ dwmmc_update_ios(device_t brdev, device_t reqdev)
 	dprintf("Setting up clk %u bus_width %d\n",
 		ios->clock, ios->bus_width);
 
-#if 0
-	dwmmc_setup_bus(sc, ios->clock);
-
-	if (ios->bus_width == bus_width_8)
-		WRITE4(sc, SDMMC_CTYPE, SDMMC_CTYPE_8BIT);
-	else if (ios->bus_width == bus_width_4)
-		WRITE4(sc, SDMMC_CTYPE, SDMMC_CTYPE_4BIT);
-	else
-		WRITE4(sc, SDMMC_CTYPE, 0);
-
-	if ((sc->hwtype & HWTYPE_MASK) == HWTYPE_EXYNOS) {
-		/* XXX: take care about DDR or SDR use here */
-		WRITE4(sc, SDMMC_CLKSEL, sc->sdr_timing);
-	}
-
-	/*
-	 * XXX: take care about DDR bit
-	 *
-	 * reg = READ4(sc, SDMMC_UHS_REG);
-	 * reg |= (SDMMC_UHS_REG_DDR);
-	 * WRITE4(sc, SDMMC_UHS_REG, reg);
-	 */
-#endif
-
 	return (0);
 }
-
-#if 0
-static int
-dma_done(struct dwmmc_softc *sc, struct mmc_command *cmd)
-{
-	struct mmc_data *data;
-
-	data = cmd->data;
-
-#if 0
-	if (data->flags & MMC_DATA_WRITE)
-		bus_dmamap_sync(sc->buf_tag, sc->buf_map,
-			BUS_DMASYNC_POSTWRITE);
-	else
-		bus_dmamap_sync(sc->buf_tag, sc->buf_map,
-			BUS_DMASYNC_POSTREAD);
-
-	bus_dmamap_unload(sc->buf_tag, sc->buf_map);
-#endif
-
-	return (0);
-}
-
-static int
-dma_stop(struct dwmmc_softc *sc)
-{
-	int reg;
-
-	reg = READ4(sc, SDMMC_CTRL);
-	reg &= ~(SDMMC_CTRL_USE_IDMAC);
-	reg |= (SDMMC_CTRL_DMA_RESET);
-	WRITE4(sc, SDMMC_CTRL, reg);
-
-	reg = READ4(sc, SDMMC_BMOD);
-	reg &= ~(SDMMC_BMOD_DE | SDMMC_BMOD_FB);
-	reg |= (SDMMC_BMOD_SWR);
-	WRITE4(sc, SDMMC_BMOD, reg);
-
-	return (0);
-}
-#endif
-
-#if 0
-static int
-dma_prepare(struct dwmmc_softc *sc, struct mmc_command *cmd)
-{
-	struct mmc_data *data;
-	int len;
-	int err;
-	int reg;
-
-	data = cmd->data;
-	len = data->len;
-
-	reg = READ4(sc, SDMMC_INTMASK);
-	reg &= ~(SDMMC_INTMASK_TXDR | SDMMC_INTMASK_RXDR);
-	WRITE4(sc, SDMMC_INTMASK, reg);
-
-	err = bus_dmamap_load(sc->buf_tag, sc->buf_map,
-		data->data, data->len, dwmmc_ring_setup,
-		sc, BUS_DMA_NOWAIT);
-	if (err != 0)
-		panic("dmamap_load failed\n");
-
-	if (data->flags & MMC_DATA_WRITE)
-		bus_dmamap_sync(sc->buf_tag, sc->buf_map,
-			BUS_DMASYNC_PREWRITE);
-	else
-		bus_dmamap_sync(sc->buf_tag, sc->buf_map,
-			BUS_DMASYNC_PREREAD);
-
-	reg = (DEF_MSIZE << SDMMC_FIFOTH_MSIZE_S);
-	reg |= ((sc->fifo_depth / 2) - 1) << SDMMC_FIFOTH_RXWMARK_S;
-	reg |= (sc->fifo_depth / 2) << SDMMC_FIFOTH_TXWMARK_S;
-
-	WRITE4(sc, SDMMC_FIFOTH, reg);
-	wmb();
-
-	reg = READ4(sc, SDMMC_CTRL);
-	reg |= (SDMMC_CTRL_USE_IDMAC | SDMMC_CTRL_DMA_ENABLE);
-	WRITE4(sc, SDMMC_CTRL, reg);
-	wmb();
-
-	reg = READ4(sc, SDMMC_BMOD);
-	reg |= (SDMMC_BMOD_DE | SDMMC_BMOD_FB);
-	WRITE4(sc, SDMMC_BMOD, reg);
-
-	/* Start */
-	WRITE4(sc, SDMMC_PLDMND, 1);
-
-	return (0);
-}
-
-static int
-pio_prepare(struct dwmmc_softc *sc, struct mmc_command *cmd)
-{
-	struct mmc_data *data;
-	int reg;
-
-	data = cmd->data;
-	data->xfer_len = 0;
-
-	reg = (DEF_MSIZE << SDMMC_FIFOTH_MSIZE_S);
-	reg |= ((sc->fifo_depth / 2) - 1) << SDMMC_FIFOTH_RXWMARK_S;
-	reg |= (sc->fifo_depth / 2) << SDMMC_FIFOTH_TXWMARK_S;
-
-	WRITE4(sc, SDMMC_FIFOTH, reg);
-	wmb();
-
-	return (0);
-}
-#endif
-
-#if 0
-static void
-pio_read(struct dwmmc_softc *sc, struct mmc_command *cmd)
-{
-	struct mmc_data *data;
-	uint32_t *p, status;
-
-	if (cmd == NULL || cmd->data == NULL)
-		return;
-
-	data = cmd->data;
-	if ((data->flags & MMC_DATA_READ) == 0)
-		return;
-
-	KASSERT((data->xfer_len & 3) == 0, ("xfer_len not aligned"));
-	p = (uint32_t *)data->data + (data->xfer_len >> 2);
-
-	while (data->xfer_len < data->len) {
-		status = READ4(sc, SDMMC_STATUS);
-		if (status & SDMMC_STATUS_FIFO_EMPTY)
-			break;
-		*p++ = READ4(sc, SDMMC_DATA);
-		data->xfer_len += 4;
-	}
-
-	WRITE4(sc, SDMMC_RINTSTS, SDMMC_INTMASK_RXDR);
-}
-
-static void
-pio_write(struct dwmmc_softc *sc, struct mmc_command *cmd)
-{
-	struct mmc_data *data;
-	uint32_t *p, status;
-
-	if (cmd == NULL || cmd->data == NULL)
-		return;
-
-	data = cmd->data;
-	if ((data->flags & MMC_DATA_WRITE) == 0)
-		return;
-
-	KASSERT((data->xfer_len & 3) == 0, ("xfer_len not aligned"));
-	p = (uint32_t *)data->data + (data->xfer_len >> 2);
-
-	while (data->xfer_len < data->len) {
-		status = READ4(sc, SDMMC_STATUS);
-		if (status & SDMMC_STATUS_FIFO_FULL)
-			break;
-		WRITE4(sc, SDMMC_DATA, *p++);
-		data->xfer_len += 4;
-	}
-
-	WRITE4(sc, SDMMC_RINTSTS, SDMMC_INTMASK_TXDR);
-}
-
-static void
-dwmmc_start_cmd(struct dwmmc_softc *sc, struct mmc_command *cmd)
-{
-	struct mmc_data *data;
-	uint32_t blksz;
-	uint32_t cmdr;
-
-	sc->curcmd = cmd;
-	data = cmd->data;
-
-	if ((sc->hwtype & HWTYPE_MASK) == HWTYPE_ROCKCHIP)
-		dwmmc_setup_bus(sc, sc->host.ios.clock);
-
-	/* XXX Upper layers don't always set this */
-	cmd->mrq = sc->req;
-
-	/* Begin setting up command register. */
-
-	cmdr = cmd->opcode;
-
-	dprintf("cmd->opcode 0x%08x\n", cmd->opcode);
-
-	if (cmd->opcode == MMC_STOP_TRANSMISSION ||
-	    cmd->opcode == MMC_GO_IDLE_STATE ||
-	    cmd->opcode == MMC_GO_INACTIVE_STATE)
-		cmdr |= SDMMC_CMD_STOP_ABORT;
-	else if (cmd->opcode != MMC_SEND_STATUS && data)
-		cmdr |= SDMMC_CMD_WAIT_PRVDATA;
-
-	/* Set up response handling. */
-	if (MMC_RSP(cmd->flags) != MMC_RSP_NONE) {
-		cmdr |= SDMMC_CMD_RESP_EXP;
-		if (cmd->flags & MMC_RSP_136)
-			cmdr |= SDMMC_CMD_RESP_LONG;
-	}
-
-	if (cmd->flags & MMC_RSP_CRC)
-		cmdr |= SDMMC_CMD_RESP_CRC;
-
-	/*
-	 * XXX: Not all platforms want this.
-	 */
-	cmdr |= SDMMC_CMD_USE_HOLD_REG;
-
-	if ((sc->flags & CARD_INIT_DONE) == 0) {
-		sc->flags |= (CARD_INIT_DONE);
-		cmdr |= SDMMC_CMD_SEND_INIT;
-	}
-
-	if (data) {
-		if ((cmd->opcode == MMC_WRITE_MULTIPLE_BLOCK ||
-		     cmd->opcode == MMC_READ_MULTIPLE_BLOCK) &&
-		     sc->use_auto_stop)
-			cmdr |= SDMMC_CMD_SEND_ASTOP;
-
-		cmdr |= SDMMC_CMD_DATA_EXP;
-		if (data->flags & MMC_DATA_STREAM)
-			cmdr |= SDMMC_CMD_MODE_STREAM;
-		if (data->flags & MMC_DATA_WRITE)
-			cmdr |= SDMMC_CMD_DATA_WRITE;
-
-		WRITE4(sc, SDMMC_TMOUT, 0xffffffff);
-		WRITE4(sc, SDMMC_BYTCNT, data->len);
-		blksz = (data->len < MMC_SECTOR_SIZE) ? \
-			 data->len : MMC_SECTOR_SIZE;
-		WRITE4(sc, SDMMC_BLKSIZ, blksz);
-
-		if (sc->use_pio) {
-			pio_prepare(sc, cmd);
-		} else {
-			dma_prepare(sc, cmd);
-		}
-		wmb();
-	}
-
-	dprintf("cmdr 0x%08x\n", cmdr);
-
-	WRITE4(sc, SDMMC_CMDARG, cmd->arg);
-	wmb();
-	WRITE4(sc, SDMMC_CMD, cmdr | SDMMC_CMD_START);
-};
-#endif
 
 #if 0
 static void
@@ -1053,8 +235,25 @@ xchg_spi(struct dwmmc_softc *sc, uint8_t byte)
 	spi_cmd.rx_cmd = &msg_dinp;
 	spi_cmd.tx_cmd_sz = 1;
 	spi_cmd.rx_cmd_sz = 1; 
-	spi_cmd.tx_data_sz = 0;
-	spi_cmd.rx_data_sz = 0;
+
+	SPIBUS_TRANSFER(device_get_parent(sc->dev), sc->dev, &spi_cmd);
+
+	return (msg_dinp);
+}
+
+static uint8_t
+xchg_spi_multi(struct dwmmc_softc *sc, uint8_t *bytes, uint32_t nbytes)
+{
+	struct spi_command spi_cmd;
+	uint8_t msg_dinp;
+
+	msg_dinp = 0;
+
+	memset(&spi_cmd, 0, sizeof(spi_cmd));
+	spi_cmd.tx_cmd = bytes;
+	spi_cmd.rx_cmd = &msg_dinp;
+	spi_cmd.tx_cmd_sz = nbytes;
+	spi_cmd.rx_cmd_sz = nbytes;
 
 	SPIBUS_TRANSFER(device_get_parent(sc->dev), sc->dev, &spi_cmd);
 
@@ -1077,18 +276,6 @@ wait_ready(struct dwmmc_softc *sc, int timeout)
 }
 
 static int
-select(struct dwmmc_softc *sc)
-{
-
-	SPIBUS_CHIP_SELECT(device_get_parent(sc->dev), sc->dev);
-	if (wait_ready(sc, 500))
-		return (1);
-	SPIBUS_CHIP_DESELECT(device_get_parent(sc->dev), sc->dev);
-
-	return (0);
-}
-
-static int
 mmc_spi_req(struct dwmmc_softc *sc, struct mmc_command *cmd)
 {
 	//struct mmc_command *cmd;
@@ -1097,7 +284,7 @@ mmc_spi_req(struct dwmmc_softc *sc, struct mmc_command *cmd)
 	uint8_t *ptr;
 	uint32_t reg;
 	int success;
-	uint8_t crc;
+	//uint8_t crc;
 	uint8_t d;
 	int ret;
 	int i;
@@ -1106,21 +293,15 @@ mmc_spi_req(struct dwmmc_softc *sc, struct mmc_command *cmd)
 	//cmd = req->cmd;
 	data = cmd->data;
 
-	xchg_spi(sc, 0xff);
-	xchg_spi(sc, (0x40 | cmd->opcode));
-	xchg_spi(sc, cmd->arg >> 24);
-	xchg_spi(sc, cmd->arg >> 16);
-	xchg_spi(sc, cmd->arg >> 8);
-	xchg_spi(sc, cmd->arg >> 0);
-	crc = 0x01;
-	if (cmd->opcode == 0) {
-		crc = 0x95;
-	}
-	if (cmd->opcode == 8) {
-		crc = 0x87;
-	}
-	xchg_spi(sc, crc);
-	xchg_spi(sc, 0xff);
+	uint8_t req[7];
+	req[0] = 0xff;
+	req[1] = (0x40 | cmd->opcode);
+	req[2] = (cmd->arg >> 24);
+	req[3] = (cmd->arg >> 16);
+	req[4] = (cmd->arg >> 8);
+	req[5] = (cmd->arg >> 0);
+	req[6] = crc7(0, &req[1], 5) | 0x01;
+	xchg_spi_multi(sc, req, 7);
 
 	/* Wait response */
 	ret = 0;
@@ -1220,104 +401,26 @@ mmc_spi_req(struct dwmmc_softc *sc, struct mmc_command *cmd)
 static int
 dwmmc_request(device_t brdev, device_t reqdev, struct mmc_request *req)
 {
-	//struct spi_command spi_cmd;
-	struct mmc_command *cmd;
 	struct dwmmc_softc *sc;
-	//int i;
-#if 0
-	uint8_t *msg_dout;
-	uint8_t *msg_dinp;
-#endif
 
 	sc = device_get_softc(brdev);
 
-	cmd = req->cmd;
-
-	//dprintf("%s: opcode %d\n", __func__, cmd->opcode);
-	//if (data) {
-	//	len = data->len;
-	//	printf("DATA req: len %d\n", len);
-	//}
-
 	DWMMC_LOCK(sc);
 
-#if 0
-	msg_dout = malloc(32, M_DEVBUF, M_NOWAIT | M_ZERO);
-	msg_dinp = malloc(32, M_DEVBUF, M_NOWAIT | M_ZERO);
-#endif
-
-#if 0
-	/* 80 Dummy clocks */
-	if (flag == 0) {
-		flag = 1;
-		for (i = 0; i < 10; i++) {
-			xchg_spi(sc, 0xff);
-		}
+	SPIBUS_CHIP_SELECT(device_get_parent(sc->dev), sc->dev);
+	if (!wait_ready(sc, 500)) {
+		DWMMC_UNLOCK(sc);
+		return (1);
 	}
-#endif
-
-	select(sc);
 	mmc_spi_req(sc, req->cmd);
 	if (req->stop) {
 		mmc_spi_req(sc, req->stop);
 	}
 	SPIBUS_CHIP_DESELECT(device_get_parent(sc->dev), sc->dev);
 
-#if 0
-	/* Request */
-	msg_dout[0] = (0x40 | cmd->opcode);
-	msg_dout[1] = (cmd->arg >> 24);
-	msg_dout[2] = (cmd->arg >> 16);
-	msg_dout[3] = (cmd->arg >> 8);
-	msg_dout[4] = (cmd->arg);
-	crc = 0x01;
-	if (cmd->opcode == 0)
-		crc = 0x95;
-	if (cmd->opcode == 8)
-		crc = 0x87;
-	msg_dout[5] = crc;
-
-	memset(&spi_cmd, 0, sizeof(spi_cmd));
-	spi_cmd.tx_cmd = msg_dout;
-	spi_cmd.rx_cmd = msg_dinp;
-	spi_cmd.tx_cmd_sz = 6;
-	spi_cmd.rx_cmd_sz = 6;
-
-	ret = SPIBUS_TRANSFER(device_get_parent(sc->dev), sc->dev, &spi_cmd);
-
-	/* Wait response */
-	for (i = 0; i < 10; i++) {
-		msg_dout[0] = 0xff;
-
-		memset(&spi_cmd, 0, sizeof(spi_cmd));
-		spi_cmd.tx_cmd = msg_dout;
-		spi_cmd.rx_cmd = msg_dinp;
-		spi_cmd.tx_cmd_sz = 1;
-		spi_cmd.rx_cmd_sz = 1;
-
-		ret = SPIBUS_TRANSFER(device_get_parent(sc->dev), sc->dev, &spi_cmd);
-		printf("resp 0x%02x\n", msg_dinp[0]);
-	}
-
-	free(msg_dout, M_DEVBUF);
-	free(msg_dinp, M_DEVBUF);
-#endif
-
 	req->done(req);
+
 	DWMMC_UNLOCK(sc);
-
-#if 0
-	if (sc->req != NULL) {
-		DWMMC_UNLOCK(sc);
-		return (EBUSY);
-	}
-
-	sc->req = req;
-	sc->flags |= PENDING_CMD;
-	if (sc->req->stop)
-		sc->flags |= PENDING_STOP;
-	dwmmc_next_operation(sc);
-#endif
 
 	return (0);
 }
