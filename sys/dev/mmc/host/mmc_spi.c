@@ -336,20 +336,18 @@ mmc_spi_req(struct dwmmc_softc *sc, struct mmc_command *cmd)
 	for (i = 0; i < 10; i++) {
 		ret = xchg_spi(sc, 0xff);
 		if ((ret & 0x80) == 0) {
-			printf("SUCCESS(%d): 0x%x\n", i, ret);
+			//printf("SUCCESS(%d): 0x%x\n", i, ret);
 			break;
 		}
 	}
+
 	err = MMC_ERR_TIMEOUT;
 
 	if (cmd->opcode == ACMD_SD_SEND_OP_COND) {
 		if (ret == R1_SPI_ERR_NONE)
 			err = MMC_ERR_NONE;
-	} else {
-		//ret &= ~R1_SPI_ERR_ILLEGAL;
-		if (ret == R1_SPI_ERR_IDLE || ret == R1_SPI_ERR_NONE) {
-			err = MMC_ERR_NONE;
-		}
+	} else if (ret == R1_SPI_ERR_IDLE || ret == R1_SPI_ERR_NONE) {
+		err = MMC_ERR_NONE;
 	}
 
 	cmd->error = err;
