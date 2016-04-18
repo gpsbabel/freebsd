@@ -117,7 +117,7 @@ struct mmc_ivars {
 
 static SYSCTL_NODE(_hw, OID_AUTO, mmc, CTLFLAG_RD, NULL, "mmc driver");
 
-static int mmc_debug = 100;
+static int mmc_debug = 0;
 SYSCTL_INT(_hw_mmc, OID_AUTO, debug, CTLFLAG_RWTUN, &mmc_debug, 0, "Debug level");
 
 /* bus entry points */
@@ -464,7 +464,10 @@ mmc_wait_for_app_cmd(struct mmc_softc *sc, uint32_t rca,
 	do {
 		memset(&appcmd, 0, sizeof(appcmd));
 		appcmd.opcode = MMC_APP_CMD;
-		appcmd.arg = rca << 16;
+		if (!mmc_host_is_spi(sc->dev))
+			appcmd.arg = (rca << 16);
+		else
+			appcmd.arg = 0;
 		appcmd.flags = MMC_RSP_R1 | MMC_CMD_AC;
 		appcmd.data = NULL;
 		if (mmc_wait_for_cmd(sc, &appcmd, 0) != 0)
@@ -544,7 +547,11 @@ static int
 mmc_send_app_op_cond(struct mmc_softc *sc, uint32_t ocr, uint32_t *rocr)
 {
 	struct mmc_command cmd;
-	int err = MMC_ERR_NONE, i;
+	int retries;
+	int err;
+	int i;
+
+	err = MMC_ERR_NONE;
 
 	memset(&cmd, 0, sizeof(cmd));
 	cmd.opcode = ACMD_SD_SEND_OP_COND;
@@ -552,8 +559,10 @@ mmc_send_app_op_cond(struct mmc_softc *sc, uint32_t ocr, uint32_t *rocr)
 	cmd.flags = MMC_RSP_R3 | MMC_CMD_BCR;
 	cmd.data = NULL;
 
+	retries = mmc_host_is_spi(sc->dev) ? 10 : CMD_RETRIES;
+
 	for (i = 0; i < 1000; i++) {
-		err = mmc_wait_for_app_cmd(sc, 0, &cmd, CMD_RETRIES);
+		err = mmc_wait_for_app_cmd(sc, 0, &cmd, retries);
 		if (err != MMC_ERR_NONE)
 			break;
 		if ((cmd.resp[0] & MMC_OCR_CARD_BUSY) ||
