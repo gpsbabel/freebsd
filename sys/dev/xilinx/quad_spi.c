@@ -196,7 +196,8 @@ spi_txrx(struct spi_softc *sc, uint8_t *out_buf,
 			continue;
 
 		data = READ4(sc, SPI_DRR);
-		in_buf[i] = (data & 0xff);
+		if (in_buf)
+			in_buf[i] = (data & 0xff);
 	}
 
 	return (0);

@@ -240,13 +240,34 @@ mmc_cmd_done(struct mmc_spi_softc *sc, struct mmc_command *cmd)
 		ptr = data->data;
 
 		/* Warning: This part was not tested */
+		uint32_t resp;
 
-		for (j = 0; j < block_count; j++) {
-			for (i = 0; i < MMC_SECTOR_SIZE; i++) {
-				xchg_spi(sc, *ptr++);
+		if (cmd->opcode == MMC_WRITE_BLOCK) {
+			if (!wait_ready(sc, 500))
+				return (-1);
+			xchg_spi(sc, 0xfe);
+			xchg_spi_multi(sc, ptr, NULL, MMC_SECTOR_SIZE);
+			while(xchg_spi(sc, 0xFF) == 0x00); /* CRC */
+			while(xchg_spi(sc, 0xFF) == 0x00); /* CRC */
+			resp = xchg_spi(sc, 0xFF);
+			if ((resp & 0x1F) != 0x05)
+				return 0;
+		} else {
+			for (j = 0; j < block_count; j++) {
+				if (!wait_ready(sc, 500))
+					return (-1);
+				xchg_spi(sc, 0xfc);
+				xchg_spi_multi(sc, ptr, NULL, MMC_SECTOR_SIZE);
+				while(xchg_spi(sc, 0xFF) == 0x00); /* CRC */
+				while(xchg_spi(sc, 0xFF) == 0x00); /* CRC */
+				resp = xchg_spi(sc, 0xFF);
+				if ((resp & 0x1F) != 0x05)
+					return 0;
+				ptr += MMC_SECTOR_SIZE;
 			}
-			xchg_spi(sc, 0xFF);	/* Skip CRC */
-			xchg_spi(sc, 0xFF);
+			xchg_spi(sc, 0xfd);
+			if (!wait_ready(sc, 500))
+				return (-1);
 		}
 
 		return (0);
@@ -278,7 +299,6 @@ mmc_cmd_done(struct mmc_spi_softc *sc, struct mmc_command *cmd)
 static int
 mmc_spi_req(struct mmc_spi_softc *sc, struct mmc_command *cmd)
 {
-	uint8_t req_in[7];
 	uint8_t req[7];
 	int ret;
 	int i;
@@ -290,7 +310,7 @@ mmc_spi_req(struct mmc_spi_softc *sc, struct mmc_command *cmd)
 	req[4] = (cmd->arg >> 8);
 	req[5] = (cmd->arg >> 0);
 	req[6] = crc7(0, &req[1], 5) | 0x01;
-	xchg_spi_multi(sc, req, req_in, 7);
+	xchg_spi_multi(sc, req, NULL, 7);
 
 	/* Wait response */
 	for (i = 0; i < 1000; i++) {
