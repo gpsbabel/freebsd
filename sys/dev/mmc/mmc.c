@@ -117,7 +117,7 @@ struct mmc_ivars {
 
 static SYSCTL_NODE(_hw, OID_AUTO, mmc, CTLFLAG_RD, NULL, "mmc driver");
 
-static int mmc_debug = 0;
+static int mmc_debug;
 SYSCTL_INT(_hw_mmc, OID_AUTO, debug, CTLFLAG_RWTUN, &mmc_debug, 0, "Debug level");
 
 /* bus entry points */
@@ -464,10 +464,10 @@ mmc_wait_for_app_cmd(struct mmc_softc *sc, uint32_t rca,
 	do {
 		memset(&appcmd, 0, sizeof(appcmd));
 		appcmd.opcode = MMC_APP_CMD;
-		if (!mmc_host_is_spi(sc->dev))
-			appcmd.arg = (rca << 16);
-		else
+		if (mmc_host_is_spi(sc->dev))
 			appcmd.arg = 0;
+		else
+			appcmd.arg = (rca << 16);
 		appcmd.flags = MMC_RSP_R1 | MMC_CMD_AC;
 		appcmd.data = NULL;
 		if (mmc_wait_for_cmd(sc, &appcmd, 0) != 0)
@@ -555,7 +555,10 @@ mmc_send_app_op_cond(struct mmc_softc *sc, uint32_t ocr, uint32_t *rocr)
 
 	memset(&cmd, 0, sizeof(cmd));
 	cmd.opcode = ACMD_SD_SEND_OP_COND;
-	cmd.arg = (1 << 30); //ocr;
+	if (mmc_host_is_spi(sc->dev))
+		cmd.arg = (1 << 30);
+	else
+		cmd.arg = ocr;
 	cmd.flags = MMC_RSP_R3 | MMC_CMD_BCR;
 	cmd.data = NULL;
 
@@ -575,7 +578,6 @@ mmc_send_app_op_cond(struct mmc_softc *sc, uint32_t ocr, uint32_t *rocr)
 		*rocr = cmd.resp[0];
 
 	if (mmc_host_is_spi(sc->dev)) {
-		//mmc_idle_cards(sc);
 		/* highcap -> (1 << 30) */
 		err = mmc_wait_for_command(sc, MMC_SPI_READ_OCR, (1 << 30), MMC_RSP_R3, rocr, 1);
 	}
@@ -1287,7 +1289,6 @@ mmc_send_status(struct mmc_softc *sc, uint16_t rca, uint32_t *status)
 
 	memset(&cmd, 0, sizeof(cmd));
 	cmd.opcode = MMC_SEND_STATUS;
-	//if (!mmc_host_is_spi(sc->dev))
 	cmd.arg = rca << 16;
 	cmd.flags = MMC_RSP_R1 | MMC_CMD_AC;
 	cmd.data = NULL;
