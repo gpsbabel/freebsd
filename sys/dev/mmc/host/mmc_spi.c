@@ -130,11 +130,6 @@ mmc_spi_attach(device_t dev)
 static int
 mmc_spi_update_ios(device_t brdev, device_t reqdev)
 {
-	struct mmc_spi_softc *sc;
-	struct mmc_ios *ios;
-
-	sc = device_get_softc(brdev);
-	ios = &sc->host.ios;
 
 	return (0);
 }
@@ -190,10 +185,28 @@ wait_ready(struct mmc_spi_softc *sc, int timeout)
 }
 
 static int
+wait_for_data(struct mmc_spi_softc *sc)
+{
+	uint32_t timeout;
+	int reg;
+
+	timeout = 2000;
+	do {
+		reg = xchg_spi(sc, 0xff);
+		timeout--;
+	} while ((reg == 0xff) && timeout);
+	if (reg == 0xfe) {
+		return (1);
+	}
+
+	printf("Failed wait for data\n");
+	return (0);
+}
+
+static int
 mmc_cmd_done(struct mmc_spi_softc *sc, struct mmc_command *cmd)
 {
 	struct mmc_data *data;
-	uint32_t timeout;
 	int block_count;
 	uint8_t *ptr;
 	int reg;
@@ -204,16 +217,8 @@ mmc_cmd_done(struct mmc_spi_softc *sc, struct mmc_command *cmd)
 
 	if (cmd->flags & MMC_RSP_PRESENT) {
 		if (cmd->flags & MMC_RSP_136) {
-
-			/* Wait for data */
-			timeout = 2000;
-			do {
-				reg = xchg_spi(sc, 0xff);
-				timeout--;
-			} while ((reg == 0xff) && timeout);
-			if (reg != 0xFE) {
-				printf("FAILED to get RSP136\n");
-			}
+			if (!wait_for_data(sc))
+				return (-1);
 
 			for (j = 0; j < 4; j++) {
 				reg = 0;
@@ -223,7 +228,8 @@ mmc_cmd_done(struct mmc_spi_softc *sc, struct mmc_command *cmd)
 				//dprintf("long resp(%d): 0x%08x\n", j, reg);
 				cmd->resp[j] = reg;
 			}
-		} else if (cmd->opcode != 17 && cmd->opcode != 18) {
+		} else if (cmd->opcode != MMC_READ_SINGLE_BLOCK && \
+			   cmd->opcode != MMC_READ_MULTIPLE_BLOCK) {
 			reg = 0;
 			for (i = 3; i >= 0; i--) {
 				reg |= (xchg_spi(sc, 0xff) << (i * 8));
@@ -233,21 +239,15 @@ mmc_cmd_done(struct mmc_spi_softc *sc, struct mmc_command *cmd)
 		}
 	}
 
-	if (cmd->opcode == 17 || cmd->opcode == 18) {
-		block_count = (data->len / 512);
+	if (cmd->opcode == MMC_READ_SINGLE_BLOCK || \
+	    cmd->opcode == MMC_READ_MULTIPLE_BLOCK) {
+		block_count = (data->len / MMC_SECTOR_SIZE);
 		ptr = data->data;
 
 		for (j = 0; j < block_count; j++) {
-			/* Wait for data */
-			timeout = 2000;
-			do {
-				reg = xchg_spi(sc, 0xff);
-				timeout--;
-			} while ((reg == 0xff) && timeout);
-			if (reg != 0xFE) {
-				printf("FAILED to wait DATA\n");
-			}
-			for (i = 0; i < 512; i++) {
+			if (!wait_for_data(sc))
+				return (-1);
+			for (i = 0; i < MMC_SECTOR_SIZE; i++) {
 				reg = xchg_spi(sc, 0xff);
 				*ptr++ = reg;
 				//printf("%x ", reg);
