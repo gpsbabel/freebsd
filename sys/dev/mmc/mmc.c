@@ -277,10 +277,7 @@ static int
 mmc_host_is_spi(device_t dev)
 {
 
-	if (mmcbr_get_caps(dev) & MMC_CAP_SPI)
-		return (1);
-
-	return (0);
+	return (mmcbr_get_caps(dev) & MMC_CAP_SPI);
 }
 
 static int

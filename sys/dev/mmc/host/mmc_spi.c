@@ -54,8 +54,7 @@ __FBSDID("$FreeBSD$");
 #include <machine/cpu.h>
 #include <machine/intr.h>
 
-#include <dev/mmc/host/dwmmc_reg.h>
-#include <dev/mmc/host/dwmmc_var.h>
+#include <dev/mmc/host/mmc_spi.h>
 
 #include <dev/spibus/spi.h>
 #include <dev/spibus/spibusvar.h>
@@ -72,41 +71,6 @@ __FBSDID("$FreeBSD$");
 #define	R1_SPI_ERR_ADDR		(1 << 5)
 #define	R1_SPI_ERR_PARAM	(1 << 6)
 
-const uint8_t crc7_be_syndrome[256] = {
-	0x00, 0x12, 0x24, 0x36, 0x48, 0x5a, 0x6c, 0x7e,
-	0x90, 0x82, 0xb4, 0xa6, 0xd8, 0xca, 0xfc, 0xee,
-	0x32, 0x20, 0x16, 0x04, 0x7a, 0x68, 0x5e, 0x4c,
-	0xa2, 0xb0, 0x86, 0x94, 0xea, 0xf8, 0xce, 0xdc,
-	0x64, 0x76, 0x40, 0x52, 0x2c, 0x3e, 0x08, 0x1a,
-	0xf4, 0xe6, 0xd0, 0xc2, 0xbc, 0xae, 0x98, 0x8a,
-	0x56, 0x44, 0x72, 0x60, 0x1e, 0x0c, 0x3a, 0x28,
-	0xc6, 0xd4, 0xe2, 0xf0, 0x8e, 0x9c, 0xaa, 0xb8,
-	0xc8, 0xda, 0xec, 0xfe, 0x80, 0x92, 0xa4, 0xb6,
-	0x58, 0x4a, 0x7c, 0x6e, 0x10, 0x02, 0x34, 0x26,
-	0xfa, 0xe8, 0xde, 0xcc, 0xb2, 0xa0, 0x96, 0x84,
-	0x6a, 0x78, 0x4e, 0x5c, 0x22, 0x30, 0x06, 0x14,
-	0xac, 0xbe, 0x88, 0x9a, 0xe4, 0xf6, 0xc0, 0xd2,
-	0x3c, 0x2e, 0x18, 0x0a, 0x74, 0x66, 0x50, 0x42,
-	0x9e, 0x8c, 0xba, 0xa8, 0xd6, 0xc4, 0xf2, 0xe0,
-	0x0e, 0x1c, 0x2a, 0x38, 0x46, 0x54, 0x62, 0x70,
-	0x82, 0x90, 0xa6, 0xb4, 0xca, 0xd8, 0xee, 0xfc,
-	0x12, 0x00, 0x36, 0x24, 0x5a, 0x48, 0x7e, 0x6c,
-	0xb0, 0xa2, 0x94, 0x86, 0xf8, 0xea, 0xdc, 0xce,
-	0x20, 0x32, 0x04, 0x16, 0x68, 0x7a, 0x4c, 0x5e,
-	0xe6, 0xf4, 0xc2, 0xd0, 0xae, 0xbc, 0x8a, 0x98,
-	0x76, 0x64, 0x52, 0x40, 0x3e, 0x2c, 0x1a, 0x08,
-	0xd4, 0xc6, 0xf0, 0xe2, 0x9c, 0x8e, 0xb8, 0xaa,
-	0x44, 0x56, 0x60, 0x72, 0x0c, 0x1e, 0x28, 0x3a,
-	0x4a, 0x58, 0x6e, 0x7c, 0x02, 0x10, 0x26, 0x34,
-	0xda, 0xc8, 0xfe, 0xec, 0x92, 0x80, 0xb6, 0xa4,
-	0x78, 0x6a, 0x5c, 0x4e, 0x30, 0x22, 0x14, 0x06,
-	0xe8, 0xfa, 0xcc, 0xde, 0xa0, 0xb2, 0x84, 0x96,
-	0x2e, 0x3c, 0x0a, 0x18, 0x66, 0x74, 0x42, 0x50,
-	0xbe, 0xac, 0x9a, 0x88, 0xf6, 0xe4, 0xd2, 0xc0,
-	0x1c, 0x0e, 0x38, 0x2a, 0x54, 0x46, 0x70, 0x62,
-	0x8c, 0x9e, 0xa8, 0xba, 0xc4, 0xd6, 0xe0, 0xf2,
-};
-
 #define dprintf(x, arg...)	printf(x, arg)
 
 #define	READ4(_sc, _reg) \
@@ -114,20 +78,14 @@ const uint8_t crc7_be_syndrome[256] = {
 #define	WRITE4(_sc, _reg, _val) \
 	bus_write_4((_sc)->res[0], _reg, _val)
 
-//#define	DIV_ROUND_UP(n, d)		(((n) + (d) - 1) / (d))
-
-#define	DWMMC_LOCK(_sc)			mtx_lock(&(_sc)->sc_mtx)
-#define	DWMMC_UNLOCK(_sc)		mtx_unlock(&(_sc)->sc_mtx)
-#define	DWMMC_LOCK_INIT(_sc) \
+#define	MMC_SPI_LOCK(_sc)		mtx_lock(&(_sc)->sc_mtx)
+#define	MMC_SPI_UNLOCK(_sc)		mtx_unlock(&(_sc)->sc_mtx)
+#define	MMC_SPI_LOCK_INIT(_sc) \
 	mtx_init(&_sc->sc_mtx, device_get_nameunit(_sc->dev), \
-	    "dwmmc", MTX_DEF)
-#define	DWMMC_LOCK_DESTROY(_sc)		mtx_destroy(&_sc->sc_mtx);
-#define	DWMMC_ASSERT_LOCKED(_sc)	mtx_assert(&_sc->sc_mtx, MA_OWNED);
-#define	DWMMC_ASSERT_UNLOCKED(_sc)	mtx_assert(&_sc->sc_mtx, MA_NOTOWNED);
-
-//#define	PENDING_CMD	0x01
-//#define	PENDING_STOP	0x02
-//#define	CARD_INIT_DONE	0x04
+	    "mmc_spi", MTX_DEF)
+#define	MMC_SPI_LOCK_DESTROY(_sc)	mtx_destroy(&_sc->sc_mtx);
+#define	MMC_SPI_ASSERT_LOCKED(_sc)	mtx_assert(&_sc->sc_mtx, MA_OWNED);
+#define	MMC_SPI_ASSERT_UNLOCKED(_sc)	mtx_assert(&_sc->sc_mtx, MA_NOTOWNED);
 
 static uint8_t
 crc7(uint8_t crc, const uint8_t *buffer, size_t len)
@@ -143,27 +101,25 @@ crc7(uint8_t crc, const uint8_t *buffer, size_t len)
 }
 
 static int
-dwmmc_probe(device_t dev)
+mmc_spi_probe(device_t dev)
 {
 
 	device_set_desc(dev, "MMC SPI");
 	return (BUS_PROBE_DEFAULT);
 }
 
-int
-dwmmc_attach(device_t dev)
+static int
+mmc_spi_attach(device_t dev)
 {
-	struct dwmmc_softc *sc;
+	struct mmc_spi_softc *sc;
 
 	sc = device_get_softc(dev);
 	sc->dev = dev;
 
-	DWMMC_LOCK_INIT(sc);
-
-	sc->bus_hz = 20000000;
+	MMC_SPI_LOCK_INIT(sc);
 
 	sc->host.f_min = 400000;
-	sc->host.f_max = min(200000000, sc->bus_hz);
+	sc->host.f_max = 20000000;
 	sc->host.host_ocr = MMC_OCR_320_330 | MMC_OCR_330_340;
 	sc->host.caps = MMC_CAP_4_BIT_DATA | MMC_CAP_SPI;
 
@@ -172,22 +128,19 @@ dwmmc_attach(device_t dev)
 }
 
 static int
-dwmmc_update_ios(device_t brdev, device_t reqdev)
+mmc_spi_update_ios(device_t brdev, device_t reqdev)
 {
-	struct dwmmc_softc *sc;
+	struct mmc_spi_softc *sc;
 	struct mmc_ios *ios;
 
 	sc = device_get_softc(brdev);
 	ios = &sc->host.ios;
 
-	dprintf("Setting up clk %u bus_width %d\n",
-		ios->clock, ios->bus_width);
-
 	return (0);
 }
 
 static uint8_t
-xchg_spi(struct dwmmc_softc *sc, uint8_t byte)
+xchg_spi(struct mmc_spi_softc *sc, uint8_t byte)
 {
 	struct spi_command spi_cmd;
 	uint8_t msg_dinp;
@@ -206,7 +159,7 @@ xchg_spi(struct dwmmc_softc *sc, uint8_t byte)
 }
 
 static uint8_t
-xchg_spi_multi(struct dwmmc_softc *sc, uint8_t *out_bytes,
+xchg_spi_multi(struct mmc_spi_softc *sc, uint8_t *out_bytes,
     uint8_t *in_bytes, uint32_t nbytes)
 {
 	struct spi_command spi_cmd;
@@ -223,7 +176,7 @@ xchg_spi_multi(struct dwmmc_softc *sc, uint8_t *out_bytes,
 }
 
 static int
-wait_ready(struct dwmmc_softc *sc, int timeout)
+wait_ready(struct mmc_spi_softc *sc, int timeout)
 {
 	int i;
 
@@ -233,12 +186,11 @@ wait_ready(struct dwmmc_softc *sc, int timeout)
 	}
 
 	/* Timeout */
-
 	return (0);
 }
 
 static int
-mmc_cmd_done(struct dwmmc_softc *sc, struct mmc_command *cmd)
+mmc_cmd_done(struct mmc_spi_softc *sc, struct mmc_command *cmd)
 {
 	struct mmc_data *data;
 	uint32_t timeout;
@@ -254,7 +206,7 @@ mmc_cmd_done(struct dwmmc_softc *sc, struct mmc_command *cmd)
 		if (cmd->flags & MMC_RSP_136) {
 
 			/* Wait for data */
-			timeout = 20;
+			timeout = 2000;
 			do {
 				reg = xchg_spi(sc, 0xff);
 				timeout--;
@@ -268,7 +220,7 @@ mmc_cmd_done(struct dwmmc_softc *sc, struct mmc_command *cmd)
 				for (i = 3; i >= 0; i--) {
 					reg |= (xchg_spi(sc, 0xff) << (i * 8));
 				}
-				printf("long resp(%d): 0x%08x\n", j, reg);
+				//dprintf("long resp(%d): 0x%08x\n", j, reg);
 				cmd->resp[j] = reg;
 			}
 		} else if (cmd->opcode != 17 && cmd->opcode != 18) {
@@ -276,7 +228,7 @@ mmc_cmd_done(struct dwmmc_softc *sc, struct mmc_command *cmd)
 			for (i = 3; i >= 0; i--) {
 				reg |= (xchg_spi(sc, 0xff) << (i * 8));
 			}
-			printf("short resp0: 0x%08x\n", reg);
+			//dprintf("short resp0: 0x%08x\n", reg);
 			cmd->resp[0] = reg;
 		}
 	}
@@ -287,7 +239,7 @@ mmc_cmd_done(struct dwmmc_softc *sc, struct mmc_command *cmd)
 
 		for (j = 0; j < block_count; j++) {
 			/* Wait for data */
-			timeout = 200;
+			timeout = 2000;
 			do {
 				reg = xchg_spi(sc, 0xff);
 				timeout--;
@@ -312,11 +264,10 @@ mmc_cmd_done(struct dwmmc_softc *sc, struct mmc_command *cmd)
 }
 
 static int
-mmc_spi_req(struct dwmmc_softc *sc, struct mmc_command *cmd)
+mmc_spi_req(struct mmc_spi_softc *sc, struct mmc_command *cmd)
 {
 	uint8_t req_in[7];
 	uint8_t req[7];
-	int err;
 	int ret;
 	int i;
 
@@ -330,31 +281,25 @@ mmc_spi_req(struct dwmmc_softc *sc, struct mmc_command *cmd)
 	xchg_spi_multi(sc, req, req_in, 7);
 
 	/* Wait response */
-	ret = 0;
-	cmd->error = MMC_ERR_NONE;
-
-	for (i = 0; i < 10; i++) {
+	for (i = 0; i < 1000; i++) {
 		ret = xchg_spi(sc, 0xff);
-		if ((ret & 0x80) == 0) {
-			//printf("SUCCESS(%d): 0x%x\n", i, ret);
+		if ((ret & 0x80) == 0)
 			break;
-		}
 	}
 
-	err = MMC_ERR_TIMEOUT;
-
-	if (cmd->opcode == ACMD_SD_SEND_OP_COND) {
+	cmd->error = MMC_ERR_TIMEOUT;
+	if (cmd->opcode == ACMD_SD_SEND_OP_COND || \
+	    cmd->opcode == MMC_SEND_CSD || \
+	    cmd->opcode == MMC_SEND_CID || \
+	    cmd->opcode == MMC_SPI_READ_OCR) {
 		if (ret == R1_SPI_ERR_NONE)
-			err = MMC_ERR_NONE;
+			cmd->error = MMC_ERR_NONE;
 	} else if (ret == R1_SPI_ERR_IDLE || ret == R1_SPI_ERR_NONE) {
-		err = MMC_ERR_NONE;
+		cmd->error = MMC_ERR_NONE;
 	}
 
-	cmd->error = err;
-
-	if (err) {
+	if (cmd->error)
 		return (1);
-	}
 
 	mmc_cmd_done(sc, cmd);
 	return (0);
@@ -362,19 +307,25 @@ mmc_spi_req(struct dwmmc_softc *sc, struct mmc_command *cmd)
 
 
 static int
-dwmmc_request(device_t brdev, device_t reqdev, struct mmc_request *req)
+mmc_spi_request(device_t brdev, device_t reqdev, struct mmc_request *req)
 {
-	struct dwmmc_softc *sc;
+	struct mmc_command *cmd;
+	struct mmc_spi_softc *sc;
 
 	sc = device_get_softc(brdev);
 
-	DWMMC_LOCK(sc);
+	MMC_SPI_LOCK(sc);
+
+	cmd = req->cmd;
 
 	SPIBUS_CHIP_SELECT(device_get_parent(sc->dev), sc->dev);
 	if (!wait_ready(sc, 500)) {
-		DWMMC_UNLOCK(sc);
+		cmd->error = MMC_ERR_TIMEOUT;
+		req->done(req);
+		MMC_SPI_UNLOCK(sc);
 		return (1);
 	}
+
 	mmc_spi_req(sc, req->cmd);
 	if (req->stop) {
 		mmc_spi_req(sc, req->stop);
@@ -383,51 +334,51 @@ dwmmc_request(device_t brdev, device_t reqdev, struct mmc_request *req)
 
 	req->done(req);
 
-	DWMMC_UNLOCK(sc);
+	MMC_SPI_UNLOCK(sc);
 
 	return (0);
 }
 
 static int
-dwmmc_get_ro(device_t brdev, device_t reqdev)
+mmc_spi_get_ro(device_t brdev, device_t reqdev)
 {
 
 	return (0);
 }
 
 static int
-dwmmc_acquire_host(device_t brdev, device_t reqdev)
+mmc_spi_acquire_host(device_t brdev, device_t reqdev)
 {
-	struct dwmmc_softc *sc;
+	struct mmc_spi_softc *sc;
 
 	sc = device_get_softc(brdev);
 
-	DWMMC_LOCK(sc);
+	MMC_SPI_LOCK(sc);
 	while (sc->bus_busy)
-		msleep(sc, &sc->sc_mtx, PZERO, "dwmmcah", hz / 5);
+		msleep(sc, &sc->sc_mtx, PZERO, "mmc_spiah", hz / 5);
 	sc->bus_busy++;
-	DWMMC_UNLOCK(sc);
+	MMC_SPI_UNLOCK(sc);
 	return (0);
 }
 
 static int
-dwmmc_release_host(device_t brdev, device_t reqdev)
+mmc_spi_release_host(device_t brdev, device_t reqdev)
 {
-	struct dwmmc_softc *sc;
+	struct mmc_spi_softc *sc;
 
 	sc = device_get_softc(brdev);
 
-	DWMMC_LOCK(sc);
+	MMC_SPI_LOCK(sc);
 	sc->bus_busy--;
 	wakeup(sc);
-	DWMMC_UNLOCK(sc);
+	MMC_SPI_UNLOCK(sc);
 	return (0);
 }
 
 static int
-dwmmc_read_ivar(device_t bus, device_t child, int which, uintptr_t *result)
+mmc_spi_read_ivar(device_t bus, device_t child, int which, uintptr_t *result)
 {
-	struct dwmmc_softc *sc;
+	struct mmc_spi_softc *sc;
 
 	sc = device_get_softc(bus);
 
@@ -478,9 +429,9 @@ dwmmc_read_ivar(device_t bus, device_t child, int which, uintptr_t *result)
 }
 
 static int
-dwmmc_write_ivar(device_t bus, device_t child, int which, uintptr_t value)
+mmc_spi_write_ivar(device_t bus, device_t child, int which, uintptr_t value)
 {
-	struct dwmmc_softc *sc;
+	struct mmc_spi_softc *sc;
 
 	sc = device_get_softc(bus);
 
@@ -522,33 +473,33 @@ dwmmc_write_ivar(device_t bus, device_t child, int which, uintptr_t value)
 	return (0);
 }
 
-static device_method_t dwmmc_methods[] = {
-	DEVMETHOD(device_probe,		dwmmc_probe),
-	DEVMETHOD(device_attach,	dwmmc_attach),
+static device_method_t mmc_spi_methods[] = {
+	DEVMETHOD(device_probe,		mmc_spi_probe),
+	DEVMETHOD(device_attach,	mmc_spi_attach),
 
 	/* Bus interface */
-	DEVMETHOD(bus_read_ivar,	dwmmc_read_ivar),
-	DEVMETHOD(bus_write_ivar,	dwmmc_write_ivar),
+	DEVMETHOD(bus_read_ivar,	mmc_spi_read_ivar),
+	DEVMETHOD(bus_write_ivar,	mmc_spi_write_ivar),
 
 	/* mmcbr_if */
-	DEVMETHOD(mmcbr_update_ios,	dwmmc_update_ios),
-	DEVMETHOD(mmcbr_request,	dwmmc_request),
-	DEVMETHOD(mmcbr_get_ro,		dwmmc_get_ro),
-	DEVMETHOD(mmcbr_acquire_host,	dwmmc_acquire_host),
-	DEVMETHOD(mmcbr_release_host,	dwmmc_release_host),
+	DEVMETHOD(mmcbr_update_ios,	mmc_spi_update_ios),
+	DEVMETHOD(mmcbr_request,	mmc_spi_request),
+	DEVMETHOD(mmcbr_get_ro,		mmc_spi_get_ro),
+	DEVMETHOD(mmcbr_acquire_host,	mmc_spi_acquire_host),
+	DEVMETHOD(mmcbr_release_host,	mmc_spi_release_host),
 
 	DEVMETHOD_END
 };
 
-driver_t dwmmc_driver = {
+driver_t mmc_spi_driver = {
 	"mmc_spi",
-	dwmmc_methods,
-	sizeof(struct dwmmc_softc),
+	mmc_spi_methods,
+	sizeof(struct mmc_spi_softc),
 };
 
-static devclass_t dwmmc_devclass;
+static devclass_t mmc_spi_devclass;
 
-DRIVER_MODULE(mmc_spi, spibus, dwmmc_driver, dwmmc_devclass, 0, 0);
+DRIVER_MODULE(mmc_spi, spibus, mmc_spi_driver, mmc_spi_devclass, 0, 0);
 MODULE_DEPEND(mmc_spi, spibus, 1, 1, 1);
 MODULE_DEPEND(mmc_spi, mmc, 1, 1, 1);
 MODULE_VERSION(mmc_spi, 1);
