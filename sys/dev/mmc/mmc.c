@@ -556,13 +556,13 @@ mmc_send_app_op_cond(struct mmc_softc *sc, uint32_t ocr, uint32_t *rocr)
 	memset(&cmd, 0, sizeof(cmd));
 	cmd.opcode = ACMD_SD_SEND_OP_COND;
 	if (mmc_host_is_spi(sc->dev))
-		cmd.arg = (1 << 30);
+		cmd.arg = ocr | MMC_OCR_CCS;
 	else
 		cmd.arg = ocr;
 	cmd.flags = MMC_RSP_R3 | MMC_CMD_BCR;
 	cmd.data = NULL;
 
-	retries = mmc_host_is_spi(sc->dev) ? 10 : CMD_RETRIES;
+	retries = mmc_host_is_spi(sc->dev) ? 20 : CMD_RETRIES;
 
 	for (i = 0; i < 1000; i++) {
 		err = mmc_wait_for_app_cmd(sc, 0, &cmd, retries);
@@ -578,8 +578,8 @@ mmc_send_app_op_cond(struct mmc_softc *sc, uint32_t ocr, uint32_t *rocr)
 		*rocr = cmd.resp[0];
 
 	if (mmc_host_is_spi(sc->dev)) {
-		/* highcap -> (1 << 30) */
-		err = mmc_wait_for_command(sc, MMC_SPI_READ_OCR, (1 << 30), MMC_RSP_R3, rocr, 1);
+		err = mmc_wait_for_command(sc, MMC_SPI_READ_OCR,
+		    (ocr & MMC_OCR_CCS), MMC_RSP_R3, rocr, 1);
 	}
 
 	return (err);
