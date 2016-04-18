@@ -30,40 +30,14 @@
  * $FreeBSD$
  */
 
-#ifndef DEV_MMC_HOST_MMC_SPI_VAR_H
-#define DEV_MMC_HOST_MMC_SPI_VAR_H
+#ifndef	_DEV_MMC_HOST_MMC_SPI_VAR_H_
+#define	_DEV_MMC_HOST_MMC_SPI_VAR_H_
 
 struct mmc_spi_softc {
-	struct resource		*res[2];
 	device_t		dev;
-	void			*intr_cookie;
 	struct mmc_host		host;
 	struct mtx		sc_mtx;
-	struct mmc_request	*req;
-	struct mmc_command	*curcmd;
-	uint32_t		flags;
-	uint32_t		hwtype;
-	uint32_t		use_auto_stop;
-	uint32_t		use_pio;
-	uint32_t		pwren_inverted;
-	u_int			desc_count;
-
-	bus_dma_tag_t		desc_tag;
-	bus_dmamap_t		desc_map;
-	struct idmac_desc	*desc_ring;
-	bus_addr_t		desc_ring_paddr;
-	bus_dma_tag_t		buf_tag;
-	bus_dmamap_t		buf_map;
-
 	uint32_t		bus_busy;
-	uint32_t		dto_rcvd;
-	uint32_t		acd_rcvd;
-	uint32_t		cmd_done;
-	uint32_t		bus_hz;
-	uint32_t		fifo_depth;
-	uint32_t		num_slots;
-	uint32_t		sdr_timing;
-	uint32_t		ddr_timing;
 };
 
 const uint8_t crc7_be_syndrome[256] = {
@@ -101,4 +75,4 @@ const uint8_t crc7_be_syndrome[256] = {
 	0x8c, 0x9e, 0xa8, 0xba, 0xc4, 0xd6, 0xe0, 0xf2,
 };
 
-#endif
+#endif /* !_DEV_MMC_HOST_MMC_SPI_VAR_H_ */
