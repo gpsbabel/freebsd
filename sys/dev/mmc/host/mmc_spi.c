@@ -219,29 +219,10 @@ mmc_cmd_done(struct mmc_spi_softc *sc, struct mmc_command *cmd)
 		return (0);
 	}
 
-	if (cmd->flags & MMC_RSP_136) {
-		if (!wait_for_data(sc))
-			return (-1);
-		for (j = 0; j < 4; j++) {
-			reg = 0;
-			for (i = 3; i >= 0; i--) {
-				reg |= (xchg_spi(sc, 0xff) << (i * 8));
-			}
-			cmd->resp[j] = reg;
-		}
-	} else if (cmd->opcode != MMC_READ_SINGLE_BLOCK && \
-		   cmd->opcode != MMC_READ_MULTIPLE_BLOCK && \
-		   cmd->opcode != MMC_WRITE_SINGLE_BLOCK && \
-		   cmd->opcode != MMC_WRITE_MULTIPLE_BLOCK) {
-		reg = 0;
-		for (i = 3; i >= 0; i--) {
-			reg |= (xchg_spi(sc, 0xff) << (i * 8));
-		}
-		cmd->resp[0] = reg;
-	} else if (data) {
+	if (cmd->opcode == MMC_READ_SINGLE_BLOCK || \
+	    cmd->opcode == MMC_READ_MULTIPLE_BLOCK) {
 		block_count = (data->len / MMC_SECTOR_SIZE);
 		ptr = data->data;
-
 		for (j = 0; j < block_count; j++) {
 			if (!wait_for_data(sc))
 				return (-1);
@@ -252,6 +233,40 @@ mmc_cmd_done(struct mmc_spi_softc *sc, struct mmc_command *cmd)
 			xchg_spi(sc, 0xFF);	/* Skip CRC */
 			xchg_spi(sc, 0xFF);
 		}
+		return (0);
+	} else if (cmd->opcode == MMC_WRITE_BLOCK || \
+		   cmd->opcode == MMC_WRITE_MULTIPLE_BLOCK) {
+		block_count = (data->len / MMC_SECTOR_SIZE);
+		ptr = data->data;
+		for (j = 0; j < block_count; j++) {
+			if (!wait_for_data(sc))
+				return (-1);
+			for (i = 0; i < MMC_SECTOR_SIZE; i++) {
+				xchg_spi(sc, *ptr++);
+			}
+			xchg_spi(sc, 0xFF);	/* Skip CRC */
+			xchg_spi(sc, 0xFF);
+		}
+
+		return (0);
+	}
+
+	if (cmd->flags & MMC_RSP_136) {
+		if (!wait_for_data(sc))
+			return (-1);
+		for (j = 0; j < 4; j++) {
+			reg = 0;
+			for (i = 3; i >= 0; i--) {
+				reg |= (xchg_spi(sc, 0xff) << (i * 8));
+			}
+			cmd->resp[j] = reg;
+		}
+	} else {
+		reg = 0;
+		for (i = 3; i >= 0; i--) {
+			reg |= (xchg_spi(sc, 0xff) << (i * 8));
+		}
+		cmd->resp[0] = reg;
 	}
 
 	xchg_spi(sc, 0xff);
