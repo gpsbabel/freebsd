@@ -238,9 +238,10 @@ mmc_cmd_done(struct mmc_spi_softc *sc, struct mmc_command *cmd)
 		   cmd->opcode == MMC_WRITE_MULTIPLE_BLOCK) {
 		block_count = (data->len / MMC_SECTOR_SIZE);
 		ptr = data->data;
+
+		/* Warning: This part was not tested */
+
 		for (j = 0; j < block_count; j++) {
-			if (!wait_for_data(sc))
-				return (-1);
 			for (i = 0; i < MMC_SECTOR_SIZE; i++) {
 				xchg_spi(sc, *ptr++);
 			}
