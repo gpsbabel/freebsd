@@ -154,6 +154,16 @@ struct mmc_command {
 #define	R1_STATE_PRG	7
 #define	R1_STATE_DIS	8
 
+/* SPI response types */
+#define	R1_SPI_ERR_NONE		(0)
+#define	R1_SPI_ERR_IDLE		(1 << 0)
+#define	R1_SPI_ERR_ERASE_RST	(1 << 1)
+#define	R1_SPI_ERR_ILLEGAL	(1 << 2)
+#define	R1_SPI_ERR_CRC		(1 << 3)
+#define	R1_SPI_ERR_ERASE	(1 << 4)
+#define	R1_SPI_ERR_ADDR		(1 << 5)
+#define	R1_SPI_ERR_PARAM	(1 << 6)
+
 struct mmc_data {
 	size_t len;		/* size of the data */
 	size_t xfer_len;
