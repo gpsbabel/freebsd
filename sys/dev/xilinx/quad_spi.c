@@ -169,7 +169,7 @@ spi_attach(device_t dev)
 	/* Reset */
 	WRITE4(sc, SPI_SRR, SRR_RESET);
 
-	DELAY(10000);
+	DELAY(1000);
 
 	reg = (CR_MASTER | CR_MSS | CR_RST_RX | CR_RST_TX);
 	WRITE4(sc, SPI_CR, reg);
