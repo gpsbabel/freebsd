@@ -44,6 +44,10 @@ __FBSDID("$FreeBSD$");
 #include <dev/mmc/bridge.h>
 #include <dev/mmc/mmcreg.h>
 #include <dev/mmc/mmcbrvar.h>
+#include <dev/mmc/host/mmc_spi.h>
+
+#include <dev/spibus/spi.h>
+#include <dev/spibus/spibusvar.h>
 
 #include <dev/fdt/fdt_common.h>
 #include <dev/ofw/openfirm.h>
@@ -54,24 +58,18 @@ __FBSDID("$FreeBSD$");
 #include <machine/cpu.h>
 #include <machine/intr.h>
 
-#include <dev/mmc/host/mmc_spi.h>
-
-#include <dev/spibus/spi.h>
-#include <dev/spibus/spibusvar.h>
-
 #include "spibus_if.h"
 #include "mmcbr_if.h"
 
-#define	R1_SPI_ERR_NONE		(0)
-#define	R1_SPI_ERR_IDLE		(1 << 0)
-#define	R1_SPI_ERR_ERASE_RST	(1 << 1)
-#define	R1_SPI_ERR_ILLEGAL	(1 << 2)
-#define	R1_SPI_ERR_CRC		(1 << 3)
-#define	R1_SPI_ERR_ERASE	(1 << 4)
-#define	R1_SPI_ERR_ADDR		(1 << 5)
-#define	R1_SPI_ERR_PARAM	(1 << 6)
+#define	SPI_MMC_RESPONSE_CODE(x)	((x) & 0x1f)
+#define	SPI_RESPONSE_ACCEPTED		((2 << 1) | 0x1)
+#define	SPI_RESPONSE_CRC_ERR		((5 << 1) | 0x1)
+#define	SPI_RESPONSE_WRITE_ERR		((6 << 1) | 0x1)
+#define	SPI_TOKEN_SINGLE		0xfe
+#define	SPI_TOKEN_MULTI_WRITE		0xfc
+#define	SPI_TOKEN_STOP_TRAN		0xfd
 
-#define dprintf(x, arg...)	printf(x, arg)
+#define dprintf(x, arg...)
 
 #define	READ4(_sc, _reg) \
 	bus_read_4((_sc)->res[0], _reg)
@@ -119,7 +117,7 @@ mmc_spi_attach(device_t dev)
 	MMC_SPI_LOCK_INIT(sc);
 
 	sc->host.f_min = 400000;
-	sc->host.f_max = 20000000;
+	sc->host.f_max = 50000000;
 	sc->host.host_ocr = MMC_OCR_320_330 | MMC_OCR_330_340;
 	sc->host.caps = MMC_CAP_4_BIT_DATA | MMC_CAP_SPI;
 
@@ -173,12 +171,19 @@ xchg_spi_multi(struct mmc_spi_softc *sc, uint8_t *out_bytes,
 static int
 wait_ready(struct mmc_spi_softc *sc, int timeout)
 {
+	uint8_t data;
 	int i;
 
+	printf("wait the bus\n");
 	for (i = 0; i < (timeout * 5000); i++) {
-		if (xchg_spi(sc, 0xff) == 0xff)
+		data = xchg_spi(sc, 0xff);
+		if (data == 0xff) {
+			printf("wait done %x\n", data);
 			return (1);	/* Ready */
+		}
 	}
+
+	printf("bus not ready\n");
 
 	/* Timeout */
 	return (0);
@@ -195,7 +200,7 @@ wait_for_data(struct mmc_spi_softc *sc)
 		reg = xchg_spi(sc, 0xff);
 		timeout--;
 	} while ((reg == 0xff) && timeout);
-	if (reg == 0xfe) {
+	if (reg == SPI_TOKEN_SINGLE) {
 		return (1);
 	}
 
@@ -204,72 +209,13 @@ wait_for_data(struct mmc_spi_softc *sc)
 }
 
 static int
-mmc_cmd_done(struct mmc_spi_softc *sc, struct mmc_command *cmd)
+get_response(struct mmc_spi_softc *sc, struct mmc_command *cmd)
 {
-	struct mmc_data *data;
-	int block_count;
-	uint8_t *ptr;
-	int reg;
-	int j;
+	uint32_t reg;
 	int i;
-
-	data = cmd->data;
+	int j;
 
 	if ((cmd->flags & MMC_RSP_PRESENT) == 0) {
-		return (0);
-	}
-
-	if (cmd->opcode == MMC_READ_SINGLE_BLOCK || \
-	    cmd->opcode == MMC_READ_MULTIPLE_BLOCK) {
-		block_count = (data->len / MMC_SECTOR_SIZE);
-		ptr = data->data;
-		for (j = 0; j < block_count; j++) {
-			if (!wait_for_data(sc))
-				return (-1);
-			for (i = 0; i < MMC_SECTOR_SIZE; i++) {
-				reg = xchg_spi(sc, 0xff);
-				*ptr++ = reg;
-			}
-			xchg_spi(sc, 0xFF);	/* Skip CRC */
-			xchg_spi(sc, 0xFF);
-		}
-		return (0);
-	} else if (cmd->opcode == MMC_WRITE_BLOCK || \
-		   cmd->opcode == MMC_WRITE_MULTIPLE_BLOCK) {
-		block_count = (data->len / MMC_SECTOR_SIZE);
-		ptr = data->data;
-
-		/* Warning: This part was not tested */
-		uint32_t resp;
-
-		if (cmd->opcode == MMC_WRITE_BLOCK) {
-			if (!wait_ready(sc, 500))
-				return (-1);
-			xchg_spi(sc, 0xfe);
-			xchg_spi_multi(sc, ptr, NULL, MMC_SECTOR_SIZE);
-			while(xchg_spi(sc, 0xFF) == 0x00); /* CRC */
-			while(xchg_spi(sc, 0xFF) == 0x00); /* CRC */
-			resp = xchg_spi(sc, 0xFF);
-			if ((resp & 0x1F) != 0x05)
-				return 0;
-		} else {
-			for (j = 0; j < block_count; j++) {
-				if (!wait_ready(sc, 500))
-					return (-1);
-				xchg_spi(sc, 0xfc);
-				xchg_spi_multi(sc, ptr, NULL, MMC_SECTOR_SIZE);
-				while(xchg_spi(sc, 0xFF) == 0x00); /* CRC */
-				while(xchg_spi(sc, 0xFF) == 0x00); /* CRC */
-				resp = xchg_spi(sc, 0xFF);
-				if ((resp & 0x1F) != 0x05)
-					return 0;
-				ptr += MMC_SECTOR_SIZE;
-			}
-			xchg_spi(sc, 0xfd);
-			if (!wait_ready(sc, 500))
-				return (-1);
-		}
-
 		return (0);
 	}
 
@@ -291,6 +237,90 @@ mmc_cmd_done(struct mmc_spi_softc *sc, struct mmc_command *cmd)
 		cmd->resp[0] = reg;
 	}
 
+	return (0);
+}
+
+static int
+transmit_block(struct mmc_spi_softc *sc, uint8_t *ptr)
+{
+	uint32_t resp;
+
+	xchg_spi_multi(sc, ptr, NULL, MMC_SECTOR_SIZE);
+	xchg_spi(sc, 0xFF);	/* Skip CRC */
+	xchg_spi(sc, 0xFF);
+	resp = xchg_spi(sc, 0xFF);
+	if (SPI_MMC_RESPONSE_CODE(resp) != SPI_RESPONSE_ACCEPTED) {
+		printf("resp %x\n", resp);
+		return (-1);
+	}
+
+	wait_ready(sc, 500);
+
+	return (0);
+}
+
+static int
+mmc_cmd_done(struct mmc_spi_softc *sc, struct mmc_command *cmd)
+{
+	struct mmc_data *data;
+	int block_count;
+	uint8_t *ptr;
+	int reg;
+	int j;
+	int i;
+
+	data = cmd->data;
+	if (cmd->opcode == MMC_READ_SINGLE_BLOCK || \
+	    cmd->opcode == MMC_READ_MULTIPLE_BLOCK) {
+		block_count = (data->len / MMC_SECTOR_SIZE);
+		ptr = data->data;
+		for (j = 0; j < block_count; j++) {
+			if (!wait_for_data(sc))
+				return (-1);
+			for (i = 0; i < MMC_SECTOR_SIZE; i++) {
+				reg = xchg_spi(sc, 0xff);
+				*ptr++ = reg;
+			}
+			xchg_spi(sc, 0xFF);	/* Skip CRC */
+			xchg_spi(sc, 0xFF);
+		}
+		xchg_spi(sc, 0xFF);
+		return (0);
+	} else if (cmd->opcode == MMC_WRITE_BLOCK || \
+		   cmd->opcode == MMC_WRITE_MULTIPLE_BLOCK) {
+		block_count = (data->len / MMC_SECTOR_SIZE);
+		ptr = data->data;
+		if (cmd->opcode == MMC_WRITE_BLOCK) {
+			printf("write\n");
+			if (!wait_ready(sc, 500))
+				return (-1);
+			xchg_spi(sc, SPI_TOKEN_SINGLE);
+			if (transmit_block(sc, ptr) != 0)
+				return (-1);
+		} else {
+			for (j = 0; j < block_count; j++) {
+				printf("write block %d(%d)\n",
+				    j, block_count);
+				if (!wait_ready(sc, 500))
+					return (-1);
+				xchg_spi(sc, SPI_TOKEN_MULTI_WRITE);
+				if (transmit_block(sc, ptr) != 0)
+					return (-1);
+				ptr += MMC_SECTOR_SIZE;
+			}
+			printf("finish wr\n");
+			if (!wait_ready(sc, 500))
+				return (-1);
+			xchg_spi(sc, SPI_TOKEN_STOP_TRAN);
+			wait_ready(sc, 500);
+			printf("wr done\n");
+		}
+
+		xchg_spi(sc, 0xFF);
+		return (0);
+	}
+
+	get_response(sc, cmd);
 	xchg_spi(sc, 0xff);
 
 	return (0);
@@ -330,16 +360,27 @@ mmc_spi_req(struct mmc_spi_softc *sc, struct mmc_command *cmd)
 		cmd->error = MMC_ERR_NONE;
 	}
 
-	if (cmd->error)
-		return (1);
+	if (cmd->opcode == MMC_WRITE_BLOCK || \
+	    cmd->opcode == MMC_WRITE_MULTIPLE_BLOCK) {
+		printf("wr\n");
+	}
 
-	mmc_cmd_done(sc, cmd);
+	if (cmd->error) {
+		return (1);
+	}
+
+	if (mmc_cmd_done(sc, cmd) != 0) {
+		cmd->error = MMC_ERR_TIMEOUT;
+		return (1);
+	}
+
 	return (0);
 }
 
 
 static int
-mmc_spi_request(device_t brdev, device_t reqdev, struct mmc_request *req)
+mmc_spi_request(device_t brdev, device_t reqdev,
+    struct mmc_request *req)
 {
 	struct mmc_command *cmd;
 	struct mmc_spi_softc *sc;
@@ -350,7 +391,6 @@ mmc_spi_request(device_t brdev, device_t reqdev, struct mmc_request *req)
 
 	cmd = req->cmd;
 
-	SPIBUS_CHIP_SELECT(device_get_parent(sc->dev), sc->dev);
 	if (!wait_ready(sc, 500)) {
 		cmd->error = MMC_ERR_TIMEOUT;
 		req->done(req);
@@ -362,7 +402,6 @@ mmc_spi_request(device_t brdev, device_t reqdev, struct mmc_request *req)
 	if (req->stop) {
 		mmc_spi_req(sc, req->stop);
 	}
-	SPIBUS_CHIP_DESELECT(device_get_parent(sc->dev), sc->dev);
 
 	req->done(req);
 
@@ -408,7 +447,8 @@ mmc_spi_release_host(device_t brdev, device_t reqdev)
 }
 
 static int
-mmc_spi_read_ivar(device_t bus, device_t child, int which, uintptr_t *result)
+mmc_spi_read_ivar(device_t bus, device_t child,
+    int which, uintptr_t *result)
 {
 	struct mmc_spi_softc *sc;
 
@@ -461,7 +501,8 @@ mmc_spi_read_ivar(device_t bus, device_t child, int which, uintptr_t *result)
 }
 
 static int
-mmc_spi_write_ivar(device_t bus, device_t child, int which, uintptr_t value)
+mmc_spi_write_ivar(device_t bus, device_t child,
+    int which, uintptr_t value)
 {
 	struct mmc_spi_softc *sc;
 
@@ -519,7 +560,6 @@ static device_method_t mmc_spi_methods[] = {
 	DEVMETHOD(mmcbr_get_ro,		mmc_spi_get_ro),
 	DEVMETHOD(mmcbr_acquire_host,	mmc_spi_acquire_host),
 	DEVMETHOD(mmcbr_release_host,	mmc_spi_release_host),
-
 	DEVMETHOD_END
 };
 
