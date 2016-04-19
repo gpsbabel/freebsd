@@ -219,7 +219,6 @@ static device_method_t spi_methods[] = {
 
 	/* SPI interface */
 	DEVMETHOD(spibus_transfer,	spi_transfer),
-
 	DEVMETHOD_END
 };
 

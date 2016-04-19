@@ -31,20 +31,6 @@
 
 INTERFACE spibus;
 
-CODE {
-	static int
-	default_chip_select(device_t dev, device_t child)
-	{
-		return (0);
-	}
-
-	static int
-	default_chip_deselect(device_t dev, device_t child)
-	{
-		return (0);
-	}
-}
-
 #
 # Do a spi command
 #
@@ -60,7 +46,7 @@ METHOD int transfer {
 METHOD int chip_select {
 	device_t dev;
 	device_t child;
-} DEFAULT default_chip_select;
+};
 
 #
 # Deassert chip select
@@ -68,4 +54,4 @@ METHOD int chip_select {
 METHOD int chip_deselect {
 	device_t dev;
 	device_t child;
-} DEFAULT default_chip_deselect;
+};
