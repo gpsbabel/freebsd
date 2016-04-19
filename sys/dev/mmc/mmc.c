@@ -544,18 +544,15 @@ static int
 mmc_send_app_op_cond(struct mmc_softc *sc, uint32_t ocr, uint32_t *rocr)
 {
 	struct mmc_command cmd;
+	int err = MMC_ERR_NONE, i;
 	int retries;
-	int err;
-	int i;
-
-	err = MMC_ERR_NONE;
 
 	memset(&cmd, 0, sizeof(cmd));
 	cmd.opcode = ACMD_SD_SEND_OP_COND;
 	if (mmc_host_is_spi(sc->dev)) {
 		/*
-		 * HC bit is only supported for SPI mode.
-		 * Force it so SDHC cards cards can be detected.
+		 * In SPI mode the only HC bit is supported.
+		 * Force it so SDHC cards can be detected.
 		 * XXX: will single-capacity cards work with that ?
 		 */
 		cmd.arg = MMC_OCR_CCS;
