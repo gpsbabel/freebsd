@@ -187,7 +187,25 @@ _start:
 
 	/* Page tables */
 
-	/* Level 1 */
+	/* Create devmap page first */
+	la	s1, pagetable_l1
+	la	s2, pagetable_l2_devmap	/* Link to next level PN */
+	srli	s2, s2, PAGE_SHIFT
+
+	li	a5, (VM_MAX_KERNEL_ADDRESS-1)
+	srli	a5, a5, 0x1e		/* >> 30 */
+	andi	a5, a5, 0x1ff		/* & 0x1ff */
+	li	t4, (PTE_VALID | (PTE_TYPE_PTR << PTE_TYPE_S))
+	slli	t5, s2, PTE_PPN0_S	/* (s2 << PTE_PPN0_S) */
+	or	t6, t4, t5
+
+	/* Store single level1 PTE entry to position */
+	li	a6, PTE_SIZE
+	mulw	a5, a5, a6
+	add	t0, s1, a5
+	sd	t6, (t0)
+
+	/* Add single Level 1 entry for kernel */
 	la	s1, pagetable_l1
 	la	s2, pagetable_l2	/* Link to next level PN */
 	srli	s2, s2, PAGE_SHIFT
@@ -317,7 +335,8 @@ pagetable_l1:
 	.space	PAGE_SIZE
 pagetable_l2:
 	.space	PAGE_SIZE
-pagetable_end:
+pagetable_l2_devmap:
+	.space	PAGE_SIZE
 
 	.globl init_pt_va
 init_pt_va:

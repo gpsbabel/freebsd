@@ -56,7 +56,7 @@ static struct riscv_devmap_entry	akva_devmap_entries[AKVA_DEVMAP_MAX_ENTRIES];
 static u_int			akva_devmap_idx;
 static vm_offset_t		akva_devmap_vaddr = MAX_VADDR;
 
-#ifdef __aarch64__
+#ifdef __riscv__
 extern int early_boot;
 #endif
 
@@ -256,7 +256,7 @@ pmap_mapdev(vm_offset_t pa, vm_size_t size)
 	pa = trunc_page(pa);
 	size = round_page(size + offset);
 
-#ifdef __aarch64__
+#ifdef __riscv__
 	if (early_boot) {
 		akva_devmap_vaddr = trunc_page(akva_devmap_vaddr - size);
 		va = akva_devmap_vaddr;

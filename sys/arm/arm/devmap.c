@@ -211,7 +211,7 @@ arm_devmap_bootstrap(vm_offset_t l1pt, const struct arm_devmap_entry *table)
 		pmap_map_chunk(l1pt, pd->pd_va, pd->pd_pa, pd->pd_size,
 		    VM_PROT_READ | VM_PROT_WRITE, PTE_DEVICE);
 #endif
-#elif defined(__aarch64__)
+#elif defined(__riscv__)
 		pmap_kenter_device(pd->pd_va, pd->pd_size, pd->pd_pa);
 #endif
 	}

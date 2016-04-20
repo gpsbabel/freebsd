@@ -56,6 +56,7 @@
 
 	aliases {
 		console0 = &console0;
+		serial0 = &serial0;
 	};
 
 	memory {
@@ -76,6 +77,17 @@
 			interrupt-controller;
 		};
 
+		serial0: serial@80001000 {
+			compatible = "ns16550";
+			reg = <0x80001000 0x1000>;
+			reg-shift = <2>;
+			interrupts = < 3 >;
+			interrupt-parent = <&pic0>;
+			current-speed = <115200>;
+			clock-frequency = < 1000000 >;
+			status = "okay";
+		};
+
 		spi0: spi@80010000 {
 			compatible = "xlnx,xps-spi-3.2";
 			reg = <0x80010000 0x1000>;
@@ -87,22 +99,11 @@
 			interrupt-parent = < &pic0 >;
 			clock-frequency = < 1000000 >;
 		};
-
-		htif0: htif@0 {
-			compatible = "riscv,htif";
-			interrupts = < 0 >;
-			interrupt-parent = < &pic0 >;
-
-			console0: console@0 {
-				compatible = "htif,console";
-				status = "okay";
-			};
-		};
 	};
 
 	chosen {
 		bootargs = "-v";
-		stdin = "console0";
-		stdout = "console0";
+		stdin = "serial0";
+		stdout = "serial0";
 	};
 };

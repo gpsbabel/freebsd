@@ -474,6 +474,44 @@ pmap_bootstrap_dmap(vm_offset_t l1pt, vm_paddr_t kernstart)
 	cpu_tlb_flushID();
 }
 
+static vm_offset_t
+pmap_bootstrap_l3(vm_offset_t l1pt, vm_offset_t va, vm_offset_t l3_start)
+{
+	vm_offset_t l2pt, l3pt;
+	vm_paddr_t pa;
+	pd_entry_t *l2;
+	u_int l2_slot;
+	pt_entry_t entry;
+	pn_t pn;
+
+	KASSERT((va & L2_OFFSET) == 0, ("Invalid virtual address"));
+
+	l2 = pmap_l2(kernel_pmap, va);
+	l2 = (pd_entry_t *)((uintptr_t)l2 & ~(PAGE_SIZE - 1));
+	l2pt = (vm_offset_t)l2;
+	l2_slot = pmap_l2_index(va);
+	l3pt = l3_start;
+
+	for (; va < VM_MAX_KERNEL_ADDRESS; l2_slot++, va += L2_SIZE) {
+		KASSERT(l2_slot < Ln_ENTRIES, ("Invalid L2 index"));
+
+		pa = pmap_early_vtophys(l1pt, l3pt);
+		pn = (pa / PAGE_SIZE);
+		entry = (PTE_VALID | (PTE_TYPE_PTR << PTE_TYPE_S));
+		entry |= (pn << PTE_PPN0_S);
+		pmap_load_store(&l2[l2_slot], entry);
+		l3pt += PAGE_SIZE;
+	}
+
+	/* Clean the L2 page table */
+	memset((void *)l3_start, 0, l3pt - l3_start);
+	cpu_dcache_wb_range(l3_start, l3pt - l3_start);
+
+	cpu_dcache_wb_range((vm_offset_t)l2, PAGE_SIZE);
+
+	return l3pt;
+}
+
 /*
  *	Bootstrap the system enough to run with virtual memory.
  */
@@ -578,6 +616,10 @@ pmap_bootstrap(vm_offset_t l1pt, vm_paddr_t kernstart, vm_size_t kernlen)
 
 	freemempos = KERNBASE + kernlen;
 	freemempos = roundup2(freemempos, PAGE_SIZE);
+
+	/* Create the l3 tables for the early devmap */
+	freemempos = pmap_bootstrap_l3(l1pt,
+	    VM_MAX_KERNEL_ADDRESS - L2_SIZE, freemempos);
 
 	cpu_tlb_flushID();
 
@@ -861,7 +903,6 @@ pmap_kremove(vm_offset_t va)
 
 	if (pmap_l3_valid_cacheable(pmap_load(l3)))
 		cpu_dcache_wb_range(va, L3_SIZE);
-	panic("pmap_kremove");
 	pmap_load_clear(l3);
 	PTE_SYNC(l3);
 	pmap_invalidate_page(kernel_pmap, va);
@@ -882,7 +923,6 @@ pmap_kremove_device(vm_offset_t sva, vm_size_t size)
 	while (size != 0) {
 		l3 = pmap_l3(kernel_pmap, va);
 		KASSERT(l3 != NULL, ("Invalid page table, va: 0x%lx", va));
-		panic("pmap_kremove_device");
 		pmap_load_clear(l3);
 		PTE_SYNC(l3);
 
