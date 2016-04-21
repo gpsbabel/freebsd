@@ -55,7 +55,6 @@
 	};
 
 	aliases {
-		console0 = &console0;
 		serial0 = &serial0;
 	};
 
@@ -81,7 +80,7 @@
 			compatible = "ns16550";
 			reg = <0x80001000 0x1000>;
 			reg-shift = <2>;
-			interrupts = < 3 >;
+			interrupts = < 4 >;
 			interrupt-parent = <&pic0>;
 			current-speed = <115200>;
 			clock-frequency = < 1000000 >;
