@@ -199,9 +199,9 @@ htif_blk_task(void *arg)
 {
 	struct htif_blk_request req __aligned(HTIF_ALIGN);
 	struct htif_blk_softc *sc;
+	uint64_t req_paddr;
 	struct bio *bp;
 	uint64_t paddr;
-	uint64_t req_paddr;
 	uint64_t cmd;
 	int i;
 
