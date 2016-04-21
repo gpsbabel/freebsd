@@ -23,6 +23,8 @@ ident		LOWRISC
 
 hints		"LOWRISC.hints"
 
+options		ROOTDEVNAME=\"ufs:mmcsd0s2\"
+
 # MMC/SD
 device		mmc
 device		mmcsd
