@@ -243,8 +243,6 @@ htif_attach(device_t dev)
 	sc = device_get_softc(dev);
 	sc->dev = dev;
 
-	return (1);
-
 	if (bus_alloc_resources(dev, htif_spec, sc->res)) {
 		device_printf(dev, "could not allocate resources\n");
 		return (ENXIO);
