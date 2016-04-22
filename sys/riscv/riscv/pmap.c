@@ -207,15 +207,8 @@ __FBSDID("$FreeBSD$");
 #define	VM_PAGE_TO_PV_LIST_LOCK(m)	\
 			PHYS_TO_PV_LIST_LOCK(VM_PAGE_TO_PHYS(m))
 
-/* An element in the list of all pmaps */
-struct pmap_elm {
-	/* Entry on the L1 Table list */
-	SLIST_ENTRY(pmap_elm) pmap_link;
-	struct pmap *pmap;
-};
-
-/* A list of all the pmaps */
-static SLIST_HEAD(, pmap_elm) pmap_list =
+/* The list of all the pmaps */
+static SLIST_HEAD(, pmap_list_entry) pmap_list =
     SLIST_HEAD_INITIALIZER(pmap_list);
 
 static MALLOC_DEFINE(M_VMPMAP, "pmap", "PMAP L1");
@@ -423,15 +416,15 @@ static void
 pmap_distribute_l1(struct pmap *pmap, vm_pindex_t l1index,
     pt_entry_t entry)
 {
-	struct pmap_elm *pmap_elm;
+	struct pmap_list_entry *p_entry;
 	struct pmap *user_pmap;
 	pd_entry_t *l1;
 
 	/* Distribute new kernel L1 entry to all the user pmaps */
 
 	if (pmap == kernel_pmap) {
-		SLIST_FOREACH(pmap_elm, &pmap_list, pmap_link) {
-			user_pmap = pmap_elm->pmap;
+		SLIST_FOREACH(p_entry, &pmap_list, pmap_link) {
+			user_pmap = p_entry->pmap;
 			l1 = &user_pmap->pm_l1[l1index];
 			if (entry)
 				pmap_load_store(l1, entry);
@@ -1206,11 +1199,13 @@ pmap_pinit(pmap_t pmap)
 	/* Install kernel pagetables */
 	memcpy(pmap->pm_l1, kernel_pmap->pm_l1, PAGE_SIZE);
 
-	struct pmap_elm *pmap_elm;
-	pmap_elm = malloc(sizeof(struct pmap_elm), M_VMPMAP, M_WAITOK);
-	pmap_elm->pmap = pmap;
+	struct pmap_list_entry *p_entry;
+	p_entry = malloc(sizeof(struct pmap_list_entry), M_VMPMAP, M_WAITOK);
+	p_entry->pmap = pmap;
+
 	/* Add to the list of all L1 tables */
-	SLIST_INSERT_HEAD(&pmap_list, pmap_elm, pmap_link);
+	SLIST_INSERT_HEAD(&pmap_list, p_entry, pmap_link);
+	pmap->p_entry = p_entry;
 
 	return (1);
 }
@@ -1383,14 +1378,17 @@ pmap_release(pmap_t pmap)
 	/* Remove kernel pagetables */
 	bzero(pmap->pm_l1, PAGE_SIZE);
 
-	/* Remove pmap from the list */
-	struct pmap_elm *pu;
+	/* Remove pmap from the all pmaps list */
+	SLIST_REMOVE(&pmap_list, pmap->p_entry, pmap_list_entry, pmap_link);
+#if 0
+	struct pmap_list_entry *pu;
 	SLIST_FOREACH(pu, &pmap_list, pmap_link) {
 		if (pu->pmap == pmap) {
 			SLIST_REMOVE(&pmap_list, pu,
-			    pmap_elm, pmap_link);
+			    pmap_list_entry, pmap_link);
 		}
 	}
+#endif
 }
 
 #if 0
