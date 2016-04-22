@@ -1,6 +1,14 @@
 /*-
- * Copyright (c) 2014 Andrew Turner
+ * Copyright (c) 2016 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
+ *
+ * Portions of this software were developed by SRI International and the
+ * University of Cambridge Computer Laboratory under DARPA/AFRL contract
+ * FA8750-10-C-0237 ("CTSRD"), as part of the DARPA CRASH research programme.
+ *
+ * Portions of this software were developed by the University of Cambridge
+ * Computer Laboratory as part of the CTSRD Project, with support from the
+ * UK Higher Education Innovation Fund (HEIF).
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -22,7 +30,6 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
  */
 
 #include <machine/asm.h>
@@ -33,40 +40,24 @@ ENTRY(generic_bs_r_1)
 	add	a3, a1, a2
 	lb	a0, 0(a3)
 	ret
-#if 0
-	ldrb	w0, [x1, x2]
-	ret
-#endif
 END(generic_bs_r_1)
 
 ENTRY(generic_bs_r_2)
 	add	a3, a1, a2
 	lh	a0, 0(a3)
 	ret
-#if 0
-	ldrh	w0, [x1, x2]
-	ret
-#endif
 END(generic_bs_r_2)
 
 ENTRY(generic_bs_r_4)
 	add	a3, a1, a2
 	lw	a0, 0(a3)
 	ret
-#if 0
-	ldr	w0, [x1, x2]
-	ret
-#endif
 END(generic_bs_r_4)
 
 ENTRY(generic_bs_r_8)
 	add	a3, a1, a2
 	ld	a0, 0(a3)
 	ret
-#if 0
-	ldr	x0, [x1, x2]
-	ret
-#endif
 END(generic_bs_r_8)
 
 ENTRY(generic_bs_rm_1)
@@ -253,45 +244,28 @@ ENTRY(generic_bs_rr_8)
 #endif
 END(generic_bs_rr_8)
 
-
 ENTRY(generic_bs_w_1)
 	add	a4, a1, a2
 	sb	a3, 0(a4)
 	ret
-#if 0
-	strb	w3, [x1, x2]
-	ret
-#endif
 END(generic_bs_w_1)
 
 ENTRY(generic_bs_w_2)
 	add	a4, a1, a2
 	sh	a3, 0(a4)
 	ret
-#if 0
-	strh	w3, [x1, x2]
-	ret
-#endif
 END(generic_bs_w_2)
 
 ENTRY(generic_bs_w_4)
 	add	a4, a1, a2
 	sw	a3, 0(a4)
 	ret
-#if 0
-	str	w3, [x1, x2]
-	ret
-#endif
 END(generic_bs_w_4)
 
 ENTRY(generic_bs_w_8)
 	add	a4, a1, a2
 	sd	a3, 0(a4)
 	ret
-#if 0
-	str	x3, [x1, x2]
-	ret
-#endif
 END(generic_bs_w_8)
 
 ENTRY(generic_bs_wm_1)
