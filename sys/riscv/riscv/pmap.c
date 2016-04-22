@@ -432,8 +432,6 @@ pmap_distribute_l1(struct pmap *pmap, vm_pindex_t l1index,
 		else
 			pmap_load_clear(l1);
 	}
-
-	panic("test");
 }
 
 static pt_entry_t *
