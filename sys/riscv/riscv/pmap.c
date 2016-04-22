@@ -153,7 +153,8 @@ __FBSDID("$FreeBSD$");
 #include <machine/pcb.h>
 
 #define	NPDEPG		(PAGE_SIZE/(sizeof (pd_entry_t)))
-#define	NUPDE		(NPDEPG * NPDEPG)
+#define	NUPDE			(NPDEPG * NPDEPG)
+#define	NUSERPGTBLS		(NUPDE + NPDEPG)
 
 #if !defined(DIAGNOSTIC)
 #ifdef __GNUC_GNU_INLINE__
@@ -205,6 +206,19 @@ __FBSDID("$FreeBSD$");
 
 #define	VM_PAGE_TO_PV_LIST_LOCK(m)	\
 			PHYS_TO_PV_LIST_LOCK(VM_PAGE_TO_PHYS(m))
+
+/* An element in the list of all pmaps */
+struct pmap_elm {
+	/* Entry on the L1 Table list */
+	SLIST_ENTRY(pmap_elm) pmap_link;
+	struct pmap *pmap;
+};
+
+/* A list of all the pmaps */
+static SLIST_HEAD(, pmap_elm) pmap_list =
+    SLIST_HEAD_INITIALIZER(pmap_list);
+
+static MALLOC_DEFINE(M_VMPMAP, "pmap", "PMAP L1");
 
 struct pmap kernel_pmap_store;
 
@@ -405,6 +419,29 @@ pmap_resident_count_dec(pmap_t pmap, int count)
 	pmap->pm_stats.resident_count -= count;
 }
 
+static void
+pmap_distribute_l1(struct pmap *pmap, vm_pindex_t l1index,
+    pt_entry_t entry)
+{
+	struct pmap_elm *pmap_elm;
+	struct pmap *user_pmap;
+	pd_entry_t *l1;
+
+	/* Distribute new kernel L1 entry to all the user pmaps */
+
+	if (pmap == kernel_pmap) {
+		SLIST_FOREACH(pmap_elm, &pmap_list, pmap_link) {
+			user_pmap = pmap_elm->pmap;
+			l1 = &user_pmap->pm_l1[l1index];
+			if (entry)
+				pmap_load_store(l1, entry);
+			else
+				pmap_load_clear(l1);
+		}
+		panic("test");
+	}
+}
+
 static pt_entry_t *
 pmap_early_page_idx(vm_offset_t l1pt, vm_offset_t va, u_int *l1_slot,
     u_int *l2_slot)
@@ -463,10 +500,8 @@ pmap_bootstrap_dmap(vm_offset_t l1pt, vm_paddr_t kernstart)
 
 		/* superpages */
 		pn = (pa / PAGE_SIZE);
-		//printf("l1 0x%016lx l1_slot %d pa 0x%016lx pn 0x%016lx\n", l1, l1_slot, pa, pn);
 		entry = (PTE_VALID | (PTE_TYPE_SRWX << PTE_TYPE_S));
 		entry |= (pn << PTE_PPN0_S);
-
 		pmap_load_store(&l1[l1_slot], entry);
 	}
 
@@ -1008,8 +1043,6 @@ pmap_qremove(vm_offset_t sva, int count)
 
 		if (pmap_l3_valid_cacheable(pmap_load(l3)))
 			cpu_dcache_wb_range(va, L3_SIZE);
-		//printf("pmap_qremove 0x%016lx\n", va);
-		//panic("pmap_qremove");
 		pmap_load_clear(l3);
 		PTE_SYNC(l3);
 
@@ -1082,16 +1115,13 @@ _pmap_unwire_l3(pmap_t pmap, vm_offset_t va, vm_page_t m, struct spglist *free)
 		/* PD page */
 		pd_entry_t *l1;
 		l1 = pmap_l1(pmap, va);
-		if (pmap == kernel_pmap)
-			panic("load_clear kernel pmap l1");
 		pmap_load_clear(l1);
+		pmap_distribute_l1(pmap, pmap_l1_index(va), 0);
 		PTE_SYNC(l1);
 	} else {
 		/* PTE page */
 		pd_entry_t *l2;
 		l2 = pmap_l2(pmap, va);
-		if (pmap == kernel_pmap)
-			panic("load_clear kernel pmap l1");
 		pmap_load_clear(l2);
 		PTE_SYNC(l2);
 	}
@@ -1161,12 +1191,9 @@ pmap_pinit(pmap_t pmap)
 	/*
 	 * allocate the l1 page
 	 */
-	//printf("%s: pmap 0x%016lx kernel_pmap 0x%016lx\n",
-	//    __func__, (uint64_t)pmap, (uint64_t)kernel_pmap);
 	while ((l1pt = vm_page_alloc(NULL, 0xdeadbeef, VM_ALLOC_NORMAL |
 	    VM_ALLOC_NOOBJ | VM_ALLOC_WIRED | VM_ALLOC_ZERO)) == NULL)
 		VM_WAIT;
-	//printf("%s:new m (l1) 0x%016lx wc %d\n", __func__, l1pt, l1pt->wire_count);
 
 	l1phys = VM_PAGE_TO_PHYS(l1pt);
 	pmap->pm_l1 = (pd_entry_t *)PHYS_TO_DMAP(l1phys);
@@ -1178,7 +1205,12 @@ pmap_pinit(pmap_t pmap)
 
 	/* Install kernel pagetables */
 	memcpy(pmap->pm_l1, kernel_pmap->pm_l1, PAGE_SIZE);
-	//__asm __volatile("sfence.vm");
+
+	struct pmap_elm *pmap_elm;
+	pmap_elm = malloc(sizeof(struct pmap_elm), M_VMPMAP, M_WAITOK);
+	pmap_elm->pmap = pmap;
+	/* Add to the list of all L1 tables */
+	SLIST_INSERT_HEAD(&pmap_list, pmap_elm, pmap_link);
 
 	return (1);
 }
@@ -1224,7 +1256,6 @@ _pmap_alloc_l3(pmap_t pmap, vm_pindex_t ptepindex, struct rwlock **lockp)
 		 */
 		return (NULL);
 	}
-	//printf("%s:new m 0x%016lx wc %d\n", __func__, m, m->wire_count);
 
 	if ((m->flags & PG_ZERO) == 0)
 		pmap_zero_page(m);
@@ -1234,7 +1265,6 @@ _pmap_alloc_l3(pmap_t pmap, vm_pindex_t ptepindex, struct rwlock **lockp)
 	 * it isn't already there.
 	 */
 
-	//printf("ptepindex %d\n", ptepindex);
 	if (ptepindex >= NUPDE) {
 		pd_entry_t *l1;
 		vm_pindex_t l1index;
@@ -1245,9 +1275,8 @@ _pmap_alloc_l3(pmap_t pmap, vm_pindex_t ptepindex, struct rwlock **lockp)
 		pn = (VM_PAGE_TO_PHYS(m) / PAGE_SIZE);
 		entry = (PTE_VALID | (PTE_TYPE_PTR << PTE_TYPE_S));
 		entry |= (pn << PTE_PPN0_S);
-		if (pmap == kernel_pmap)
-			panic("test");
 		pmap_load_store(l1, entry);
+		pmap_distribute_l1(pmap, l1index, entry);
 
 		PTE_SYNC(l1);
 
@@ -1261,7 +1290,6 @@ _pmap_alloc_l3(pmap_t pmap, vm_pindex_t ptepindex, struct rwlock **lockp)
 			/* recurse for allocating page dir */
 			if (_pmap_alloc_l3(pmap, NUPDE + l1index,
 			    lockp) == NULL) {
-				//printf("failed to alloc l3\n");
 				--m->wire_count;
 				atomic_subtract_int(&vm_cnt.v_wire_count, 1);
 				vm_page_free_zero(m);
@@ -1315,7 +1343,6 @@ retry:
 	if (l2 != NULL && pmap_load(l2) != 0) {
 		phys = PTE_TO_PHYS(pmap_load(l2));
 		m = PHYS_TO_VM_PAGE(phys);
-		//printf("m0 is 0x%016lx wc %d\n", m, m->wire_count);
 		m->wire_count++;
 	} else {
 		/*
@@ -1323,7 +1350,6 @@ retry:
 		 * deallocated.
 		 */
 		m = _pmap_alloc_l3(pmap, ptepindex, lockp);
-		//printf("m1 is 0x%016lx wc %d\n", m, m->wire_count);
 		if (m == NULL && lockp != NULL)
 			goto retry;
 	}
@@ -1345,7 +1371,6 @@ pmap_release(pmap_t pmap)
 {
 	vm_page_t m;
 
-	//printf("%s: pmap->pm_l1 0x%016lx\n", __func__, pmap->pm_l1);
 	KASSERT(pmap->pm_stats.resident_count == 0,
 	    ("pmap_release: pmap resident count %ld != 0",
 	    pmap->pm_stats.resident_count));
@@ -1355,9 +1380,17 @@ pmap_release(pmap_t pmap)
 	atomic_subtract_int(&vm_cnt.v_wire_count, 1);
 	vm_page_free_zero(m);
 
-	//printf("bzero 0x%016lx\n", &pmap->pm_l1[256]);
 	/* Remove kernel pagetables */
-	bzero(&pmap->pm_l1[256], 2048);
+	bzero(pmap->pm_l1, PAGE_SIZE);
+
+	/* Remove pmap from the list */
+	struct pmap_elm *pu;
+	SLIST_FOREACH(pu, &pmap_list, pmap_link) {
+		if (pu->pmap == pmap) {
+			SLIST_REMOVE(&pmap_list, pu,
+			    pmap_elm, pmap_link);
+		}
+	}
 }
 
 #if 0
@@ -1406,7 +1439,6 @@ pmap_growkernel(vm_offset_t addr)
 			nkpg = vm_page_alloc(NULL, kernel_vm_end >> L1_SHIFT,
 			    VM_ALLOC_INTERRUPT | VM_ALLOC_NOOBJ |
 			    VM_ALLOC_WIRED | VM_ALLOC_ZERO);
-			//printf("%s:new m 0x%016lx wc %d\n", __func__, nkpg, nkpg->wire_count);
 			if (nkpg == NULL)
 				panic("pmap_growkernel: no memory to grow kernel");
 			if ((nkpg->flags & PG_ZERO) == 0)
@@ -1416,8 +1448,9 @@ pmap_growkernel(vm_offset_t addr)
 			pn = (paddr / PAGE_SIZE);
 			entry = (PTE_VALID | (PTE_TYPE_PTR << PTE_TYPE_S));
 			entry |= (pn << PTE_PPN0_S);
-		panic("testgrow");
 			pmap_load_store(l1, entry);
+			pmap_distribute_l1(kernel_pmap,
+			    pmap_l1_index(kernel_vm_end), entry);
 
 			PTE_SYNC(l1);
 			continue; /* try again */
@@ -1435,7 +1468,6 @@ pmap_growkernel(vm_offset_t addr)
 		nkpg = vm_page_alloc(NULL, kernel_vm_end >> L2_SHIFT,
 		    VM_ALLOC_INTERRUPT | VM_ALLOC_NOOBJ | VM_ALLOC_WIRED |
 		    VM_ALLOC_ZERO);
-		//printf("%s:new m 0x%016lx wc %d\n", __func__, nkpg, nkpg->wire_count);
 		if (nkpg == NULL)
 			panic("pmap_growkernel: no memory to grow kernel");
 		if ((nkpg->flags & PG_ZERO) == 0)
@@ -1624,7 +1656,7 @@ retry:
 	}
 	/* No free items, allocate another chunk */
 	m = vm_page_alloc(NULL, 0, VM_ALLOC_NORMAL | VM_ALLOC_NOOBJ |
-	    VM_ALLOC_WIRED| VM_ALLOC_ZERO);
+	    VM_ALLOC_WIRED);
 	if (m == NULL) {
 		if (lockp == NULL) {
 			PV_STAT(pc_chunk_tryfail++);
@@ -1634,7 +1666,6 @@ retry:
 		if (m == NULL)
 			goto retry;
 	}
-	//printf("%s:new m 0x%016lx wc %d\n", __func__, m, m->wire_count);
 	PV_STAT(atomic_add_int(&pc_chunk_count, 1));
 	PV_STAT(atomic_add_int(&pc_chunk_allocs, 1));
 #if 0 /* TODO: This is for minidump */
@@ -1730,9 +1761,6 @@ pmap_remove_l3(pmap_t pmap, pt_entry_t *l3, vm_offset_t va,
 	PMAP_LOCK_ASSERT(pmap, MA_OWNED);
 	if (pmap_is_current(pmap) && pmap_l3_valid_cacheable(pmap_load(l3)))
 		cpu_dcache_wb_range(va, L3_SIZE);
-	// important to check
-	//if (pmap == kernel_pmap)
-	//	printf("load_clear kernel pmap l3 0x%016lx\n", l3);
 	old_l3 = pmap_load_clear(l3);
 	PTE_SYNC(l3);
 	pmap_invalidate_page(pmap, va);
@@ -1897,8 +1925,6 @@ pmap_remove_all(vm_page_t m)
 		if (pmap_is_current(pmap) &&
 		    pmap_l3_valid_cacheable(pmap_load(l3)))
 			cpu_dcache_wb_range(pv->pv_va, L3_SIZE);
-		if (pmap == kernel_pmap)
-			panic("%s", __func__);
 		tl3 = pmap_load_clear(l3);
 		PTE_SYNC(l3);
 		pmap_invalidate_page(pmap, pv->pv_va);
@@ -2051,7 +2077,6 @@ pmap_enter(pmap_t pmap, vm_offset_t va, vm_page_t m, vm_prot_t prot,
 	if (va < VM_MAXUSER_ADDRESS) {
 		nosleep = (flags & PMAP_ENTER_NOSLEEP) != 0;
 		mpte = pmap_alloc_l3(pmap, va, nosleep ? NULL : &lock);
-		//printf("mpte allocated 0x%016lx\n", mpte);
 		if (mpte == NULL && nosleep) {
 			CTR0(KTR_PMAP, "pmap_enter: mpte == NULL");
 			if (lock != NULL)
@@ -2061,7 +2086,6 @@ pmap_enter(pmap_t pmap, vm_offset_t va, vm_page_t m, vm_prot_t prot,
 			return (KERN_RESOURCE_SHORTAGE);
 		}
 		l3 = pmap_l3(pmap, va);
-		//printf("l3 0x%016lx for va 0x%016lx\n", l3, va);
 	} else {
 		l3 = pmap_l3(pmap, va);
 		/* TODO: This is not optimal, but should mostly work */
@@ -2071,7 +2095,6 @@ pmap_enter(pmap_t pmap, vm_offset_t va, vm_page_t m, vm_prot_t prot,
 				l2_m = vm_page_alloc(NULL, 0, VM_ALLOC_NORMAL |
 				    VM_ALLOC_NOOBJ | VM_ALLOC_WIRED |
 				    VM_ALLOC_ZERO);
-				//printf("%s:new m (l2) 0x%016lx wc %d\n", __func__, l2_m, l2_m->wire_count);
 				if (l2_m == NULL)
 					panic("pmap_enter: l2 pte_m == NULL");
 				if ((l2_m->flags & PG_ZERO) == 0)
@@ -2083,10 +2106,8 @@ pmap_enter(pmap_t pmap, vm_offset_t va, vm_page_t m, vm_prot_t prot,
 				l1 = pmap_l1(pmap, va);
 				entry = (PTE_VALID | (PTE_TYPE_PTR << PTE_TYPE_S));
 				entry |= (l2_pn << PTE_PPN0_S);
-				if (pmap == kernel_pmap) {
-					panic("testhere\n");
-				}
 				pmap_load_store(l1, entry);
+				pmap_distribute_l1(pmap, pmap_l1_index(va), entry);
 				PTE_SYNC(l1);
 
 				l2 = pmap_l1_to_l2(l1, va);
@@ -2097,7 +2118,6 @@ pmap_enter(pmap_t pmap, vm_offset_t va, vm_page_t m, vm_prot_t prot,
 
 			l3_m = vm_page_alloc(NULL, 0, VM_ALLOC_NORMAL |
 			    VM_ALLOC_NOOBJ | VM_ALLOC_WIRED | VM_ALLOC_ZERO);
-			//printf("%s:new m (l3) 0x%016lx wc %d\n", __func__, l3_m, l3_m->wire_count);
 			if (l3_m == NULL)
 				panic("pmap_enter: l3 pte_m == NULL");
 			if ((l3_m->flags & PG_ZERO) == 0)
@@ -2140,23 +2160,9 @@ pmap_enter(pmap_t pmap, vm_offset_t va, vm_page_t m, vm_prot_t prot,
 		 */
 		if (mpte != NULL) {
 			mpte->wire_count--;
-			//printf("orig_l3 0x%016lx, l3 0x%016lx, va 0x%016lx opa 0x%016lx\n",
-			//		    orig_l3, l3, va, opa);
-
-#if 1
-			if (mpte->wire_count == 0) {
-				if (va < VM_MAXUSER_ADDRESS) {
-		//printf("Wc == 0, USER, mpte 0x%016lx, orig_l3 0x%016lx, l3 0x%016lx, va 0x%016lx opa 0x%016lx\n",
-			//   mpte, orig_l3, l3, va, opa);
-				} else {
-					//printf("Wc == 0, KERN\n");
-				}
-			}
-
 			KASSERT(mpte->wire_count > 0,
 			    ("pmap_enter: missing reference to page table page,"
-			     " va: 0x%lx, count %d", va, mpte->wire_count));
-#endif
+			     " va: 0x%lx", va));
 		}
 
 		/*
@@ -2354,7 +2360,6 @@ pmap_enter_quick_locked(pmap_t pmap, vm_offset_t va, vm_page_t m,
 				 * Pass NULL instead of the PV list lock
 				 * pointer, because we don't intend to sleep.
 				 */
-				//printf("pass null\n");
 				mpte = _pmap_alloc_l3(pmap, l2pindex, NULL);
 				if (mpte == NULL)
 					return (mpte);
@@ -2726,8 +2731,6 @@ pmap_remove_pages(pmap_t pmap)
 
 	lock = NULL;
 
-	//printf("pmap_remove_pages for pmap->pm_l1 0x%016lx\n", pmap->pm_l1);
-
 	SLIST_INIT(&free);
 	rw_rlock(&pvh_global_lock);
 	PMAP_LOCK(pmap);
@@ -2743,11 +2746,8 @@ pmap_remove_pages(pmap_t pmap)
 				pv = &pc->pc_pventry[idx];
 				inuse &= ~bitmask;
 
-				//printf("pv->pv_va 0x%016lx\n", pv->pv_va);
-				//breakpoint();
 				l2 = pmap_l2(pmap, pv->pv_va);
 				ptepde = pmap_load(l2);
-				//breakpoint();
 				l3 = pmap_l2_to_l3(l2, pv->pv_va);
 				tl3 = pmap_load(l3);
 
@@ -2774,8 +2774,6 @@ pmap_remove_pages(pmap_t pmap)
 				if (pmap_is_current(pmap) &&
 				    pmap_l3_valid_cacheable(pmap_load(l3)))
 					cpu_dcache_wb_range(pv->pv_va, L3_SIZE);
-		if (pmap == kernel_pmap)
-			panic("%s", __func__);
 				pmap_load_clear(l3);
 				PTE_SYNC(l3);
 				pmap_invalidate_page(pmap, pv->pv_va);
