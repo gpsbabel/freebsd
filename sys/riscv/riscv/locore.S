@@ -43,6 +43,8 @@
 #include <machine/riscvreg.h>
 #include <machine/pte.h>
 
+#include "opt_soc.h"
+
 #define	HTIF_RING_NENTRIES	(512)
 #define	HTIF_RING_ENTRY_SZ	(24)
 #define	HTIF_RING_SIZE		(HTIF_RING_ENTRY_SZ * HTIF_RING_NENTRIES)
@@ -126,15 +128,16 @@ _start:
 	csrr	a0, mhartid
 	bnez	a0, mpentry
 
-	/* Clear DDR */
+#if defined(DDR_CLEAR_SIZE)
+	/* Clear DDR memory */
 	la	t0, _end
-	li	t1, 0x08000000;
+	li	t1, DDR_CLEAR_SIZE
 1:
 	sd	zero, 0(t0)
-	fence
 	addi	t0, t0, 8
 	bltu	t0, t1, 1b
 	/* End */
+#endif
 
 	/* Build event queue for current core */
 	build_ring

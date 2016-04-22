@@ -25,6 +25,9 @@ hints		"LOWRISC.hints"
 
 options		ROOTDEVNAME=\"ufs:mmcsd0s2\"
 
+# Memory to clear
+options		DDR_CLEAR_SIZE=134217728
+
 # MMC/SD
 device		mmc
 device		mmcsd
