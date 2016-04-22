@@ -74,7 +74,7 @@ struct pv_addr {
 	vm_paddr_t	pv_pa;
 };
 
-/* An entry of the list of all pmaps */
+/* An entry in the list of all pmaps */
 struct pmap_list_entry {
 	SLIST_ENTRY(pmap_list_entry) pmap_link;
 	struct pmap *pmap;
