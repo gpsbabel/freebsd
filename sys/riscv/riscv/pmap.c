@@ -421,18 +421,19 @@ pmap_distribute_l1(struct pmap *pmap, vm_pindex_t l1index,
 	pd_entry_t *l1;
 
 	/* Distribute new kernel L1 entry to all the user pmaps */
+	if (pmap != kernel_pmap)
+		return;
 
-	if (pmap == kernel_pmap) {
-		SLIST_FOREACH(p_entry, &pmap_list, pmap_link) {
-			user_pmap = p_entry->pmap;
-			l1 = &user_pmap->pm_l1[l1index];
-			if (entry)
-				pmap_load_store(l1, entry);
-			else
-				pmap_load_clear(l1);
-		}
-		panic("test");
+	SLIST_FOREACH(p_entry, &pmap_list, pmap_link) {
+		user_pmap = p_entry->pmap;
+		l1 = &user_pmap->pm_l1[l1index];
+		if (entry)
+			pmap_load_store(l1, entry);
+		else
+			pmap_load_clear(l1);
 	}
+
+	panic("test");
 }
 
 static pt_entry_t *
@@ -506,10 +507,10 @@ static vm_offset_t
 pmap_bootstrap_l3(vm_offset_t l1pt, vm_offset_t va, vm_offset_t l3_start)
 {
 	vm_offset_t l2pt, l3pt;
-	vm_paddr_t pa;
-	pd_entry_t *l2;
-	u_int l2_slot;
 	pt_entry_t entry;
+	pd_entry_t *l2;
+	vm_paddr_t pa;
+	u_int l2_slot;
 	pn_t pn;
 
 	KASSERT((va & L2_OFFSET) == 0, ("Invalid virtual address"));
