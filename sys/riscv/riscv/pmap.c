@@ -1178,6 +1178,7 @@ pmap_pinit0(pmap_t pmap)
 int
 pmap_pinit(pmap_t pmap)
 {
+	struct pmap_list_entry *p_entry;
 	vm_paddr_t l1phys;
 	vm_page_t l1pt;
 
@@ -1199,13 +1200,12 @@ pmap_pinit(pmap_t pmap)
 	/* Install kernel pagetables */
 	memcpy(pmap->pm_l1, kernel_pmap->pm_l1, PAGE_SIZE);
 
-	struct pmap_list_entry *p_entry;
 	p_entry = malloc(sizeof(struct pmap_list_entry), M_VMPMAP, M_WAITOK);
 	p_entry->pmap = pmap;
-
-	/* Add to the list of all L1 tables */
-	SLIST_INSERT_HEAD(&pmap_list, p_entry, pmap_link);
 	pmap->p_entry = p_entry;
+
+	/* Add to the list of all pmaps */
+	SLIST_INSERT_HEAD(&pmap_list, p_entry, pmap_link);
 
 	return (1);
 }
@@ -1379,16 +1379,8 @@ pmap_release(pmap_t pmap)
 	bzero(pmap->pm_l1, PAGE_SIZE);
 
 	/* Remove pmap from the all pmaps list */
-	SLIST_REMOVE(&pmap_list, pmap->p_entry, pmap_list_entry, pmap_link);
-#if 0
-	struct pmap_list_entry *pu;
-	SLIST_FOREACH(pu, &pmap_list, pmap_link) {
-		if (pu->pmap == pmap) {
-			SLIST_REMOVE(&pmap_list, pu,
-			    pmap_list_entry, pmap_link);
-		}
-	}
-#endif
+	SLIST_REMOVE(&pmap_list, pmap->p_entry,
+	    pmap_list_entry, pmap_link);
 }
 
 #if 0
