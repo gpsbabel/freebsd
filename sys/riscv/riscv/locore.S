@@ -43,8 +43,6 @@
 #include <machine/riscvreg.h>
 #include <machine/pte.h>
 
-#include "opt_soc.h"
-
 #define	HTIF_RING_NENTRIES	(512)
 #define	HTIF_RING_ENTRY_SZ	(24)
 #define	HTIF_RING_SIZE		(HTIF_RING_ENTRY_SZ * HTIF_RING_NENTRIES)
