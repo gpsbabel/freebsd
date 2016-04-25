@@ -141,13 +141,13 @@ _start:
 
 	/* Page tables */
 
-	/* Create devmap page first */
+	/* Create an L1 page for early devmap */
 	la	s1, pagetable_l1
 	la	s2, pagetable_l2_devmap	/* Link to next level PN */
 	srli	s2, s2, PAGE_SHIFT
 
-	li	a5, (VM_MAX_KERNEL_ADDRESS-1)
-	srli	a5, a5, 0x1e		/* >> 30 */
+	li	a5, (VM_MAX_KERNEL_ADDRESS - L2_SIZE)
+	srli	a5, a5, L1_SHIFT	/* >> L1_SHIFT */
 	andi	a5, a5, 0x1ff		/* & 0x1ff */
 	li	t4, (PTE_VALID | (PTE_TYPE_PTR << PTE_TYPE_S))
 	slli	t5, s2, PTE_PPN0_S	/* (s2 << PTE_PPN0_S) */
@@ -165,7 +165,7 @@ _start:
 	srli	s2, s2, PAGE_SHIFT
 
 	li	a5, KERNBASE
-	srli	a5, a5, 0x1e		/* >> 30 */
+	srli	a5, a5, L1_SHIFT	/* >> L1_SHIFT */
 	andi	a5, a5, 0x1ff		/* & 0x1ff */
 	li	t4, (PTE_VALID | (PTE_TYPE_PTR << PTE_TYPE_S))
 	slli	t5, s2, PTE_PPN0_S	/* (s2 << PTE_PPN0_S) */
