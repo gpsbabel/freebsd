@@ -60,7 +60,7 @@ enum {
 	IRQ_SOFTWARE,
 	IRQ_TIMER,
 	IRQ_HTIF,
-	IRQ_COP,	/* wtf? */
+	IRQ_COP,	/* lowRISC only */
 	IRQ_UART,	/* lowRISC only */
 	NIRQS
 };
