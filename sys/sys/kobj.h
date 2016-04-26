@@ -95,7 +95,7 @@ struct kobjop_desc {
  * has a signature that is not compatible with kobj method signature.
  */
 #define KOBJMETHOD(NAME, FUNC) \
-	{ &NAME##_desc, (kobjop_t) (1 ? (NAME##_t *)FUNC : (NAME##_t *)NULL) }
+	{ &NAME##_desc, (kobjop_t) (1 ? FUNC : (NAME##_t *)NULL) }
 
 /*
  *
