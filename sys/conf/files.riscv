@@ -6,6 +6,7 @@ dev/uart/uart_cpu_fdt.c		optional	uart fdt
 dev/xilinx/axi_quad_spi.c	optional	xilinx_spi
 dev/mmc/host/mmc_spi.c		optional	mmc_spi
 kern/kern_clocksource.c		standard
+kern/subr_devmap.c		standard
 kern/subr_dummy_vdso_tc.c	standard
 libkern/bcmp.c			standard
 libkern/ffs.c			standard
@@ -30,8 +31,6 @@ riscv/riscv/cpufunc_asm.S	standard
 riscv/riscv/db_disasm.c		optional	ddb
 riscv/riscv/db_interface.c	optional	ddb
 riscv/riscv/db_trace.c		optional	ddb
-riscv/riscv/devmap.c		standard
-#arm/arm/devmap.c		standard
 riscv/riscv/dump_machdep.c	standard
 riscv/riscv/elf_machdep.c	standard
 riscv/riscv/intr_machdep.c	standard
