@@ -225,6 +225,7 @@ LEAF(dtrace_copystr)
 	nop
 END(dtrace_copystr)
 
+#if 0
 /*
 void dtrace_invop_init(void)
 */
@@ -246,6 +247,7 @@ LEAF(dtrace_invop_uninit)
 	j	ra
 	nop
 END(dtrace_invop_uninit)
+#endif
 
 /*
 uintptr_t

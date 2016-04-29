@@ -45,7 +45,8 @@ __FBSDID("$FreeBSD$");
 #include <vm/pmap.h>
 
 #define	DELAYBRANCH(x)	((int)(x) < 0)
-		
+
+extern int (*dtrace_invop_jump_addr)(struct trapframe *);
 extern dtrace_id_t	dtrace_probeid_error;
 
 int dtrace_invop(uintptr_t, struct trapframe *, uintptr_t);
@@ -238,4 +239,25 @@ dtrace_probe_error(dtrace_state_t *state, dtrace_epid_t epid, int which,
 	dtrace_probe(dtrace_probeid_error, (uint64_t)(uintptr_t)state,
 	    (uintptr_t)epid,
 	    (uintptr_t)which, (uintptr_t)fault, (uintptr_t)fltoffs);
+}
+
+static int
+dtrace_invop_start(struct trapframe *frame)
+{
+
+	return (-1);
+}
+
+void
+dtrace_invop_init(void)
+{
+
+	dtrace_invop_jump_addr = dtrace_invop_start;
+}
+        
+void
+dtrace_invop_uninit(void)
+{
+
+	dtrace_invop_jump_addr = 0;
 }

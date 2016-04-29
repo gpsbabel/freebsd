@@ -160,6 +160,8 @@ static void log_bad_page_fault(char *, struct trapframe *, int);
 static void log_frame_dump(struct trapframe *frame);
 static void get_mapping_info(vm_offset_t, pd_entry_t **, pt_entry_t **);
 
+int (*dtrace_invop_jump_addr)(struct trapframe *);
+
 #ifdef TRAP_DEBUG
 static void trap_frame_dump(struct trapframe *frame);
 #endif
@@ -810,8 +812,16 @@ dofault:
 
 #ifdef DDB
 	case T_BREAK:
+
+#ifdef KDTRACE_HOOKS
+		if (dtrace_invop_jump_addr != 0) {
+			dtrace_invop_jump_addr(trapframe);
+			break;
+		}
+#endif
 		kdb_trap(type, 0, trapframe);
 		return (trapframe->pc);
+
 #endif
 
 	case T_BREAK + T_USER:

@@ -48,9 +48,9 @@
 #define	SD_MASK			0xffff0000
 
 #define	RET_INSTR		0x03e00008	/* jr ra */
-#define	B_MASK			1
-#define	B_INSTR			1
-#define	B_DATA_MASK		1
+#define	JAL_MASK		0x0f000000
+#define	JAL_INSTR		0x0c000000
+#define	JAL_DATA_MASK		0x03ffffff
 
 int
 fbt_invop(uintptr_t addr, struct trapframe *frame, uintptr_t rval)
@@ -137,10 +137,10 @@ again:
 	for (; instr < limit; instr++) {
 		if (*instr == RET_INSTR)
 			break;
-		else if ((*instr & B_MASK) == B_INSTR) {
-			offs = (*instr & B_DATA_MASK);
+		else if ((*instr & JAL_MASK) == JAL_INSTR) {
+			offs = (*instr & JAL_DATA_MASK);
 			offs *= 4;
-			target = (instr + offs);
+			target = (uint32_t *)(0xffffffff80000000 + offs);
 			start = (uint32_t *)symval->value;
 			if (target >= limit || target < start)
 				break;
@@ -168,7 +168,7 @@ again:
 	fbt->fbtp_ctl = lf;
 	fbt->fbtp_loadcnt = lf->loadcnt;
 	fbt->fbtp_symindx = symindx;
-	if ((*instr & B_MASK) == B_INSTR)
+	if ((*instr & JAL_MASK) == JAL_INSTR)
 		fbt->fbtp_rval = DTRACE_INVOP_B;
 	else
 		fbt->fbtp_rval = DTRACE_INVOP_RET;

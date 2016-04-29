@@ -67,6 +67,7 @@
 
 	.set	noreorder		# Noreorder is default style!
 
+#if 0
 #ifdef KDTRACE_HOOKS
 	.data
 	.globl	dtrace_invop_jump_addr
@@ -85,6 +86,7 @@ dtrace_invop_calltrap_addr:
 	.word	0
 
 	.text
+#endif
 #endif
 
 /*
