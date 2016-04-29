@@ -9,5 +9,24 @@ include		"std.MALTA"
 machine		mips mips64el	# Malta supports both, so it isn't in std.malta
  
 makeoptions	ARCH_FLAGS="-march=mips64 -mabi=64"
- 
 makeoptions 	KERNLOADADDR=0xffffffff80100000
+
+options 	KDTRACE_HOOKS
+options 	DDB_CTF			# all architectures - kernel ELF linker loads CTF data
+makeoptions	WITH_CTF=1
+
+# DTrace core
+# NOTE: introduces CDDL-licensed components into the kernel
+device		dtrace
+
+# DTrace modules
+device		dtrace_profile
+device		dtrace_sdt
+device		dtrace_fbt
+device		dtrace_systrace
+device		dtrace_prototype
+device		dtnfscl
+device		dtmalloc
+
+# Alternatively include all the DTrace modules
+#device		dtraceall

@@ -51,7 +51,7 @@ extern dtrace_id_t	dtrace_probeid_error;
 int dtrace_invop(uintptr_t, struct trapframe *, uintptr_t);
 
 typedef struct dtrace_invop_hdlr {
-	int (*dtih_func)(uintptr_t, uintptr_t *, uintptr_t);
+	int (*dtih_func)(uintptr_t, struct trapframe *, uintptr_t);
 	struct dtrace_invop_hdlr *dtih_next;
 } dtrace_invop_hdlr_t;
 
@@ -70,6 +70,46 @@ dtrace_invop(uintptr_t addr, struct trapframe *stack, uintptr_t eax)
 	return (0);
 }
 
+void
+dtrace_invop_add(int (*func)(uintptr_t, struct trapframe *, uintptr_t))
+{
+	dtrace_invop_hdlr_t *hdlr;
+
+	hdlr = kmem_alloc(sizeof (dtrace_invop_hdlr_t), KM_SLEEP);
+	hdlr->dtih_func = func;
+	hdlr->dtih_next = dtrace_invop_hdlr;
+	dtrace_invop_hdlr = hdlr;
+}
+
+void
+dtrace_invop_remove(int (*func)(uintptr_t, struct trapframe *, uintptr_t))
+{
+	dtrace_invop_hdlr_t *hdlr, *prev;
+
+	hdlr = dtrace_invop_hdlr;
+	prev = NULL;
+
+	for (;;) {
+		if (hdlr == NULL)
+			panic("attempt to remove non-existent invop handler");
+
+		if (hdlr->dtih_func == func)
+			break;
+
+		prev = hdlr;
+		hdlr = hdlr->dtih_next;
+	}
+
+	if (prev == NULL) {
+		ASSERT(dtrace_invop_hdlr == hdlr);
+		dtrace_invop_hdlr = hdlr->dtih_next;
+	} else {
+		ASSERT(dtrace_invop_hdlr != hdlr);
+		prev->dtih_next = hdlr->dtih_next;
+	}
+
+	kmem_free(hdlr, 0);
+}
 
 /*ARGSUSED*/
 void
