@@ -2483,6 +2483,12 @@ extern void dtrace_helpers_destroy(proc_t *);
 #define	DTRACE_INVOP_RET	2
 #define	DTRACE_INVOP_B		3
 
+#elif defined(__mips__)
+
+#define	DTRACE_INVOP_PUSHM	1
+#define	DTRACE_INVOP_RET	2
+#define	DTRACE_INVOP_B		3
+
 #endif
 
 #ifdef	__cplusplus

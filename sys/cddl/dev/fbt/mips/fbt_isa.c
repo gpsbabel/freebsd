@@ -38,24 +38,19 @@
 
 #include "fbt.h"
 
-#define	AARCH64_BRK		0xd4200000
-#define	AARCH64_BRK_IMM16_SHIFT	5
-#define	AARCH64_BRK_IMM16_VAL	(0x40d << AARCH64_BRK_IMM16_SHIFT)
-
 #define	MIPS_BREAK		0x0000000d
 #define	FBT_PATCHVAL		(MIPS_BREAK)
 #define	FBT_ENTRY		"entry"
 #define	FBT_RETURN		"return"
 
-#define	LDP_STP_MASK		1
-#define	STP_64			1
-#define	DTRACE_INVOP_PUSHM	1
-#define	RET_INSTR		1
+/* Store double (sd) to return address register (ra) */
+#define	SD_RA			0xffbf0000
+#define	SD_MASK			0xffff0000
+
+#define	RET_INSTR		0x03e00008	/* jr ra */
 #define	B_MASK			1
 #define	B_INSTR			1
 #define	B_DATA_MASK		1
-#define	DTRACE_INVOP_B		1
-#define	DTRACE_INVOP_RET	1
 
 int
 fbt_invop(uintptr_t addr, struct trapframe *frame, uintptr_t rval)
@@ -111,9 +106,9 @@ fbt_provide_module_function(linker_file_t lf, int symindx,
 	instr = (uint32_t *)(symval->value);
 	limit = (uint32_t *)(symval->value + symval->size);
 
-	/* Look for stp (pre-indexed) operation */
+	/* Look for store double to ra register */
 	for (; instr < limit; instr++) {
-		if ((*instr & LDP_STP_MASK) == STP_64)
+		if ((*instr & SD_MASK) == SD_RA)
 			break;
 	}
 
