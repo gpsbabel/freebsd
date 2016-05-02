@@ -3677,7 +3677,7 @@ sctp_process_cmsgs_for_init(struct sctp_tcb *stcb, struct mbuf *control, int *er
 					*error = EINVAL;
 					return (1);
 				}
-				if (sctp_add_remote_addr(stcb, (struct sockaddr *)&sin, NULL,
+				if (sctp_add_remote_addr(stcb, (struct sockaddr *)&sin, NULL, stcb->asoc.port,
 				    SCTP_DONOT_SETSCOPE, SCTP_ADDR_IS_CONFIRMED)) {
 					*error = ENOBUFS;
 					return (1);
@@ -3709,14 +3709,14 @@ sctp_process_cmsgs_for_init(struct sctp_tcb *stcb, struct mbuf *control, int *er
 						*error = EINVAL;
 						return (1);
 					}
-					if (sctp_add_remote_addr(stcb, (struct sockaddr *)&sin, NULL,
+					if (sctp_add_remote_addr(stcb, (struct sockaddr *)&sin, NULL, stcb->asoc.port,
 					    SCTP_DONOT_SETSCOPE, SCTP_ADDR_IS_CONFIRMED)) {
 						*error = ENOBUFS;
 						return (1);
 					}
 				} else
 #endif
-					if (sctp_add_remote_addr(stcb, (struct sockaddr *)&sin6, NULL,
+					if (sctp_add_remote_addr(stcb, (struct sockaddr *)&sin6, NULL, stcb->asoc.port,
 				    SCTP_DONOT_SETSCOPE, SCTP_ADDR_IS_CONFIRMED)) {
 					*error = ENOBUFS;
 					return (1);
@@ -12765,8 +12765,8 @@ sctp_lower_sosend(struct socket *so,
 #endif
 			stcb = sctp_aloc_assoc(inp, addr, &error, 0, vrf_id,
 			    inp->sctp_ep.pre_open_stream_count,
-			    p
-			    );
+			    inp->sctp_ep.port,
+			    p);
 			if (stcb == NULL) {
 				/* Error is setup for us in the call */
 				goto out_unlocked;
