@@ -43,15 +43,6 @@
 #define	FBT_ENTRY		"entry"
 #define	FBT_RETURN		"return"
 
-/* Store double (sd) to return address register (ra) */
-#define	SD_RA			0xffbf0000
-#define	SD_MASK			0xffff0000
-
-#define	RET_INSTR		0x03e00008	/* jr ra */
-#define	JAL_MASK		0x0f000000
-#define	JAL_INSTR		0x0c000000
-#define	JAL_DATA_MASK		0x03ffffff
-
 int
 fbt_invop(uintptr_t addr, struct trapframe *frame, uintptr_t rval)
 {
@@ -124,7 +115,7 @@ fbt_provide_module_function(linker_file_t lf, int symindx,
 	fbt->fbtp_loadcnt = lf->loadcnt;
 	fbt->fbtp_savedval = *instr;
 	fbt->fbtp_patchval = FBT_PATCHVAL;
-	fbt->fbtp_rval = DTRACE_INVOP_PUSHM;
+	fbt->fbtp_rval = DTRACE_INVOP_SD;
 	fbt->fbtp_symindx = symindx;
 
 	fbt->fbtp_hashnext = fbt_probetab[FBT_ADDR2NDX(instr)];
@@ -134,21 +125,43 @@ fbt_provide_module_function(linker_file_t lf, int symindx,
 
 	retfbt = NULL;
 again:
+	//printf("start look for instr\n");
 	for (; instr < limit; instr++) {
-		if (*instr == RET_INSTR)
+		//printf("instr %x\n", *instr);
+#if 0
+		if ((*instr >> DTRACE_OP_SHIFT) == DTRACE_OP_DADDIU) {
+			if ((*instr >> DTRACE_RS_SHIFT) & DTRACE_RS_MASK) == DTRACE_REG_SP)
+		}
+		if ((*instr & DTRACE_DADDIU_MASK) == DTRACE_DADDIU_SP_SP) {
 			break;
+		}
+#endif
+		if ((*instr & LD_RA_SP_MASK) == LD_RA_SP)
+			break;
+#if 0
+		if (*instr == RET_INSTR) {
+			instr++; /* branch delay */
+			break;
+		}
 		else if ((*instr & JAL_MASK) == JAL_INSTR) {
 			offs = (*instr & JAL_DATA_MASK);
 			offs *= 4;
 			target = (uint32_t *)(0xffffffff80000000 + offs);
 			start = (uint32_t *)symval->value;
+			//printf("start 0x%016lx target 0x%016lx\n", (uint64_t)start, (uint64_t)target);
 			if (target >= limit || target < start)
 				break;
 		}
+#endif
 	}
 
-	if (instr >= limit)
+	if (instr >= limit) {
+		printf("fail: %x (0x%016lx) start 0x%016lx limit 0x%016lx\n",
+		   *instr, (uint64_t)instr, (uint64_t)symval->value, (uint64_t)limit);
 		return (0);
+	} else {
+		printf("found: %x\n", *instr);
+	}
 
 	/*
 	 * We have a winner!
@@ -169,7 +182,7 @@ again:
 	fbt->fbtp_loadcnt = lf->loadcnt;
 	fbt->fbtp_symindx = symindx;
 	if ((*instr & JAL_MASK) == JAL_INSTR)
-		fbt->fbtp_rval = DTRACE_INVOP_B;
+		fbt->fbtp_rval = DTRACE_INVOP_J;
 	else
 		fbt->fbtp_rval = DTRACE_INVOP_RET;
 	fbt->fbtp_savedval = *instr;

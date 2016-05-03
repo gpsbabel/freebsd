@@ -810,18 +810,19 @@ dofault:
 			return (trapframe->pc);
 		}
 
-#ifdef DDB
 	case T_BREAK:
-
 #ifdef KDTRACE_HOOKS
-		if (dtrace_invop_jump_addr != 0) {
-			dtrace_invop_jump_addr(trapframe);
-			break;
+		if (!usermode) {
+			if (dtrace_invop_jump_addr != 0) {
+				dtrace_invop_jump_addr(trapframe);
+				return (trapframe->pc);
+			}
 		}
 #endif
+
+#ifdef DDB
 		kdb_trap(type, 0, trapframe);
 		return (trapframe->pc);
-
 #endif
 
 	case T_BREAK + T_USER:

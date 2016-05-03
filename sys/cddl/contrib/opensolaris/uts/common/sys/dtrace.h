@@ -2485,9 +2485,38 @@ extern void dtrace_helpers_destroy(proc_t *);
 
 #elif defined(__mips__)
 
-#define	DTRACE_INVOP_PUSHM	1
+#define	INSN_SIZE	4
+
+/* Store double (sd) ra to sp */
+#define	SD_RA			0xffbf0000
+#define	SD_MASK			0xffff0000
+#define	SD_DATA_MASK		0x0000ffff	/* TODO: check this */
+
+#define	LD_RA_SP		0xdfbf0000
+#define	LD_RA_SP_MASK		0xffff0000
+#define	LD_RA_SP_DATA_MASK	0x0000ffff
+
+#define	RET_INSTR		0x03e00008	/* jr ra */
+#define	JAL_MASK		0xfc000000
+#define	JAL_INSTR		0x0c000000
+#define	JAL_DATA_MASK		0x03ffffff
+
+#if 1
+#define	DTRACE_DADDIU_MASK	0xffff0000
+#define	DTRACE_DADDIU_SP_SP	0x67bd0000
+#define	DTRACE_OP_SHIFT		26
+#define	DTRACE_OP_DADDIU		25
+#define	DTRACE_RS_SHIFT		21
+#define	DTRACE_RS_MASK			0x1f
+#define	DTRACE_RT_SHIFT		16
+#define	DTRACE_RT_MASK			0x1f
+#define	DTRACE_IMM_MASK		0xffff
+#define	DTRACE_REG_SP		29
+#endif
+
+#define	DTRACE_INVOP_SD		1
 #define	DTRACE_INVOP_RET	2
-#define	DTRACE_INVOP_B		3
+#define	DTRACE_INVOP_J		3
 
 #endif
 
