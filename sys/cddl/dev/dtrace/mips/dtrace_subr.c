@@ -244,23 +244,15 @@ dtrace_probe_error(dtrace_state_t *state, dtrace_epid_t epid, int which,
 static int
 dtrace_invop_start(struct trapframe *frame)
 {
-	//register_t *r0;
 	register_t *sp;
 	uint32_t invop;
-	//int update_sp;
 	int offs;
 	int data;
-	//int reg;
-	//int tmp;
-	//int imm;
-
-	//printf("%s: 0x%x\n", __func__, invop);
 
 	invop = dtrace_invop(frame->pc, frame, frame->pc);
 	data = invop;
 
 	offs = (data & LDSD_DATA_MASK);
-	//sp = (register_t *)frame->sp;
 	sp = (register_t *)((uint8_t *)frame->sp + offs);
 
 	switch (invop & LDSD_RA_SP_MASK) {
@@ -273,6 +265,7 @@ dtrace_invop_start(struct trapframe *frame)
 		frame->pc += INSN_SIZE;
 		break;
 	default:
+		printf("%s: 0x%x undefined\n", __func__, invop);
 		return (-1);
 	};
 
@@ -285,7 +278,7 @@ dtrace_invop_init(void)
 
 	dtrace_invop_jump_addr = dtrace_invop_start;
 }
-        
+
 void
 dtrace_invop_uninit(void)
 {
