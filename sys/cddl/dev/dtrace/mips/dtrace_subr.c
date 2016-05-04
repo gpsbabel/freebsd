@@ -244,90 +244,39 @@ dtrace_probe_error(dtrace_state_t *state, dtrace_epid_t epid, int which,
 static int
 dtrace_invop_start(struct trapframe *frame)
 {
-	register_t *r0;
+	//register_t *r0;
 	register_t *sp;
 	uint32_t invop;
-	int update_sp;
+	//int update_sp;
 	int offs;
 	int data;
-	int reg;
-	int tmp;
-	int imm;
+	//int reg;
+	//int tmp;
+	//int imm;
+
+	//printf("%s: 0x%x\n", __func__, invop);
 
 	invop = dtrace_invop(frame->pc, frame, frame->pc);
 	data = invop;
 
-	printf("%s: 0x%x\n", __func__, invop);
+	offs = (data & LDSD_DATA_MASK);
+	//sp = (register_t *)frame->sp;
+	sp = (register_t *)((uint8_t *)frame->sp + offs);
 
-#if 0
-	if ((tmp >> OP_SHIFT) == OP_DADDIU) {
-		if (((tmp >> RS_SHIFT) & RS_MASK) == REG_SP) {
-			imm = (tmp & IMM_MASK);
-		}
-	}
-
-	if ((invop & DTRACE_DADDIU_MASK) == DTRACE_DADDIU_SP_SP) {
-		imm = (data & DTRACE_IMM_MASK);
-		printf("imm %d\n", imm);
-		frame->pc += INSN_SIZE;
-	}
-#endif
-
-	tmp = (invop & LD_RA_SP_MASK);
-	if (tmp == LD_RA_SP) {
-		//printf("em ld ra sp\n");
-		sp = (register_t *)frame->sp;
-		offs = (data & SD_DATA_MASK);
-		sp = (register_t *)((uint8_t *)sp + offs);
-
+	switch (invop & LDSD_RA_SP_MASK) {
+	case LD_RA_SP:
 		frame->ra = *sp;
 		frame->pc += INSN_SIZE;
-		return (0);
-	}
-
-	tmp = (invop & SD_MASK);
-	if (tmp == SD_RA) {
-		sp = (register_t *)frame->sp;
-		offs = (data & SD_DATA_MASK);
-		sp = (register_t *)((uint8_t *)sp + offs);
-		//printf("sp 0x%016lx target sp 0x%016lx sd offs 0x%x\n", (uint64_t)frame->sp, (uint64_t)sp, offs);
-
+		break;
+	case SD_RA_SP:
 		*(sp) = frame->ra;
 		frame->pc += INSN_SIZE;
-		return (0);
-	}
-
-	tmp = (invop & JAL_MASK);
-	if (tmp == JAL_INSTR) {
-		offs = (data & JAL_DATA_MASK);
-		offs *= 4;
-		offs += 0xffffffff8000000;
-		frame->pc = offs;
-		return (0);
-	}
-
-	if (invop == RET_INSTR) {
-		printf("ret, pc 0x%016lx, ra 0x%016lx\n",
-		    (uint64_t)frame->pc, (uint64_t)frame->ra);
-		frame->pc = frame->ra;
-		printf("new pc 0x%016lx\n", frame->pc);
-		return (0);
-	}
-
-#if 0
-	switch (invop & DTRACE_INVOP_MASK) {
-	case DTRACE_INVOP_SD:
-		break;
-	case DTRACE_INVOP_RET:
-		break;
-	case DTRACE_INVOP_J:
 		break;
 	default:
 		return (-1);
 	};
-#endif
 
-	return (-1);
+	return (0);
 }
 
 void

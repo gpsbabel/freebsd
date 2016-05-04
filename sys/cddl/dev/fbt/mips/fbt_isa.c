@@ -99,7 +99,7 @@ fbt_provide_module_function(linker_file_t lf, int symindx,
 
 	/* Look for store double to ra register */
 	for (; instr < limit; instr++) {
-		if ((*instr & SD_MASK) == SD_RA)
+		if ((*instr & LDSD_RA_SP_MASK) == SD_RA_SP)
 			break;
 	}
 
@@ -127,22 +127,9 @@ fbt_provide_module_function(linker_file_t lf, int symindx,
 again:
 	//printf("start look for instr\n");
 	for (; instr < limit; instr++) {
-		//printf("instr %x\n", *instr);
-#if 0
-		if ((*instr >> DTRACE_OP_SHIFT) == DTRACE_OP_DADDIU) {
-			if ((*instr >> DTRACE_RS_SHIFT) & DTRACE_RS_MASK) == DTRACE_REG_SP)
-		}
-		if ((*instr & DTRACE_DADDIU_MASK) == DTRACE_DADDIU_SP_SP) {
-			break;
-		}
-#endif
-		if ((*instr & LD_RA_SP_MASK) == LD_RA_SP)
+		if ((*instr & LDSD_RA_SP_MASK) == LD_RA_SP)
 			break;
 #if 0
-		if (*instr == RET_INSTR) {
-			instr++; /* branch delay */
-			break;
-		}
 		else if ((*instr & JAL_MASK) == JAL_INSTR) {
 			offs = (*instr & JAL_DATA_MASK);
 			offs *= 4;
@@ -156,11 +143,11 @@ again:
 	}
 
 	if (instr >= limit) {
-		printf("fail: %x (0x%016lx) start 0x%016lx limit 0x%016lx\n",
-		   *instr, (uint64_t)instr, (uint64_t)symval->value, (uint64_t)limit);
+		//printf("fail: %x (0x%016lx) start 0x%016lx limit 0x%016lx\n",
+		//   *instr, (uint64_t)instr, (uint64_t)symval->value, (uint64_t)limit);
 		return (0);
 	} else {
-		printf("found: %x\n", *instr);
+		//printf("found: %x\n", *instr);
 	}
 
 	/*
@@ -181,10 +168,10 @@ again:
 	fbt->fbtp_ctl = lf;
 	fbt->fbtp_loadcnt = lf->loadcnt;
 	fbt->fbtp_symindx = symindx;
-	if ((*instr & JAL_MASK) == JAL_INSTR)
-		fbt->fbtp_rval = DTRACE_INVOP_J;
-	else
+	if ((*instr & LDSD_RA_SP_MASK) == LD_RA_SP)
 		fbt->fbtp_rval = DTRACE_INVOP_RET;
+	else
+		fbt->fbtp_rval = DTRACE_INVOP_J;
 	fbt->fbtp_savedval = *instr;
 	fbt->fbtp_patchval = FBT_PATCHVAL;
 	fbt->fbtp_hashnext = fbt_probetab[FBT_ADDR2NDX(instr)];

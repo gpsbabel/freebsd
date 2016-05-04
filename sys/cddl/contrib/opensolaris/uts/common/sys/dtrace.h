@@ -2488,20 +2488,17 @@ extern void dtrace_helpers_destroy(proc_t *);
 #define	INSN_SIZE	4
 
 /* Store double (sd) ra to sp */
-#define	SD_RA			0xffbf0000
-#define	SD_MASK			0xffff0000
-#define	SD_DATA_MASK		0x0000ffff	/* TODO: check this */
-
+#define	LDSD_RA_SP_MASK		0xffff0000
+#define	LDSD_DATA_MASK		0x0000ffff
+#define	SD_RA_SP		0xffbf0000
 #define	LD_RA_SP		0xdfbf0000
-#define	LD_RA_SP_MASK		0xffff0000
-#define	LD_RA_SP_DATA_MASK	0x0000ffff
 
+#if 0
 #define	RET_INSTR		0x03e00008	/* jr ra */
 #define	JAL_MASK		0xfc000000
 #define	JAL_INSTR		0x0c000000
 #define	JAL_DATA_MASK		0x03ffffff
 
-#if 1
 #define	DTRACE_DADDIU_MASK	0xffff0000
 #define	DTRACE_DADDIU_SP_SP	0x67bd0000
 #define	DTRACE_OP_SHIFT		26
