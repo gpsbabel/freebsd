@@ -2487,7 +2487,7 @@ extern void dtrace_helpers_destroy(proc_t *);
 
 #define	INSN_SIZE	4
 
-/* Store double (sd) ra to sp */
+/* Load/Store double RA to SP */
 #define	LDSD_RA_SP_MASK		0xffff0000
 #define	LDSD_DATA_MASK		0x0000ffff
 #define	SD_RA_SP		0xffbf0000
@@ -2512,7 +2512,7 @@ extern void dtrace_helpers_destroy(proc_t *);
 #endif
 
 #define	DTRACE_INVOP_SD		1
-#define	DTRACE_INVOP_RET	2
+#define	DTRACE_INVOP_LD		2
 #define	DTRACE_INVOP_J		3
 
 #endif

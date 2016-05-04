@@ -169,7 +169,7 @@ again:
 	fbt->fbtp_loadcnt = lf->loadcnt;
 	fbt->fbtp_symindx = symindx;
 	if ((*instr & LDSD_RA_SP_MASK) == LD_RA_SP)
-		fbt->fbtp_rval = DTRACE_INVOP_RET;
+		fbt->fbtp_rval = DTRACE_INVOP_LD;
 	else
 		fbt->fbtp_rval = DTRACE_INVOP_J;
 	fbt->fbtp_savedval = *instr;
