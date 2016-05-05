@@ -245,14 +245,11 @@ static int
 dtrace_invop_start(struct trapframe *frame)
 {
 	register_t *sp;
-	uint32_t invop;
-	int offs;
-	int data;
+	int16_t offs;
+	int invop;
 
 	invop = dtrace_invop(frame->pc, frame, frame->pc);
-	data = invop;
-
-	offs = (data & LDSD_DATA_MASK);
+	offs = (invop & LDSD_DATA_MASK);
 	sp = (register_t *)((uint8_t *)frame->sp + offs);
 
 	switch (invop & LDSD_RA_SP_MASK) {

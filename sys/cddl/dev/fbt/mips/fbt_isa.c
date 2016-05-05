@@ -33,8 +33,9 @@
 
 #include <sys/cdefs.h>
 #include <sys/param.h>
-
 #include <sys/dtrace.h>
+
+#include <machine/cache.h>
 
 #include "fbt.h"
 
@@ -73,7 +74,7 @@ fbt_patch_tracepoint(fbt_probe_t *fbt, fbt_patchval_t val)
 {
 
 	*fbt->fbtp_patchpoint = val;
-	//cpu_icache_sync_range((vm_offset_t)fbt->fbtp_patchpoint, 4);
+	mips_icache_sync_range((vm_offset_t)fbt->fbtp_patchpoint, 4);
 }
 
 int
@@ -85,7 +86,6 @@ fbt_provide_module_function(linker_file_t lf, int symindx,
 	uint32_t *instr, *limit;
 	const char *name;
 	char *modname;
-	int offs;
 
 	modname = opaque;
 	name = symval->name;
@@ -125,30 +125,14 @@ fbt_provide_module_function(linker_file_t lf, int symindx,
 
 	retfbt = NULL;
 again:
-	//printf("start look for instr\n");
 	for (; instr < limit; instr++) {
-		if ((*instr & LDSD_RA_SP_MASK) == LD_RA_SP)
+		if ((*instr & LDSD_RA_SP_MASK) == LD_RA_SP) {
 			break;
-#if 0
-		else if ((*instr & JAL_MASK) == JAL_INSTR) {
-			offs = (*instr & JAL_DATA_MASK);
-			offs *= 4;
-			target = (uint32_t *)(0xffffffff80000000 + offs);
-			start = (uint32_t *)symval->value;
-			//printf("start 0x%016lx target 0x%016lx\n", (uint64_t)start, (uint64_t)target);
-			if (target >= limit || target < start)
-				break;
 		}
-#endif
 	}
 
-	if (instr >= limit) {
-		//printf("fail: %x (0x%016lx) start 0x%016lx limit 0x%016lx\n",
-		//   *instr, (uint64_t)instr, (uint64_t)symval->value, (uint64_t)limit);
+	if (instr >= limit)
 		return (0);
-	} else {
-		//printf("found: %x\n", *instr);
-	}
 
 	/*
 	 * We have a winner!
@@ -168,10 +152,7 @@ again:
 	fbt->fbtp_ctl = lf;
 	fbt->fbtp_loadcnt = lf->loadcnt;
 	fbt->fbtp_symindx = symindx;
-	if ((*instr & LDSD_RA_SP_MASK) == LD_RA_SP)
-		fbt->fbtp_rval = DTRACE_INVOP_LD;
-	else
-		fbt->fbtp_rval = DTRACE_INVOP_J;
+	fbt->fbtp_rval = DTRACE_INVOP_LD;
 	fbt->fbtp_savedval = *instr;
 	fbt->fbtp_patchval = FBT_PATCHVAL;
 	fbt->fbtp_hashnext = fbt_probetab[FBT_ADDR2NDX(instr)];
