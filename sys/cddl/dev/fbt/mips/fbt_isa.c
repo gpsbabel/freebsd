@@ -35,12 +35,12 @@
 #include <sys/param.h>
 #include <sys/dtrace.h>
 
+#include <machine/cpuregs.h>
 #include <machine/cache.h>
 
 #include "fbt.h"
 
-#define	MIPS_BREAK		0x0000000d
-#define	FBT_PATCHVAL		(MIPS_BREAK)
+#define	FBT_PATCHVAL		(MIPS_BREAK_INSTR)
 #define	FBT_ENTRY		"entry"
 #define	FBT_RETURN		"return"
 
