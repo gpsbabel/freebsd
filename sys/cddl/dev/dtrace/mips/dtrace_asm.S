@@ -225,30 +225,6 @@ LEAF(dtrace_copystr)
 	nop
 END(dtrace_copystr)
 
-#if 0
-/*
-void dtrace_invop_init(void)
-*/
-LEAF(dtrace_invop_init)
-	/* XXX: impement it properly */
-	PTR_LA	t0, dtrace_invop_jump_addr
-	/* dla	t1, dtrace_invop_start */
-	PTR_S	zero, 0(t0)
-	j	ra
-	nop
-END(dtrace_invop_init)
-
-/*
-void dtrace_invop_uninit(void)
-*/
-LEAF(dtrace_invop_uninit)
-	PTR_LA	t0, dtrace_invop_jump_addr
-	PTR_S	zero, 0(t0)
-	j	ra
-	nop
-END(dtrace_invop_uninit)
-#endif
-
 /*
 uintptr_t
 dtrace_caller(int aframes)
