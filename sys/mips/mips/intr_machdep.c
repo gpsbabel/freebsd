@@ -48,6 +48,10 @@ __FBSDID("$FreeBSD$");
 #include <machine/md_var.h>
 #include <machine/trap.h>
 
+//#include "opt_kdtrace.h"
+//#include <sys/kernel.h>
+//#include <sys/sdt.h>
+
 static struct intr_event *hardintr_events[NHARD_IRQS];
 static struct intr_event *softintr_events[NSOFT_IRQS];
 static mips_intrcnt_t mips_intr_counters[NSOFT_IRQS + NHARD_IRQS];
@@ -224,6 +228,8 @@ cpu_intr(struct trapframe *tf)
 	register_t cause, status;
 	int hard, i, intr;
 
+	SDT_PROBE1(foobar, , , trapentry, tf);
+
 	critical_enter();
 
 	cause = mips_rd_cause();
@@ -276,3 +282,12 @@ cpu_intr(struct trapframe *tf)
 		pmc_hook(PCPU_GET(curthread), PMC_FN_USER_CALLCHAIN, tf);
 #endif
 }
+
+SDT_PROVIDER_DECLARE(foobar);
+SDT_PROVIDER_DEFINE(foobar);
+
+//SDT_PROBE_DEFINE1(sdt, , , entry, "struct trapframe *");
+//SDT_PROVIDER_DEFINE(sdt);
+//SDT_PROBE_DEFINE1(foobar, , , foobar__entry, "struct trapframe *");
+
+SDT_PROBE_DEFINE1(foobar, , , trapentry, "struct trapframe2 *");

@@ -127,7 +127,14 @@ gdbinit:
 .endif
 .endif
 
-${FULLKERNEL}: ${SYSTEM_DEP} vers.o
+sdtstubs.c: ${FULLKERNEL}.reloc
+	AWK='${AWK}' OBJDUMP='${OBJDUMP}' NM='${NM}' \
+	    sh $S/tools/sdtstubs.sh ${.ALLSRC} > ${.TARGET}
+
+${FULLKERNEL}.reloc: ${SYSTEM_DEP}
+	@${LD} --relocatable -o ${.TARGET} ${SYSTEM_OBJS}
+
+${FULLKERNEL}: ${FULLKERNEL}.reloc sdtstubs.o vers.o
 	@rm -f ${.TARGET}
 	@echo linking ${.TARGET}
 	${SYSTEM_LD}
@@ -141,6 +148,8 @@ ${FULLKERNEL}: ${SYSTEM_DEP} vers.o
 .if !defined(DEBUG)
 	${OBJCOPY} --strip-debug ${.TARGET}
 .endif
+	@AWK='${AWK}' OBJCOPY='${OBJCOPY}' OBJDUMP='${OBJDUMP}' \
+	    sh $S/tools/sdtstrip.sh ${.TARGET}
 	${SYSTEM_LD_TAIL}
 
 OBJS_DEPEND_GUESS+=	assym.s vnode_if.h ${BEFORE_DEPEND:M*.h} \

@@ -42,6 +42,9 @@ __FBSDID("$FreeBSD$");
 #include <sys/mount.h>
 #include <sys/pcpu.h>
 #include <sys/proc.h>
+#ifdef KDTRACE_HOOKS
+#include <sys/sdt.h>
+#endif
 #include <sys/namei.h>
 #include <sys/fcntl.h>
 #include <sys/vnode.h>
@@ -1007,9 +1010,6 @@ link_elf_load_file(linker_class_t cls, const char* filename,
 	vn_lock(nd.ni_vp, LK_EXCLUSIVE | LK_RETRY);
 	if (error != 0)
 		goto out;
-	error = relocate_file(ef);
-	if (error != 0)
-		goto out;
 
 	/*
 	 * Try and load the symbol table if it's present.  (you can
@@ -1077,6 +1077,10 @@ link_elf_load_file(linker_class_t cls, const char* filename,
 	ef->ddbsymtab = (const Elf_Sym *)ef->symbase;
 	ef->ddbstrcnt = strcnt;
 	ef->ddbstrtab = ef->strbase;
+
+	error = relocate_file(ef);
+	if (error != 0)
+		goto out;
 
 nosyms:
 	error = link_elf_link_common_finish(lf);
@@ -1182,6 +1186,25 @@ symbol_name(elf_file_t ef, Elf_Size r_info)
 	return (NULL);
 }
 
+#ifdef KDTRACE_HOOKS
+/*
+ * Relocations against symbols whose names start with "__dtrace_sdt_"
+ * correspond to static DTrace probe sites and are handled specially.
+ */
+static int
+sdt_taste_reloc(elf_file_t ef, const char *symname, Elf_Addr offset)
+{
+
+	if (symname != NULL && strncmp(symname, SDT_PROBE_STUB_PREFIX,
+	    sizeof(SDT_PROBE_STUB_PREFIX) - 1) == 0) {
+		sdt_patch_reloc(&ef->lf, symname, (uint64_t)ef->address,
+		    offset);
+		return (1);
+	}
+	return (0);
+}
+#endif /* KDTRACE_HOOKS */
+
 static int
 relocate_file(elf_file_t ef)
 {
@@ -1196,14 +1219,17 @@ relocate_file(elf_file_t ef)
 	if (rel != NULL) {
 		rellim = (const Elf_Rel *)
 		    ((const char *)ef->rel + ef->relsize);
-		while (rel < rellim) {
+		for (; rel < rellim; rel++) {
 			if (elf_reloc(&ef->lf, (Elf_Addr)ef->address, rel,
 			    ELF_RELOC_REL, elf_lookup)) {
 				symname = symbol_name(ef, rel->r_info);
+#ifdef KDTRACE_HOOKS
+				if (sdt_taste_reloc(ef, symname, rel->r_offset))
+					continue;
+#endif
 				printf("link_elf: symbol %s undefined\n", symname);
 				return (ENOENT);
 			}
-			rel++;
 		}
 	}
 
@@ -1212,15 +1238,19 @@ relocate_file(elf_file_t ef)
 	if (rela != NULL) {
 		relalim = (const Elf_Rela *)
 		    ((const char *)ef->rela + ef->relasize);
-		while (rela < relalim) {
+		for (; rela < relalim; rela++) {
 			if (elf_reloc(&ef->lf, (Elf_Addr)ef->address, rela,
 			    ELF_RELOC_RELA, elf_lookup)) {
 				symname = symbol_name(ef, rela->r_info);
+#ifdef KDTRACE_HOOKS
+				if (sdt_taste_reloc(ef, symname,
+				    rela->r_offset))
+					continue;
+#endif
 				printf("link_elf: symbol %s undefined\n",
 				    symname);
 				return (ENOENT);
 			}
-			rela++;
 		}
 	}
 
@@ -1229,15 +1259,18 @@ relocate_file(elf_file_t ef)
 	if (rel != NULL) {
 		rellim = (const Elf_Rel *)
 		    ((const char *)ef->pltrel + ef->pltrelsize);
-		while (rel < rellim) {
+		for (; rel < rellim; rel++) {
 			if (elf_reloc(&ef->lf, (Elf_Addr)ef->address, rel,
 			    ELF_RELOC_REL, elf_lookup)) {
 				symname = symbol_name(ef, rel->r_info);
+#ifdef KDTRACE_HOOKS
+				if (sdt_taste_reloc(ef, symname, rel->r_offset))
+					continue;
+#endif
 				printf("link_elf: symbol %s undefined\n",
 				    symname);
 				return (ENOENT);
 			}
-			rel++;
 		}
 	}
 
@@ -1246,15 +1279,19 @@ relocate_file(elf_file_t ef)
 	if (rela != NULL) {
 		relalim = (const Elf_Rela *)
 		    ((const char *)ef->pltrela + ef->pltrelasize);
-		while (rela < relalim) {
+		for (; rela < relalim; rela++) {
 			if (elf_reloc(&ef->lf, (Elf_Addr)ef->address, rela,
 			    ELF_RELOC_RELA, elf_lookup)) {
 				symname = symbol_name(ef, rela->r_info);
+#ifdef KDTRACE_HOOKS
+				if (sdt_taste_reloc(ef, symname,
+				    rela->r_offset))
+					continue;
+#endif
 				printf("link_elf: symbol %s undefined\n",
 				    symname);
 				return (ENOENT);
 			}
-			rela++;
 		}
 	}
 
