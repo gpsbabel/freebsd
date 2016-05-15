@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2009-2010 Weongyo Jeong <weongyo@freebsd.org>
+ * Copyright (c) 2016 Adrian Chadd <adrian@FreeBSD.org>.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -28,40 +28,44 @@
  *
  * $FreeBSD$
  */
-#ifndef	__IF_BWN_MISC_H__
-#define	__IF_BWN_MISC_H__
+#ifndef	__IF_BWN_CHIPID_H__
+#define	__IF_BWN_CHIPID_H__
 
 /*
- * These are the functions used by the PHY code.
- *
- * They currently live in the driver itself; at least until they
- * are broken out into smaller pieces.
+ * BCMA chip identifiers.
  */
+#define	BCMA_CHIP_ID_BCM4313		0x4313
+#define	BCMA_CHIP_ID_BCM43142		43142
+#define	BCMA_CHIP_ID_BCM43131		43131
+#define	BCMA_CHIP_ID_BCM43217		43217
+#define	BCMA_CHIP_ID_BCM43222		43222
+#define	BCMA_CHIP_ID_BCM43224		43224
+#define	 BCMA_PKG_ID_BCM43224_FAB_CSM	0x8
+#define	 BCMA_PKG_ID_BCM43224_FAB_SMIC	0xa
+#define	BCMA_CHIP_ID_BCM43225		43225
+#define	BCMA_CHIP_ID_BCM43227		43227
+#define	BCMA_CHIP_ID_BCM43228		43228
+#define	BCMA_CHIP_ID_BCM43421		43421
+#define	BCMA_CHIP_ID_BCM43428		43428
+#define	BCMA_CHIP_ID_BCM43431		43431
+#define	BCMA_CHIP_ID_BCM43460		43460
+#define	BCMA_CHIP_ID_BCM4331		0x4331
+#define	BCMA_CHIP_ID_BCM6362		0x6362
+#define	BCMA_CHIP_ID_BCM4360		0x4360
+#define	BCMA_CHIP_ID_BCM4352		0x4352
+#define	BCMA_CHIP_ID_BCM4706		0x5300
+#define	BCMA_CHIP_ID_BCM4716		0x4716
+#define	BCMA_CHIP_ID_BCM47162		47162
+#define	BCMA_CHIP_ID_BCM4748		0x4748
+#define	BCMA_CHIP_ID_BCM4749		0x4749
+#define	BCMA_CHIP_ID_BCM5356		0x5356
+#define	BCMA_CHIP_ID_BCM5357		0x5357
+#define	BCMA_CHIP_ID_BCM53572		53572
+#define	BCMA_CHIP_ID_BCM4707		53010
+#define	BCMA_CHIP_ID_BCM47094		53030
+#define	BCMA_CHIP_ID_BCM53018		53018
 
-struct bwn_mac;
+#define	BCMA_BOARD_TYPE_BCM943224M93		0x008B
+#define	BCMA_BOARD_TYPE_BCM943224M93A		0x0090
 
-extern uint64_t	bwn_hf_read(struct bwn_mac *);
-extern void	bwn_hf_write(struct bwn_mac *, uint64_t);
-
-extern void	bwn_dummy_transmission(struct bwn_mac *mac, int ofdm, int paon);
-
-extern void	bwn_ram_write(struct bwn_mac *, uint16_t, uint32_t);
-
-extern void	bwn_mac_suspend(struct bwn_mac *);
-extern void	bwn_mac_enable(struct bwn_mac *);
-
-extern int	bwn_switch_channel(struct bwn_mac *, int);
-
-extern uint16_t	bwn_shm_read_2(struct bwn_mac *, uint16_t, uint16_t);
-extern void	bwn_shm_write_2(struct bwn_mac *, uint16_t, uint16_t,
-		    uint16_t);
-extern uint32_t	bwn_shm_read_4(struct bwn_mac *, uint16_t, uint16_t);
-extern void	bwn_shm_write_4(struct bwn_mac *, uint16_t, uint16_t,
-		    uint32_t);
-
-/* This is only for SIBA core */
-extern	void bwn_reset_core(struct bwn_mac *, int g_mode);
-
-extern void	bwn_psctl(struct bwn_mac *, uint32_t);
-
-#endif
+#endif	/* __IF_BWN_CHIPID_H__ */

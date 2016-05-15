@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2009-2010 Weongyo Jeong <weongyo@freebsd.org>
+ * Copyright (c) 2016 Adrian Chadd <adrian@FreeBSD.org>.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -28,40 +28,14 @@
  *
  * $FreeBSD$
  */
-#ifndef	__IF_BWN_MISC_H__
-#define	__IF_BWN_MISC_H__
+#ifndef	__PHY_COMMON_H__
+#define	__PHY_COMMON_H__
 
-/*
- * These are the functions used by the PHY code.
- *
- * They currently live in the driver itself; at least until they
- * are broken out into smaller pieces.
- */
+extern	void bwn_mac_switch_freq(struct bwn_mac *mac, int spurmode);
+extern	void bwn_phy_force_clock(struct bwn_mac *mac, int force);
+extern	int bwn_radio_wait_value(struct bwn_mac *mac, uint16_t offset,
+	    uint16_t mask, uint16_t value, int delay, int timeout);
+extern	void bwn_mac_phy_clock_set(struct bwn_mac *mac, int enabled);
+extern	void bwn_wireless_core_phy_pll_reset(struct bwn_mac *mac);
 
-struct bwn_mac;
-
-extern uint64_t	bwn_hf_read(struct bwn_mac *);
-extern void	bwn_hf_write(struct bwn_mac *, uint64_t);
-
-extern void	bwn_dummy_transmission(struct bwn_mac *mac, int ofdm, int paon);
-
-extern void	bwn_ram_write(struct bwn_mac *, uint16_t, uint32_t);
-
-extern void	bwn_mac_suspend(struct bwn_mac *);
-extern void	bwn_mac_enable(struct bwn_mac *);
-
-extern int	bwn_switch_channel(struct bwn_mac *, int);
-
-extern uint16_t	bwn_shm_read_2(struct bwn_mac *, uint16_t, uint16_t);
-extern void	bwn_shm_write_2(struct bwn_mac *, uint16_t, uint16_t,
-		    uint16_t);
-extern uint32_t	bwn_shm_read_4(struct bwn_mac *, uint16_t, uint16_t);
-extern void	bwn_shm_write_4(struct bwn_mac *, uint16_t, uint16_t,
-		    uint32_t);
-
-/* This is only for SIBA core */
-extern	void bwn_reset_core(struct bwn_mac *, int g_mode);
-
-extern void	bwn_psctl(struct bwn_mac *, uint32_t);
-
-#endif
+#endif	/* __PHY_COMMON_H__ */
