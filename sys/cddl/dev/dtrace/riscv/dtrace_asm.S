@@ -41,18 +41,14 @@
 void dtrace_membar_producer(void)
 */
 ENTRY(dtrace_membar_producer)
-#if 0
 	RET
-#endif
 END(dtrace_membar_producer)
 
 /*
 void dtrace_membar_consumer(void)
 */
 ENTRY(dtrace_membar_consumer)
-#if 0
 	RET
-#endif
 END(dtrace_membar_consumer)
 
 /*
@@ -61,8 +57,8 @@ dtrace_icookie_t dtrace_interrupt_disable(void)
 ENTRY(dtrace_interrupt_disable)
 #if 0
 	msr	daifset, #2
-	RET
 #endif
+	RET
 END(dtrace_interrupt_disable)
 
 /*
@@ -71,8 +67,8 @@ void dtrace_interrupt_enable(dtrace_icookie_t cookie)
 ENTRY(dtrace_interrupt_enable)
 #if 0
 	msr	daifclr, #2
-	RET
 #endif
+	RET
 END(dtrace_interrupt_enable)
 /*
 uint8_t
@@ -81,8 +77,8 @@ dtrace_fuword8_nocheck(void *addr)
 ENTRY(dtrace_fuword8_nocheck)
 #if 0
 	ldrb	w0, [x0]
-	RET
 #endif
+	RET
 END(dtrace_fuword8_nocheck)
 
 /*
@@ -92,8 +88,8 @@ dtrace_fuword16_nocheck(void *addr)
 ENTRY(dtrace_fuword16_nocheck)
 #if 0
 	ldrh	w0, [x0]
-	RET
 #endif
+	RET
 END(dtrace_fuword16_nocheck)
 
 /*
@@ -103,8 +99,8 @@ dtrace_fuword32_nocheck(void *addr)
 ENTRY(dtrace_fuword32_nocheck)
 #if 0
 	ldr	w0, [x0]
-	RET
 #endif
+	RET
 END(dtrace_fuword32_nocheck)
 
 /*
@@ -114,8 +110,8 @@ dtrace_fuword64_nocheck(void *addr)
 ENTRY(dtrace_fuword64_nocheck)
 #if 0
 	ldr	x0, [x0]
-	RET
 #endif
+	RET
 END(dtrace_fuword64_nocheck)
 
 /*
@@ -131,8 +127,8 @@ ENTRY(dtrace_copy)
 	sub	x2, x2, #1	/* len-- */
 	cbnz	x2, 1b
 2:
-	RET
 #endif
+	RET
 END(dtrace_copy)
 
 /*
@@ -160,10 +156,8 @@ uintptr_t
 dtrace_caller(int aframes)
 */
 ENTRY(dtrace_caller)
-#if 0
-	mov	x0, #-1
+	li	a0, -1
 	RET
-#endif
 END(dtrace_caller)
 
 /*
@@ -178,8 +172,8 @@ ENTRY(dtrace_cas32)
 	stxr	w12, w2, [x0]	/* Store new to target */
 	cbnz	w12, 1b		/* Try again if store not succeed */
 2:	mov	w0, w3		/* Return the value loaded from target */
-	RET
 #endif
+	RET
 END(dtrace_cas32)
 
 /*
@@ -194,6 +188,6 @@ ENTRY(dtrace_casptr)
 	stxr	w12, x2, [x0]	/* Store new to target */
 	cbnz	w12, 1b		/* Try again if store not succeed */
 2:	mov	x0, x3		/* Return the value loaded from target */
-	RET
 #endif
+	RET
 END(dtrace_casptr)
