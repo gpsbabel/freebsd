@@ -121,6 +121,8 @@ mentry:
 	.text
 	.align 8
 	.globl _start
+	.globl	btext
+btext:
 _start:
 	/* Direct secondary cores to mpentry */
 	csrr	a0, mhartid

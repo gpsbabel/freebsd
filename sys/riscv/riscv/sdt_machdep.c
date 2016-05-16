@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
+ * Copyright (c) 2016 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
  *
  * Portions of this software were developed by SRI International and the
@@ -30,48 +30,29 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
- * $FreeBSD$
  */
 
-#ifndef _MACHINE_FRAME_H_
-#define	_MACHINE_FRAME_H_
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
 
-#ifndef LOCORE
+#include <sys/param.h>
+#include <sys/systm.h>
+#include <sys/queue.h>
+#include <sys/sdt.h>
 
-#include <sys/signal.h>
-#include <sys/ucontext.h>
+#define	OPCODE_MASK		0xfc000000
+#define	OPCODE_JAL		0x0c000000
 
-/*
- * NOTE: keep this structure in sync with struct reg and struct mcontext.
- */
-struct trapframe {
-	uint64_t tf_ra;
-	uint64_t tf_sp;
-	uint64_t tf_gp;
-	uint64_t tf_tp;
-	uint64_t tf_t[7];
-	uint64_t tf_s[12];
-	uint64_t tf_a[8];
-	uint64_t tf_sepc;
-	uint64_t tf_sstatus;
-	uint64_t tf_sbadaddr;
-	uint64_t tf_scause;
-};
+uint64_t
+sdt_md_patch_callsite(struct sdt_probe *probe __unused,
+    uint64_t offset, bool reloc __unused)
+{
+	uint32_t instr;
 
-struct riscv_frame {
-	struct riscv_frame	*f_frame;
-	u_long			f_retaddr;
-};
+	instr = *(uint32_t *)offset;
 
-/*
- * Signal frame. Pushed onto user stack before calling sigcode.
- */
-struct sigframe {
-	siginfo_t	sf_si;	/* actual saved siginfo */
-	ucontext_t	sf_uc;	/* actual saved ucontext */
-};
+	if ((instr & OPCODE_MASK) != OPCODE_JAL)
+		return (0);
 
-#endif /* !LOCORE */
-
-#endif /* !_MACHINE_FRAME_H_ */
+	return (offset);
+}

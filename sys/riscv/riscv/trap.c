@@ -64,6 +64,12 @@ __FBSDID("$FreeBSD$");
 #include <machine/resource.h>
 #include <machine/intr.h>
 
+#ifdef KDTRACE_HOOKS
+#include <sys/dtrace_bsd.h>
+#endif
+
+int (*dtrace_invop_jump_addr)(struct trapframe *);
+
 extern register_t fsu_intr_fault;
 
 /* Called from exception.S */
