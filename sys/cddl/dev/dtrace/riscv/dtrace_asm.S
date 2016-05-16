@@ -111,6 +111,15 @@ void
 dtrace_copy(uintptr_t uaddr, uintptr_t kaddr, size_t size)
 */
 ENTRY(dtrace_copy)
+	beqz	a2, 2f		/* If len == 0 then skip loop */
+1:
+	lb	a4, 0(a0)	/* Load from uaddr */
+	addi	a0, a0, 1
+	sb	a4, 0(a1)	/* Store in kaddr */
+	addi	a1, a1, 1
+	addi	a2, a2, -1	/* len-- */
+	bnez	a2, 1b
+
 #if 0
 	cbz	x2, 2f		/* If len == 0 then skip loop */
 1:
@@ -118,8 +127,8 @@ ENTRY(dtrace_copy)
 	strb	w4, [x1], #1	/* Store in kaddr */
 	sub	x2, x2, #1	/* len-- */
 	cbnz	x2, 1b
-2:
 #endif
+2:
 	RET
 END(dtrace_copy)
 
@@ -130,6 +139,14 @@ dtrace_copystr(uintptr_t uaddr, uintptr_t kaddr, size_t size,
 XXX: Check for flags?
 */
 ENTRY(dtrace_copystr)
+	beqz	a2, 2f		/* If len == 0 then skip loop */
+	lb	a4, 0(a0)	/* Load from uaddr */
+	addi	a0, a0, 1
+	sb	a4, 0(a1)	/* Store in kaddr */
+	addi	a1, a1, 1
+	beqz	a4, 2f		/* If == 0 then break */
+	addi	a2, a2, -1	/* len-- */
+	bnez	a2, 1b
 #if 0
 	cbz     x2, 2f          /* If len == 0 then skip loop */
  
@@ -138,9 +155,9 @@ ENTRY(dtrace_copystr)
 	cbz     w4, 2f          /* If == 0 then break */
 	sub     x2, x2, #1      /* len-- */
 	cbnz    x2, 1b
+#endif
 2:
 	RET
-#endif
 END(dtrace_copystr)
 
 /*
