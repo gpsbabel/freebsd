@@ -75,9 +75,7 @@ uint8_t
 dtrace_fuword8_nocheck(void *addr)
 */
 ENTRY(dtrace_fuword8_nocheck)
-#if 0
-	ldrb	w0, [x0]
-#endif
+	lb	a0, 0(a0)
 	RET
 END(dtrace_fuword8_nocheck)
 
@@ -86,9 +84,7 @@ uint16_t
 dtrace_fuword16_nocheck(void *addr)
 */
 ENTRY(dtrace_fuword16_nocheck)
-#if 0
-	ldrh	w0, [x0]
-#endif
+	lh	a0, 0(a0)
 	RET
 END(dtrace_fuword16_nocheck)
 
@@ -97,9 +93,7 @@ uint32_t
 dtrace_fuword32_nocheck(void *addr)
 */
 ENTRY(dtrace_fuword32_nocheck)
-#if 0
-	ldr	w0, [x0]
-#endif
+	lw	a0, 0(a0)
 	RET
 END(dtrace_fuword32_nocheck)
 
@@ -108,9 +102,7 @@ uint64_t
 dtrace_fuword64_nocheck(void *addr)
 */
 ENTRY(dtrace_fuword64_nocheck)
-#if 0
-	ldr	x0, [x0]
-#endif
+	ld	a0, 0(a0)
 	RET
 END(dtrace_fuword64_nocheck)
 
@@ -165,6 +157,11 @@ uint32_t
 dtrace_cas32(uint32_t *target, uint32_t cmp, uint32_t new)
 */
 ENTRY(dtrace_cas32)
+1:	lr.w	a3, 0(a0)	/* Load target */
+	bne	a3, a1, 2f	/* *target != cmp ? return */
+	sc.w	a4, a2, 0(a0)	/* Store new to target */
+	bnez	a4, 1b		/* Try again if store not succeed */
+2:	mv	a0, a3		/* Return the value loaded from target */
 #if 0
 1:	ldxr	w3, [x0]	/* Load target */
 	cmp	w3, w1		/* Check if *target == cmp */
@@ -181,6 +178,11 @@ void *
 dtrace_casptr(volatile void *target, volatile void *cmp, volatile void *new)
 */
 ENTRY(dtrace_casptr)
+1:	lr.d	a3, 0(a0)	/* Load target */
+	bne	a3, a1, 2f	/* *target != cmp ? return */
+	sc.d	a4, a2, 0(a0)	/* Store new to target */
+	bnez	a4, 1b		/* Try again if store not succeed */
+2:	mv	a0, a3		/* Return the value loaded from target */
 #if 0
 1:	ldxr	x3, [x0]	/* Load target */
 	cmp	x3, x1		/* Check if *target == cmp */
