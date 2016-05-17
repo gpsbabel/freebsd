@@ -199,7 +199,6 @@ dtrace_trap(struct trapframe *frame, u_int type)
 		 * All the rest will be handled in the usual way.
 		 */
 		switch (type) {
-		//case EXCP_DATA_ABORT:
 		case EXCP_LOAD_ACCESS_FAULT:
 		case EXCP_STORE_ACCESS_FAULT:
 		case EXCP_INSTR_ACCESS_FAULT:
@@ -211,9 +210,8 @@ dtrace_trap(struct trapframe *frame, u_int type)
 			 * Offset the instruction pointer to the instruction
 			 * following the one causing the fault.
 			 */
-#if 0
-			frame->tf_elr += 4;
-#endif
+			frame->tf_sepc += 4;
+
 			return (1);
 		default:
 			/* Handle all other traps in the usual way. */

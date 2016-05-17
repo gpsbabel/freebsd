@@ -55,9 +55,7 @@ END(dtrace_membar_consumer)
 dtrace_icookie_t dtrace_interrupt_disable(void)
 */
 ENTRY(dtrace_interrupt_disable)
-#if 0
-	msr	daifset, #2
-#endif
+	csrci	sstatus, 1
 	RET
 END(dtrace_interrupt_disable)
 
@@ -65,9 +63,7 @@ END(dtrace_interrupt_disable)
 void dtrace_interrupt_enable(dtrace_icookie_t cookie)
 */
 ENTRY(dtrace_interrupt_enable)
-#if 0
-	msr	daifclr, #2
-#endif
+	csrsi	sstatus, 1
 	RET
 END(dtrace_interrupt_enable)
 /*

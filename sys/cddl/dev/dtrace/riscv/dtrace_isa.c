@@ -81,13 +81,11 @@ dtrace_getpcstack(pc_t *pcstack, int pcstack_limit, int aframes,
 
 	aframes++;
 
-#if 0
-	__asm __volatile("mov %0, sp" : "=&r" (sp));
+	__asm __volatile("mv %0, sp" : "=&r" (sp));
 
 	state.fp = (uint64_t)__builtin_frame_address(0);
 	state.sp = sp;
 	state.pc = (uint64_t)dtrace_getpcstack;
-#endif
 
 	while (depth < pcstack_limit) {
 		if (unwind_frame(&state))
@@ -178,12 +176,14 @@ dtrace_getustack_common(uint64_t *pcstack, int pcstack_limit, uintptr_t pc,
 void
 dtrace_getupcstack(uint64_t *pcstack, int pcstack_limit)
 {
-	proc_t *p = curproc;
+	volatile uint16_t *flags;
 	struct trapframe *tf;
 	uintptr_t pc, sp, fp;
-	volatile uint16_t *flags =
-	    (volatile uint16_t *)&cpu_core[curcpu].cpuc_dtrace_flags;
+	proc_t *p;
 	int n;
+
+	p = curproc;
+	flags = (volatile uint16_t *)&cpu_core[curcpu].cpuc_dtrace_flags;
 
 	if (*flags & CPU_DTRACE_FAULT)
 		return;
@@ -203,9 +203,9 @@ dtrace_getupcstack(uint64_t *pcstack, int pcstack_limit)
 	if (pcstack_limit <= 0)
 		return;
 
-	pc = 0;//tf->tf_elr;
-	sp = 0;//tf->tf_sp;
-	fp = 0;//tf->tf_x[29];
+	pc = tf->tf_sepc;
+	sp = tf->tf_sp;
+	fp = tf->tf_s[0];
 
 	if (DTRACE_CPUFLAG_ISSET(CPU_DTRACE_ENTRY)) {
 		/*
@@ -222,7 +222,7 @@ dtrace_getupcstack(uint64_t *pcstack, int pcstack_limit)
 		if (pcstack_limit <= 0)
 			return;
 
-		pc = 0;//tf->tf_lr;
+		pc = tf->tf_ra;
 	}
 
 	n = dtrace_getustack_common(pcstack, pcstack_limit, pc, fp);
@@ -274,13 +274,12 @@ dtrace_getstackdepth(int aframes)
 
 	depth = 1;
 	done = 0;
-#if 0
-	__asm __volatile("mov %0, sp" : "=&r" (sp));
+
+	__asm __volatile("mv %0, sp" : "=&r" (sp));
 
 	state.fp = (uint64_t)__builtin_frame_address(0);
 	state.sp = sp;
 	state.pc = (uint64_t)dtrace_getstackdepth;
-#endif
 
 	do {
 		done = unwind_frame(&state);
