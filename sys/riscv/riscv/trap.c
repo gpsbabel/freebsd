@@ -277,6 +277,11 @@ do_trap_supervisor(struct trapframe *frame)
 		return;
 	}
 
+#ifdef KDTRACE_HOOKS
+	if (dtrace_trap_func != NULL && (*dtrace_trap_func)(frame, exception))
+		return;
+#endif
+
 	CTR3(KTR_TRAP, "do_trap_supervisor: curthread: %p, sepc: %lx, frame: %p",
 	    curthread, frame->tf_sepc, frame);
 
@@ -287,6 +292,12 @@ do_trap_supervisor(struct trapframe *frame)
 		data_abort(frame, 0);
 		break;
 	case EXCP_INSTR_BREAKPOINT:
+#ifdef KDTRACE_HOOKS
+		if (dtrace_invop_jump_addr != 0) {
+			dtrace_invop_jump_addr(frame);
+			break;
+		}
+#endif
 #ifdef KDB
 		kdb_trap(exception, 0, frame);
 #else
