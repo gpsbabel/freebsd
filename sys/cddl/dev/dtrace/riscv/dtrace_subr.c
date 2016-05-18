@@ -40,6 +40,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/dtrace_impl.h>
 #include <sys/dtrace_bsd.h>
 #include <machine/riscvreg.h>
+#include <machine/riscv_opcode.h>
 #include <machine/clock.h>
 #include <machine/frame.h>
 #include <machine/trap.h>
@@ -236,16 +237,37 @@ dtrace_probe_error(dtrace_state_t *state, dtrace_epid_t epid, int which,
 static int
 dtrace_invop_start(struct trapframe *frame)
 {
-#if 0
 	int data, invop, reg, update_sp;
 	register_t arg1, arg2;
 	register_t *sp;
+	InstFmt i;
 	int offs;
 	int tmp;
-	int i;
+	//int i;
 
-	invop = dtrace_invop(frame->tf_elr, frame, frame->tf_elr);
+	invop = dtrace_invop(frame->tf_sepc, frame, frame->tf_sepc);
 
+	if (invop == RET_INSTR) {
+		printf("%s: %x\n", __func__, invop);
+		return (0);
+	}
+
+	i.word = invop;
+	uint32_t imm;
+
+	if ((invop & SD_RA_SP_MASK) == SD_RA_SP) {
+		imm = i.SType.imm0_4 | (i.SType.imm5_11 << 5);
+		sp = (register_t *)((uint8_t *)frame->tf_sp + imm);
+		printf("imm 0x%x, sp 0x%016lx, sp 0x%016lx\n",
+		    imm, frame->tf_sp, sp);
+
+		*sp = frame->tf_ra;
+
+		frame->tf_sepc += INSN_SIZE;
+		return (0);
+	}
+
+#if 0
 	tmp = (invop & LDP_STP_MASK);
 	if (tmp == STP_64 || tmp == LDP_64) {
 		sp = (register_t *)frame->tf_sp;

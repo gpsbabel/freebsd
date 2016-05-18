@@ -21,7 +21,7 @@
  * Portions Copyright 2006-2008 John Birrell jb@freebsd.org
  * Portions Copyright 2013 Justin Hibbits jhibbits@freebsd.org
  * Portions Copyright 2013 Howard Su howardsu@freebsd.org
- * Portions Copyright 2015 Ruslan Bukin <br@bsdpad.com>
+ * Portions Copyright 2016 Ruslan Bukin <br@bsdpad.com>
  *
  * $FreeBSD$
  */
@@ -107,11 +107,6 @@ fbt_provide_module_function(linker_file_t lf, int symindx,
                 unsigned imm5_11: 7;
         } SType;
 #endif
-
-//#define	OPCODE_MASK	7f
-//#define	OPCODE_SD	0x23
-#define	SD_RA_SP_MASK	0x1fff07f
-#define	SD_RA_SP	0x0113023
 
 	/* Look for stp (pre-indexed) operation */
 	for (; instr < limit; instr++) {
