@@ -248,7 +248,6 @@ dtrace_invop_start(struct trapframe *frame)
 	invop = dtrace_invop(frame->tf_sepc, frame, frame->tf_sepc);
 
 	if (invop == RET_INSTR) {
-		//printf("%s: %x\n", __func__, invop);
 		frame->tf_sepc = frame->tf_ra;
 		return (0);
 	}
