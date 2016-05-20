@@ -95,12 +95,12 @@ __FBSDID("$FreeBSD$");
 	/* Store kernel sp */
 	li	t1, TF_SIZE
 	add	t0, sp, t1
+	sd	t0, (TF_SP)(sp)
 .else
 	/* Store user sp */
 	csrr	t0, sscratch
-.endif
 	sd	t0, (TF_SP)(sp)
-
+.endif
 	li	t0, 0
 	csrw	sscratch, t0
 	csrr	t0, sepc
