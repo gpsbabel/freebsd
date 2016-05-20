@@ -19,6 +19,8 @@
  *
  * CDDL HEADER END
  *
+ * Portions Copyright 2016 Ruslan Bukin <br@bsdpad.com>
+ *
  * $FreeBSD$
  */
 /*

@@ -36,10 +36,11 @@
 
 #include <sys/dtrace.h>
 
+#include <machine/riscvreg.h>
+
 #include "fbt.h"
 
-#define	RISCV_BREAK		0x00100073
-#define	FBT_PATCHVAL		(RISCV_BREAK)
+#define	FBT_PATCHVAL		(RISCV_INSN_BREAK)
 #define	FBT_ENTRY		"entry"
 #define	FBT_RETURN		"return"
 

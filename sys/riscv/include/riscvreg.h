@@ -124,6 +124,9 @@
 #define	XLEN		8
 #define	INSN_SIZE	4
 
+#define	RISCV_INSN_NOP		0x00000013
+#define	RISCV_INSN_BREAK	0x00100073
+
 #define	CSR_ZIMM(val)							\
 	(__builtin_constant_p(val) && ((u_long)(val) < 32))
 
