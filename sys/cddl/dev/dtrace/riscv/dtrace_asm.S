@@ -117,15 +117,6 @@ ENTRY(dtrace_copy)
 	addi	a1, a1, 1
 	addi	a2, a2, -1	/* len-- */
 	bnez	a2, 1b
-
-#if 0
-	cbz	x2, 2f		/* If len == 0 then skip loop */
-1:
-	ldrb	w4, [x0], #1	/* Load from uaddr */
-	strb	w4, [x1], #1	/* Store in kaddr */
-	sub	x2, x2, #1	/* len-- */
-	cbnz	x2, 1b
-#endif
 2:
 	RET
 END(dtrace_copy)
@@ -145,15 +136,6 @@ ENTRY(dtrace_copystr)
 	beqz	a4, 2f		/* If == 0 then break */
 	addi	a2, a2, -1	/* len-- */
 	bnez	a2, 1b
-#if 0
-	cbz     x2, 2f          /* If len == 0 then skip loop */
- 
-1:	ldrb    w4, [x0], #1    /* Load from uaddr */
-	strb    w4, [x1], #1    /* Store in kaddr */
-	cbz     w4, 2f          /* If == 0 then break */
-	sub     x2, x2, #1      /* len-- */
-	cbnz    x2, 1b
-#endif
 2:
 	RET
 END(dtrace_copystr)
@@ -177,14 +159,6 @@ ENTRY(dtrace_cas32)
 	sc.w	a4, a2, 0(a0)	/* Store new to target */
 	bnez	a4, 1b		/* Try again if store not succeed */
 2:	mv	a0, a3		/* Return the value loaded from target */
-#if 0
-1:	ldxr	w3, [x0]	/* Load target */
-	cmp	w3, w1		/* Check if *target == cmp */
-	bne	2f		/* No, return */
-	stxr	w12, w2, [x0]	/* Store new to target */
-	cbnz	w12, 1b		/* Try again if store not succeed */
-2:	mov	w0, w3		/* Return the value loaded from target */
-#endif
 	RET
 END(dtrace_cas32)
 
@@ -198,13 +172,5 @@ ENTRY(dtrace_casptr)
 	sc.d	a4, a2, 0(a0)	/* Store new to target */
 	bnez	a4, 1b		/* Try again if store not succeed */
 2:	mv	a0, a3		/* Return the value loaded from target */
-#if 0
-1:	ldxr	x3, [x0]	/* Load target */
-	cmp	x3, x1		/* Check if *target == cmp */
-	bne	2f		/* No, return */
-	stxr	w12, x2, [x0]	/* Store new to target */
-	cbnz	w12, 1b		/* Try again if store not succeed */
-2:	mov	x0, x3		/* Return the value loaded from target */
-#endif
 	RET
 END(dtrace_casptr)
