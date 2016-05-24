@@ -98,18 +98,7 @@ fbt_provide_module_function(linker_file_t lf, int symindx,
 	instr = (uint32_t *)(symval->value);
 	limit = (uint32_t *)(symval->value + symval->size);
 
-#if 0
-        struct {
-                unsigned opcode: 7;
-                unsigned imm0_4: 5;
-                unsigned funct3: 3;
-                unsigned rs1: 5;
-                unsigned rs2: 5;
-                unsigned imm5_11: 7;
-        } SType;
-#endif
-
-	/* Look for stp (pre-indexed) operation */
+	/* Look for sd operation */
 	for (; instr < limit; instr++) {
 		if ((*instr & SD_RA_SP_MASK) == SD_RA_SP)
 			break;
@@ -127,7 +116,7 @@ fbt_provide_module_function(linker_file_t lf, int symindx,
 	fbt->fbtp_loadcnt = lf->loadcnt;
 	fbt->fbtp_savedval = *instr;
 	fbt->fbtp_patchval = FBT_PATCHVAL;
-	fbt->fbtp_rval = DTRACE_INVOP_PUSHM;
+	fbt->fbtp_rval = DTRACE_INVOP_SD;
 	fbt->fbtp_symindx = symindx;
 
 	fbt->fbtp_hashnext = fbt_probetab[FBT_ADDR2NDX(instr)];
@@ -140,14 +129,6 @@ again:
 	for (; instr < limit; instr++) {
 		if (*instr == RET_INSTR)
 			break;
-		//else if ((*instr & B_MASK) == B_INSTR) {
-		//	offs = (*instr & B_DATA_MASK);
-		//	offs *= 4;
-		//	target = (instr + offs);
-		//	start = (uint32_t *)symval->value;
-		//	if (target >= limit || target < start)
-		//		break;
-		//}
 	}
 
 	if (instr >= limit)
@@ -171,10 +152,7 @@ again:
 	fbt->fbtp_ctl = lf;
 	fbt->fbtp_loadcnt = lf->loadcnt;
 	fbt->fbtp_symindx = symindx;
-	//if ((*instr & B_MASK) == B_INSTR)
-	//	fbt->fbtp_rval = DTRACE_INVOP_B;
-	//else
-		fbt->fbtp_rval = DTRACE_INVOP_RET;
+	fbt->fbtp_rval = DTRACE_INVOP_RET;
 	fbt->fbtp_savedval = *instr;
 	fbt->fbtp_patchval = FBT_PATCHVAL;
 	fbt->fbtp_hashnext = fbt_probetab[FBT_ADDR2NDX(instr)];

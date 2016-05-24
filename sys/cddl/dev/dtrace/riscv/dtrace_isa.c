@@ -19,6 +19,8 @@
  *
  * CDDL HEADER END
  *
+ * Portions Copyright 2016 Ruslan Bukin <br@bsdpad.com>
+ *
  * $FreeBSD$
  */
 /*
@@ -116,10 +118,12 @@ static int
 dtrace_getustack_common(uint64_t *pcstack, int pcstack_limit, uintptr_t pc,
     uintptr_t fp)
 {
-	volatile uint16_t *flags =
-	    (volatile uint16_t *)&cpu_core[curcpu].cpuc_dtrace_flags;
-	int ret = 0;
+	volatile uint16_t *flags;
 	uintptr_t oldfp;
+	int ret;
+
+	ret = 0;
+	flags = (volatile uint16_t *)&cpu_core[curcpu].cpuc_dtrace_flags;
 
 	ASSERT(pcstack == NULL || pcstack_limit > 0);
 
@@ -151,21 +155,6 @@ dtrace_getustack_common(uint64_t *pcstack, int pcstack_limit, uintptr_t pc,
 		if (fp == oldfp) {
 			*flags |= CPU_DTRACE_BADSTACK;
 			cpu_core[curcpu].cpuc_dtrace_illval = fp;
-			break;
-		}
-
-		/*
-		 * ARM64TODO:
-		 *     This workaround might not be necessary. It needs to be
-		 *     revised and removed from all architectures if found
-		 *     unwanted. Leaving the original x86 comment for reference.
-		 *
-		 * This is totally bogus:  if we faulted, we're going to clear
-		 * the fault and break.  This is to deal with the apparently
-		 * broken Java stacks on x86.
-		 */
-		if (*flags & CPU_DTRACE_FAULT) {
-			*flags &= ~CPU_DTRACE_FAULT;
 			break;
 		}
 	}
