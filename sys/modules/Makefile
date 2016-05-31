@@ -278,7 +278,7 @@ SUBDIR=	\
 	${_nxge} \
 	oce \
 	otus \
-	otusfw \
+	${_otusfw} \
 	ow \
 	${_padlock} \
 	${_padlock_rng} \
@@ -374,7 +374,7 @@ SUBDIR=	\
 	unionfs \
 	urtwn \
 	${_urtwnfw} \
-	usb \
+	${_usb} \
 	utopia \
 	${_vesa} \
 	${_virtio} \
@@ -483,7 +483,7 @@ _pfsync=	pfsync
 .endif
 .endif
 
-.if ${MK_SOURCELESS_UCODE} != "no"
+.if ${MK_SOURCELESS_UCODE} != "no" && ${MACHINE_CPUARCH} != "riscv"
 _bce=		bce
 _fatm=		fatm
 _fxp=		fxp
@@ -499,7 +499,8 @@ _txp=		txp
 
 .if ${MK_SOURCELESS_UCODE} != "no" && ${MACHINE_CPUARCH} != "arm" && \
 	${MACHINE_ARCH:C/mips(el)?/mips/} != "mips" && \
-	${MACHINE_ARCH} != "powerpc"
+	${MACHINE_ARCH} != "powerpc" && \
+	${MACHINE_CPUARCH} != "riscv"
 _cxgbe=		cxgbe
 .endif
 
@@ -508,7 +509,8 @@ SUBDIR+=	zfs
 .endif
 
 .if ${MACHINE_CPUARCH} != "aarch64" && ${MACHINE_CPUARCH} != "arm" && \
-	${MACHINE_CPUARCH} != "mips" && ${MACHINE_CPUARCH} != "powerpc"
+	${MACHINE_CPUARCH} != "mips" && ${MACHINE_CPUARCH} != "powerpc" && \
+	${MACHINE_CPUARCH} != "riscv"
 _syscons=	syscons
 _vpo=		vpo
 .endif
@@ -763,6 +765,21 @@ _igb=		igb
 
 .if ${MACHINE_CPUARCH} == "aarch64" || ${MACHINE_CPUARCH} == "amd64"
 _cloudabi64=	cloudabi64
+.endif
+
+.if ${MACHINE_CPUARCH} != "riscv"
+# FIXME: linker error. "--relax and -r may not be used together"
+_otusfw=	otusfw
+.endif
+
+.if ${MACHINE_CPUARCH} != "riscv"
+# FIXME: linker error. "--relax and -r may not be used together"
+_usb=		usb
+.endif
+
+.if ${MACHINE_CPUARCH} == "riscv"
+SUBDIR+=	tests/kld_test_0 \
+		tests/kld_test_1
 .endif
 
 .endif
