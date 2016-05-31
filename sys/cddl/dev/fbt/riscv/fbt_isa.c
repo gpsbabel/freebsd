@@ -127,7 +127,7 @@ fbt_provide_module_function(linker_file_t lf, int symindx,
 	retfbt = NULL;
 again:
 	for (; instr < limit; instr++) {
-		if (*instr == RET_INSTR)
+		if (*instr == RISCV_INSN_RET)
 			break;
 	}
 

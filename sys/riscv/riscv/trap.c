@@ -307,7 +307,7 @@ do_trap_supervisor(struct trapframe *frame)
 		break;
 	case EXCP_INSTR_ILLEGAL:
 		dump_regs(frame);
-		panic("Illegal instruction at %x\n", frame->tf_sepc);
+		panic("Illegal instruction at 0x%016lx\n", frame->tf_sepc);
 		break;
 	default:
 		dump_regs(frame);

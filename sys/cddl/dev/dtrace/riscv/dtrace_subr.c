@@ -41,6 +41,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/smp.h>
 #include <sys/dtrace_impl.h>
 #include <sys/dtrace_bsd.h>
+#include <machine/vmparam.h>
 #include <machine/riscvreg.h>
 #include <machine/riscv_opcode.h>
 #include <machine/clock.h>
@@ -123,7 +124,7 @@ void
 dtrace_toxic_ranges(void (*func)(uintptr_t base, uintptr_t limit))
 {
 
-	printf("IMPLEMENT ME: dtrace_toxic_ranges\n");
+	(*func)(0, (uintptr_t)VM_MIN_KERNEL_ADDRESS);
 }
 
 void
@@ -181,7 +182,7 @@ dtrace_gethrestime(void)
 	return (current_time.tv_sec * 1000000000UL + current_time.tv_nsec);
 }
 
-/* Function to handle DTrace traps during probes. See arm64/arm64/trap.c */
+/* Function to handle DTrace traps during probes. See riscv/riscv/trap.c */
 int
 dtrace_trap(struct trapframe *frame, u_int type)
 {
@@ -249,7 +250,7 @@ dtrace_invop_start(struct trapframe *frame)
 
 	invop = dtrace_invop(frame->tf_sepc, frame, frame->tf_sepc);
 
-	if (invop == RET_INSTR) {
+	if (invop == RISCV_INSN_RET) {
 		frame->tf_sepc = frame->tf_ra;
 		return (0);
 	}
