@@ -130,6 +130,11 @@ SYSCTL_INT(_kern, OID_AUTO, debug_kld,
 	   CTLFLAG_RW, &debug_kld, 0,
 	   "Activate debug prints in elf_reloc_internal()");
 
+struct type2str_ent {
+	int type;
+	const char* str;
+};
+
 void
 elf64_dump_thread(struct thread *td, void *dst, size_t *off)
 {
@@ -153,31 +158,35 @@ gen_bitmask(int msb, int lsb)
 	if (lsb > 0)
 		mask &= ~((1U << lsb) - 1);
 
-	return mask;
+	return (mask);
 }
 
 static uint32_t
 extract_bits(uint32_t x, int msb, int lsb)
 {
-	uint32_t mask = gen_bitmask(msb, lsb);
+	uint32_t mask;
+
+	mask = gen_bitmask(msb, lsb);
 
 	x &= mask;
 	x >>= lsb;
 
-	return x;
+	return (x);
 }
 
 static uint32_t
 insert_bits(uint32_t d, uint32_t s, int msb, int lsb)
 {
-	uint32_t mask = gen_bitmask(msb, lsb);
+	uint32_t mask;
+
+	mask = gen_bitmask(msb, lsb);
 
 	d &= ~mask;
 
 	s <<= lsb;
 	s &= mask;
 
-	return d | s;
+	return (d | s);
 }
 
 static uint32_t
@@ -218,14 +227,8 @@ calc_hi20_imm(uint32_t value)
 	 */
 	if ((value & 0x800) != 0)
 		value += 0x1000;
-	return value & ~0xfff;
+	return (value & ~0xfff);
 }
-
-
-struct type2str_ent {
-	int type;
-	const char* str;
-};
 
 static const struct type2str_ent t2s[] = {
 	{ R_RISCV_NONE,		"R_RISCV_NONE"},
