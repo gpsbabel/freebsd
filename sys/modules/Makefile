@@ -31,7 +31,6 @@ SUBDIR=	\
 	ahci \
 	${_aic} \
 	aic7xxx \
-	aio \
 	alc \
 	ale \
 	alq \
@@ -51,7 +50,9 @@ SUBDIR=	\
 	${_auxio} \
 	${_bce} \
 	bfe \
+	bhnd \
 	bge \
+	bhnd \
 	${_bxe} \
 	${_bios} \
 	${_bktr} \
@@ -59,6 +60,7 @@ SUBDIR=	\
 	bridgestp \
 	bwi \
 	bwn \
+	bwn_pci \
 	cam \
 	${_canbepm} \
 	${_canbus} \
@@ -123,6 +125,7 @@ SUBDIR=	\
 	geom \
 	${_glxiic} \
 	${_glxsb} \
+	gpio \
 	hatm \
 	hifn \
 	hme \
@@ -171,6 +174,7 @@ SUBDIR=	\
 	${_ipw} \
 	${_ipwfw} \
 	${_isci} \
+	${_iser} \
 	isp \
 	${_ispfw} \
 	${_iwi} \
@@ -251,6 +255,7 @@ SUBDIR=	\
 	${_nandfs} \
 	${_nandsim} \
 	${_ncr} \
+	${_nctgpio} \
 	${_ncv} \
 	${_ndis} \
 	netfpga10g \
@@ -309,7 +314,6 @@ SUBDIR=	\
 	${_rdma} \
 	${_rdrand_rng} \
 	re \
-	reiserfs \
 	rl \
 	rtwn \
 	${_rtwnfw} \
@@ -368,6 +372,8 @@ SUBDIR=	\
 	udf_iconv \
 	ufs \
 	unionfs \
+	urtwn \
+	${_urtwnfw} \
 	usb \
 	utopia \
 	${_vesa} \
@@ -485,6 +491,7 @@ _ispfw=		ispfw
 _mwlfw=		mwlfw
 _ralfw=		ralfw
 _rtwnfw=	rtwnfw
+_urtwnfw=	urtwnfw
 _sf=		sf
 _ti=		ti
 _txp=		txp
@@ -550,12 +557,14 @@ _igb=		igb
 _io=		io
 .if ${MK_OFED} != "no" || defined(ALL_MODULES)
 _ipoib=         ipoib
+_iser=		iser
 .endif
 _ix=		ix
 _ixv=		ixv
 _linprocfs=	linprocfs
 _linsysfs=	linsysfs
 _linux=		linux
+_nctgpio=	nctgpio
 _ndis=		ndis
 _pccard=	pccard
 .if ${MK_OFED} != "no" || defined(ALL_MODULES)
@@ -767,7 +776,7 @@ SUBDIR:= ${SUBDIR:N${reject}}
 # Calling kldxref(8) for each module is expensive.
 .if !defined(NO_XREF)
 .MAKEFLAGS+=	-DNO_XREF
-afterinstall:
+afterinstall: .PHONY
 	@if type kldxref >/dev/null 2>&1; then \
 		${ECHO} kldxref ${DESTDIR}${KMODDIR}; \
 		kldxref ${DESTDIR}${KMODDIR}; \
@@ -775,12 +784,6 @@ afterinstall:
 .endif
 
 .include "${SYSDIR}/conf/config.mk"
-
-# Use sys/conf/kmod.mk's MPATH to avoid redundantly running in every subdir.
-.if !defined(__MPATH)
-__MPATH!=find ${SYSDIR:tA}/ -name \*_if.m
-.export __MPATH
-.endif
 
 SUBDIR:= ${SUBDIR:u:O}
 

@@ -16,7 +16,7 @@
 #
 # SUBDIR	A list of subdirectories that should be built as well.
 #		Each of the targets will execute the same target in the
-#		subdirectories. SUBDIR.yes is automatically appeneded
+#		subdirectories. SUBDIR.yes is automatically appended
 #		to this list.
 #
 # +++ targets +++
@@ -39,7 +39,7 @@
 __<bsd.subdir.mk>__:
 
 SUBDIR_TARGETS+= \
-		all all-man buildconfig buildfiles buildincludes \
+		all all-man analyze buildconfig buildfiles buildincludes \
 		checkdpadd clean cleandepend cleandir cleanilinks \
 		cleanobj depend distribute files includes installconfig \
 		installfiles installincludes realinstall lint maninstall \
@@ -47,8 +47,15 @@ SUBDIR_TARGETS+= \
 
 # Described above.
 STANDALONE_SUBDIR_TARGETS+= \
-		obj check checkdpadd clean cleandepend cleandir \
-		cleanilinks cleanobj installconfig \
+		all-man buildconfig buildfiles buildincludes check checkdpadd \
+		clean cleandepend cleandir cleanilinks cleanobj files includes \
+		installconfig installincludes installfiles maninstall manlint \
+		obj objlink \
+
+# It is safe to install in parallel when staging.
+.if defined(NO_ROOT)
+STANDALONE_SUBDIR_TARGETS+= realinstall
+.endif
 
 .include <bsd.init.mk>
 
@@ -124,7 +131,8 @@ ${SUBDIR:N.WAIT}: .PHONY .MAKE
 # such as 'install' becoming {before,real,after}install, just recurse
 # 'install'.  Despite that, 'realinstall' is special due to ordering issues
 # with 'afterinstall'.
-.if make(${__target}) || (${__target} == realinstall && make(install))
+.if !defined(NO_SUBDIR) && (make(${__target}) || \
+    (${__target} == realinstall && make(install)))
 # Can ordering be skipped for this and SUBDIR_PARALLEL forced?
 .if ${STANDALONE_SUBDIR_TARGETS:M${__target}}
 _is_standalone_target=	1
@@ -145,12 +153,10 @@ __deps=
 __deps+= ${__target}_subdir_${DIRPRFX}${__dep}
 .endfor
 .endif
-${__target}_subdir_${DIRPRFX}${__dir}: .PHONY .MAKE ${__deps}
-.if !defined(NO_SUBDIR)
+${__target}_subdir_${DIRPRFX}${__dir}: .PHONY .MAKE .SILENT ${__deps}
 	@${_+_}target=${__target:realinstall=install}; \
 	    dir=${__dir}; \
 	    ${_SUBDIR_SH};
-.endif
 .endif
 .endfor	# __dir in ${SUBDIR}
 ${__target}: ${__subdir_targets}

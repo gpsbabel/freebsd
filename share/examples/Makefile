@@ -4,6 +4,15 @@
 
 .include <src.opts.mk>
 
+PACKAGE=examples
+FILESDIR=	${SHAREDIR}/examples
+
+.for _XFILE in ${XFILES}
+FILESGROUPS+=	${_XFILE}
+PACKAGE_${_XFILE}?=examples
+${_XFILE}DIR=	${SHAREDIR}/examples/${_XFILE:H}
+.endfor
+
 LDIRS=	BSD_daemon \
 	FreeBSD_version \
 	IPv6 \
@@ -210,6 +219,7 @@ XFILES+=	libusb20/Makefile \
 .if ${MK_BHYVE} != "no"
 LDIRS+=		bhyve
 XFILES+=	bhyve/vmrun.sh
+PACKAGE_bhyve/vmrun.sh=	bhyve
 .endif
 .endif
 
@@ -219,6 +229,7 @@ XFILES+=	bhyve/vmrun.sh
 SHARED?=	copies
 
 beforeinstall: ${SHARED} etc-examples
+META_TARGETS+=	copies symlinks
 .ORDER: ${SHARED} etc-examples
 
 copies:
@@ -230,7 +241,7 @@ copies:
 	mtree -deU ${MTREE_FOLLOWS_SYMLINKS} \
 	    -f ${.CURDIR}/../../etc/mtree/BSD.usr.dist -p ${DESTDIR}/usr
 .for file in ${XFILES}
-	${INSTALL} -o ${SHAREOWN} -g ${SHAREGRP} -m ${SHAREMODE} \
+	${INSTALL} -T package=${PACKAGE_${file}:Uexamples} -o ${SHAREOWN} -g ${SHAREGRP} -m ${SHAREMODE} \
 		${.CURDIR}/${file} ${DESTDIR}${BINDIR}/${file}
 .endfor
 
@@ -242,7 +253,7 @@ symlinks:
 
 etc-examples:
 .if ${SHARED} != "symlinks"
-	(cd ${.CURDIR}/../../etc; ${MAKE} etc-examples)
+	${_+_}(cd ${.CURDIR}/../../etc; ${MAKE} etc-examples)
 .endif
 
 .if ${SHARED} != "symlinks"
@@ -261,4 +272,4 @@ SUBDIR+=tests
 
 SUBDIR_PARALLEL=
 
-.include <bsd.subdir.mk>
+.include <bsd.prog.mk>

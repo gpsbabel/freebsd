@@ -93,6 +93,8 @@
         scsi
         ..
     ..
+    casper
+    ..
     crypto
     ..
     dev
@@ -152,6 +154,8 @@
         ..
         wi
         ..
+    ..
+    devdctl
     ..
     edit
         readline

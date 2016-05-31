@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2015 Microsoft Corp.
+ * Copyright (c) 2015,2016 Microsoft Corp.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -28,104 +28,169 @@
 __FBSDID("$FreeBSD$");
 
 #include <sys/param.h>
+#include <sys/bus.h>
+#include <sys/kernel.h>
+#include <sys/module.h>
 #include <sys/proc.h>
 #include <sys/systm.h>
 #include <sys/smp.h>
 #include <sys/time.h>
 #include <sys/timeet.h>
 
-#include "hv_vmbus_priv.h"
+#include <dev/hyperv/vmbus/hyperv_reg.h>
+#include <dev/hyperv/vmbus/hyperv_var.h>
+#include <dev/hyperv/vmbus/vmbus_var.h>
 
-#define HV_TIMER_FREQUENCY		(10 * 1000 * 1000LL) /* 100ns period */
-#define HV_MAX_DELTA_TICKS		0xffffffffLL
-#define HV_MIN_DELTA_TICKS		1LL
+#define VMBUS_ET_NAME			"hvet"
 
-static struct eventtimer et;
-static uint64_t periodticks[MAXCPU];
+#define MSR_HV_STIMER0_CFG_SINT		\
+	((((uint64_t)VMBUS_SINT_TIMER) << MSR_HV_STIMER_CFG_SINT_SHIFT) & \
+	 MSR_HV_STIMER_CFG_SINT_MASK)
 
-static inline uint64_t
-sbintime2tick(sbintime_t time)
+/*
+ * Two additionally required features:
+ * - SynIC is needed for interrupt generation.
+ * - Time reference counter is needed to set ABS reference count to
+ *   STIMER0_COUNT.
+ */
+#define CPUID_HV_ET_MASK		(CPUID_HV_MSR_TIME_REFCNT |	\
+					 CPUID_HV_MSR_SYNIC |		\
+					 CPUID_HV_MSR_SYNTIMER)
+
+static struct eventtimer	vmbus_et;
+
+static __inline uint64_t
+hyperv_sbintime2count(sbintime_t time)
 {
 	struct timespec val;
 
 	val = sbttots(time);
-	return val.tv_sec * HV_TIMER_FREQUENCY + val.tv_nsec / 100;
+	return (val.tv_sec * HYPERV_TIMER_FREQ) +
+	    (val.tv_nsec / HYPERV_TIMER_NS_FACTOR);
 }
 
 static int
-hv_et_start(struct eventtimer *et, sbintime_t firsttime, sbintime_t periodtime)
+vmbus_et_start(struct eventtimer *et __unused, sbintime_t first,
+    sbintime_t period __unused)
 {
-	union hv_timer_config timer_cfg;
 	uint64_t current;
 
-	timer_cfg.as_uint64 = 0;
-	timer_cfg.auto_enable = 1;
-	timer_cfg.sintx = HV_VMBUS_MESSAGE_SINT;
-
-	periodticks[curcpu] = sbintime2tick(periodtime);
-	if (firsttime == 0)
-		firsttime = periodtime;
-
-	current = rdmsr(HV_X64_MSR_TIME_REF_COUNT);
-	current += sbintime2tick(firsttime);
-
-	wrmsr(HV_X64_MSR_STIMER0_CONFIG, timer_cfg.as_uint64);
-	wrmsr(HV_X64_MSR_STIMER0_COUNT, current);
-
-	return (0);
-}
-
-static int
-hv_et_stop(struct eventtimer *et)
-{
-	wrmsr(HV_X64_MSR_STIMER0_CONFIG, 0);
-	wrmsr(HV_X64_MSR_STIMER0_COUNT, 0);
+	current = rdmsr(MSR_HV_TIME_REF_COUNT);
+	current += hyperv_sbintime2count(first);
+	wrmsr(MSR_HV_STIMER0_COUNT, current);
 
 	return (0);
 }
 
 void
-hv_et_intr(struct trapframe *frame)
+vmbus_et_intr(struct trapframe *frame)
 {
-	union hv_timer_config timer_cfg;
 	struct trapframe *oldframe;
 	struct thread *td;
 
-	if (periodticks[curcpu] != 0) {
-		uint64_t tick = sbintime2tick(periodticks[curcpu]);
-		timer_cfg.as_uint64 = rdmsr(HV_X64_MSR_STIMER0_CONFIG);
-		timer_cfg.enable = 0;
-		timer_cfg.auto_enable = 1;
-		timer_cfg.periodic = 1;
-		periodticks[curcpu] = 0;
-
-		wrmsr(HV_X64_MSR_STIMER0_CONFIG, timer_cfg.as_uint64);
-		wrmsr(HV_X64_MSR_STIMER0_COUNT, tick);
-	}
-
-	if (et.et_active) {
+	if (vmbus_et.et_active) {
 		td = curthread;
 		td->td_intr_nesting_level++;
 		oldframe = td->td_intr_frame;
 		td->td_intr_frame = frame;
-		et.et_event_cb(&et, et.et_arg);
+		vmbus_et.et_event_cb(&vmbus_et, vmbus_et.et_arg);
 		td->td_intr_frame = oldframe;
 		td->td_intr_nesting_level--;
 	}
 }
 
-void
-hv_et_init(void)
+static void
+vmbus_et_identify(driver_t *driver, device_t parent)
 {
-	et.et_name = "HyperV";
-	et.et_flags = ET_FLAGS_ONESHOT | ET_FLAGS_PERCPU | ET_FLAGS_PERIODIC;
-	et.et_quality = 1000;
-	et.et_frequency = HV_TIMER_FREQUENCY;
-	et.et_min_period = (1LL << 32) / HV_TIMER_FREQUENCY;
-	et.et_max_period = HV_MAX_DELTA_TICKS * ((1LL << 32) / HV_TIMER_FREQUENCY);
-	et.et_start = hv_et_start;
-	et.et_stop = hv_et_stop;
-	et.et_priv = &et;
-	et_register(&et);
+	if (device_get_unit(parent) != 0 ||
+	    device_find_child(parent, VMBUS_ET_NAME, -1) != NULL ||
+	    (hyperv_features & CPUID_HV_ET_MASK) != CPUID_HV_ET_MASK)
+		return;
+
+	device_add_child(parent, VMBUS_ET_NAME, -1);
 }
 
+static int
+vmbus_et_probe(device_t dev)
+{
+	if (resource_disabled(VMBUS_ET_NAME, 0))
+		return (ENXIO);
+
+	device_set_desc(dev, "Hyper-V event timer");
+
+	return (BUS_PROBE_NOWILDCARD);
+}
+
+static void
+vmbus_et_config(void *arg __unused)
+{
+	/*
+	 * Make sure that STIMER0 is really disabled before writing
+	 * to STIMER0_CONFIG.
+	 *
+	 * "Writing to the configuration register of a timer that
+	 *  is already enabled may result in undefined behaviour."
+	 */
+	for (;;) {
+		uint64_t val;
+
+		/* Stop counting, and this also implies disabling STIMER0 */
+		wrmsr(MSR_HV_STIMER0_COUNT, 0);
+
+		val = rdmsr(MSR_HV_STIMER0_CONFIG);
+		if ((val & MSR_HV_STIMER_CFG_ENABLE) == 0)
+			break;
+		cpu_spinwait();
+	}
+	wrmsr(MSR_HV_STIMER0_CONFIG,
+	    MSR_HV_STIMER_CFG_AUTOEN | MSR_HV_STIMER0_CFG_SINT);
+}
+
+static int
+vmbus_et_attach(device_t dev)
+{
+	/* TODO: use independent IDT vector */
+
+	vmbus_et.et_name = "Hyper-V";
+	vmbus_et.et_flags = ET_FLAGS_ONESHOT | ET_FLAGS_PERCPU;
+	vmbus_et.et_quality = 1000;
+	vmbus_et.et_frequency = HYPERV_TIMER_FREQ;
+	vmbus_et.et_min_period = (0x00000001ULL << 32) / HYPERV_TIMER_FREQ;
+	vmbus_et.et_max_period = (0xfffffffeULL << 32) / HYPERV_TIMER_FREQ;
+	vmbus_et.et_start = vmbus_et_start;
+
+	/*
+	 * Delay a bit to make sure that MSR_HV_TIME_REF_COUNT will
+	 * not return 0, since writing 0 to STIMER0_COUNT will disable
+	 * STIMER0.
+	 */
+	DELAY(100);
+	smp_rendezvous(NULL, vmbus_et_config, NULL, NULL);
+
+	return (et_register(&vmbus_et));
+}
+
+static int
+vmbus_et_detach(device_t dev)
+{
+	return (et_deregister(&vmbus_et));
+}
+
+static device_method_t vmbus_et_methods[] = {
+	DEVMETHOD(device_identify,	vmbus_et_identify),
+	DEVMETHOD(device_probe,		vmbus_et_probe),
+	DEVMETHOD(device_attach,	vmbus_et_attach),
+	DEVMETHOD(device_detach,	vmbus_et_detach),
+
+	DEVMETHOD_END
+};
+
+static driver_t vmbus_et_driver = {
+	VMBUS_ET_NAME,
+	vmbus_et_methods,
+	0
+};
+
+static devclass_t vmbus_et_devclass;
+DRIVER_MODULE(hv_et, vmbus, vmbus_et_driver, vmbus_et_devclass, NULL, NULL);
+MODULE_VERSION(hv_et, 1);

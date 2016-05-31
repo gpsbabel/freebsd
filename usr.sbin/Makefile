@@ -96,7 +96,8 @@ SUBDIR=	adduser \
 	wake \
 	watch \
 	watchdogd \
-	zic
+	zic \
+	zonectl
 
 # NB: keep these sorted by MK_* knobs
 
@@ -194,9 +195,7 @@ SUBDIR.${MK_TIMED}+=	timed
 SUBDIR.${MK_TOOLCHAIN}+=	config
 SUBDIR.${MK_TOOLCHAIN}+=	crunch
 SUBDIR.${MK_UNBOUND}+=	unbound
-.if !(${COMPILER_TYPE} == "gcc" && ${COMPILER_VERSION} >= 50200)
 SUBDIR.${MK_USB}+=	uathload
-.endif
 SUBDIR.${MK_USB}+=	uhsoctl
 SUBDIR.${MK_USB}+=	usbconfig
 SUBDIR.${MK_USB}+=	usbdump

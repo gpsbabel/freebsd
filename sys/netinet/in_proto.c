@@ -176,7 +176,7 @@ struct protosw inetsw[] = {
 	.pr_type =		SOCK_STREAM,
 	.pr_domain =		&inetdomain,
 	.pr_protocol =		IPPROTO_SCTP,
-	.pr_flags =		PR_WANTRCVD,
+	.pr_flags =		PR_CONNREQUIRED|PR_WANTRCVD,
 	.pr_input =		sctp_input,
 	.pr_ctlinput =		sctp_ctlinput,
 	.pr_ctloutput =		sctp_ctloutput,
@@ -357,7 +357,7 @@ struct domain inetdomain = {
 	.dom_family =		AF_INET,
 	.dom_name =		"internet",
 	.dom_protosw =		inetsw,
-	.dom_protoswNPROTOSW =	&inetsw[sizeof(inetsw)/sizeof(inetsw[0])],
+	.dom_protoswNPROTOSW =	&inetsw[nitems(inetsw)],
 #ifdef RADIX_MPATH
 	.dom_rtattach =		rn4_mpath_inithead,
 #else
