@@ -278,7 +278,7 @@ SUBDIR=	\
 	${_nxge} \
 	oce \
 	otus \
-	${_otusfw} \
+	otusfw \
 	ow \
 	${_padlock} \
 	${_padlock_rng} \
@@ -374,7 +374,7 @@ SUBDIR=	\
 	unionfs \
 	urtwn \
 	${_urtwnfw} \
-	${_usb} \
+	usb \
 	utopia \
 	${_vesa} \
 	${_virtio} \
@@ -483,7 +483,7 @@ _pfsync=	pfsync
 .endif
 .endif
 
-.if ${MK_SOURCELESS_UCODE} != "no" && ${MACHINE_CPUARCH} != "riscv"
+.if ${MK_SOURCELESS_UCODE} != "no" && ${MACHINE_CPUARCH} != "riscvss"
 _bce=		bce
 _fatm=		fatm
 _fxp=		fxp
@@ -765,21 +765,6 @@ _igb=		igb
 
 .if ${MACHINE_CPUARCH} == "aarch64" || ${MACHINE_CPUARCH} == "amd64"
 _cloudabi64=	cloudabi64
-.endif
-
-.if ${MACHINE_CPUARCH} != "riscv"
-# FIXME: linker error. "--relax and -r may not be used together"
-_otusfw=	otusfw
-.endif
-
-.if ${MACHINE_CPUARCH} != "riscv"
-# FIXME: linker error. "--relax and -r may not be used together"
-_usb=		usb
-.endif
-
-.if ${MACHINE_CPUARCH} == "riscv"
-SUBDIR+=	tests/kld_test_0 \
-		tests/kld_test_1
 .endif
 
 .endif
