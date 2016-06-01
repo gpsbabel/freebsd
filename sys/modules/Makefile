@@ -483,7 +483,7 @@ _pfsync=	pfsync
 .endif
 .endif
 
-.if ${MK_SOURCELESS_UCODE} != "no" && ${MACHINE_CPUARCH} != "riscvss"
+.if ${MK_SOURCELESS_UCODE} != "no"
 _bce=		bce
 _fatm=		fatm
 _fxp=		fxp
