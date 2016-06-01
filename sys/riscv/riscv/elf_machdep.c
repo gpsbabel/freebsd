@@ -269,23 +269,24 @@ reloctype_to_str(int type)
  */
 static int
 elf_reloc_internal(linker_file_t lf, Elf_Addr relocbase, const void *data,
-		   int type, int local, elf_lookup_fn lookup)
+    int type, int local, elf_lookup_fn lookup)
 {
-	Elf64_Addr *where;
-	Elf_Addr val, addr;
-	Elf_Addr addend;
 	Elf_Size rtype, symidx;
 	const Elf_Rela *rela;
-	int error;
-	uint64_t  before64;
-	uint32_t  before32, before32_1;
-	uint32_t  imm20;
+	Elf_Addr val, addr;
+	Elf64_Addr *where;
+	Elf_Addr addend;
+	uint32_t before32_1;
+	uint32_t before32;
+	uint64_t before64;
 	uint32_t* insn32p;
+	uint32_t imm20;
+	int error;
 
 	switch (type) {
 	case ELF_RELOC_RELA:
 		rela = (const Elf_Rela *)data;
-		where = (Elf_Addr *) (relocbase + rela->r_offset);
+		where = (Elf_Addr *)(relocbase + rela->r_offset);
 		insn32p = (uint32_t*)where;
 		addend = rela->r_addend;
 		rtype = ELF_R_TYPE(rela->r_info);
@@ -346,7 +347,7 @@ elf_reloc_internal(linker_file_t lf, Elf_Addr relocbase, const void *data,
 			return -1;
 		}
 
-		before32= *insn32p;
+		before32 = *insn32p;
 		*insn32p = insert_imm(*insn32p, val, 20, 20, 31);
 		*insn32p = insert_imm(*insn32p, val, 10,  1, 21);
 		*insn32p = insert_imm(*insn32p, val, 11, 11, 20);
@@ -362,7 +363,7 @@ elf_reloc_internal(linker_file_t lf, Elf_Addr relocbase, const void *data,
 
 	case R_RISCV_CALL:
 		/*
-		 * R_RISCV_CALL relocates 8byte region that consists
+		 * R_RISCV_CALL relocates 8-byte region that consists
 		 * of the sequence of AUIPC and JALR.
 		 */
 		/* calculate and check the pc relative offset. */
