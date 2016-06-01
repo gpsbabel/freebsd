@@ -190,7 +190,8 @@ insert_bits(uint32_t d, uint32_t s, int msb, int lsb)
 }
 
 static uint32_t
-insert_imm(uint32_t insn, uint32_t imm, int imm_msb, int imm_lsb, int insn_lsb)
+insert_imm(uint32_t insn, uint32_t imm, int imm_msb, int imm_lsb,
+    int insn_lsb)
 {
 	int insn_msb;
 	uint32_t v;
@@ -231,18 +232,18 @@ calc_hi20_imm(uint32_t value)
 }
 
 static const struct type2str_ent t2s[] = {
-	{ R_RISCV_NONE,		"R_RISCV_NONE"},
-	{ R_RISCV_64,		"R_RISCV_64"},
-	{ R_RISCV_JUMP_SLOT,	"R_RISCV_JUMP_SLOT"},
-	{ R_RISCV_RELATIVE,	"R_RISCV_RELATIVE"},
-	{ R_RISCV_JAL,		"R_RISCV_JAL"},
-	{ R_RISCV_CALL,		"R_RISCV_CALL"},
-	{ R_RISCV_PCREL_HI20,	"R_RISCV_PCREL_HI20"},
-	{ R_RISCV_PCREL_LO12_I,	"R_RISCV_PCREL_LO12_I"},
-	{ R_RISCV_PCREL_LO12_S,	"R_RISCV_PCREL_LO12_S"},
-	{ R_RISCV_HI20,		"R_RISCV_HI20"},
-	{ R_RISCV_LO12_I,	"R_RISCV_LO12_I"},
-	{ R_RISCV_LO12_S,	"R_RISCV_LO12_S"},
+	{ R_RISCV_NONE,		"R_RISCV_NONE"		},
+	{ R_RISCV_64,		"R_RISCV_64"		},
+	{ R_RISCV_JUMP_SLOT,	"R_RISCV_JUMP_SLOT"	},
+	{ R_RISCV_RELATIVE,	"R_RISCV_RELATIVE"	},
+	{ R_RISCV_JAL,		"R_RISCV_JAL"		},
+	{ R_RISCV_CALL,		"R_RISCV_CALL"		},
+	{ R_RISCV_PCREL_HI20,	"R_RISCV_PCREL_HI20"	},
+	{ R_RISCV_PCREL_LO12_I,	"R_RISCV_PCREL_LO12_I"	},
+	{ R_RISCV_PCREL_LO12_S,	"R_RISCV_PCREL_LO12_S"	},
+	{ R_RISCV_HI20,		"R_RISCV_HI20"		},
+	{ R_RISCV_LO12_I,	"R_RISCV_LO12_I"	},
+	{ R_RISCV_LO12_S,	"R_RISCV_LO12_S"	},
 };
 
 static const char*
