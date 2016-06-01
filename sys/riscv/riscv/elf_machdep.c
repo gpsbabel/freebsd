@@ -502,8 +502,8 @@ elf_reloc_internal(linker_file_t lf, Elf_Addr relocbase, const void *data,
 }
 
 int
-elf_reloc(linker_file_t lf, Elf_Addr relocbase, const void *data,
-    int type, elf_lookup_fn lookup)
+elf_reloc(linker_file_t lf, Elf_Addr relocbase, const void *data, int type,
+    elf_lookup_fn lookup)
 {
 
 	return (elf_reloc_internal(lf, relocbase, data, type, 0, lookup));
