@@ -425,7 +425,6 @@ elf_reloc_internal(linker_file_t lf, Elf_Addr relocbase, const void *data,
 
 	case R_RISCV_PCREL_LO12_S:
 		val = addr - (Elf_Addr)where;
-
 		insn32p = (uint32_t*)where;
 		before32 = *insn32p;
 		*insn32p = insert_imm(*insn32p, addr, 11,  5, 25);
