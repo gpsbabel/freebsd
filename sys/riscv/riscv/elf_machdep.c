@@ -211,7 +211,7 @@ insert_imm(uint32_t insn, uint32_t imm, int imm_msb, int imm_lsb,
  * value is asserted (sign extened value is treated as negative value).
  *
  * For example, 0x123800 can be calculated by adding upper 20 bit of
- * 0x124000 and signed-extended 12bit immediate whose bit pattern is
+ * 0x124000 and sign-extended 12bit immediate whose bit pattern is
  * 0x800 as follows:
  *   0x123800
  *     = 0x123000 + 0x800
