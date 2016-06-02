@@ -203,7 +203,7 @@ insert_imm(uint32_t insn, uint32_t imm, int imm_msb, int imm_lsb,
 }
 
 /*
- * The RISC-V ISA is designed so that all of immediate value is
+ * The RISC-V ISA is designed so that all of immediate values are
  * sign-extended.
  * An immediate value is sometimes generated at runtime by adding
  * 12bit sign integer and 20bit signed integer. This requests 20bit
