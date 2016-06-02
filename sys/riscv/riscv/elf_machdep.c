@@ -208,7 +208,7 @@ insert_imm(uint32_t insn, uint32_t imm, int imm_msb, int imm_lsb,
  * An immediate value is sometimes generated at runtime by adding
  * 12bit sign integer and 20bit signed integer. This requests 20bit
  * immediate value to be ajusted if the MSB of the 12bit immediate
- * value is asserted (sign extened value is treated as negative value).
+ * value is asserted (sign-extended value is treated as negative value).
  *
  * For example, 0x123800 can be calculated by adding upper 20 bit of
  * 0x124000 and sign-extended 12bit immediate whose bit pattern is
