@@ -760,17 +760,36 @@ vm_page_trysbusy(vm_page_t m)
 }
 
 static void
+vm_page_xunbusy_locked(vm_page_t m)
+{
+
+	vm_page_assert_xbusied(m);
+	vm_page_assert_locked(m);
+
+	atomic_store_rel_int(&m->busy_lock, VPB_UNBUSIED);
+	/* There is a waiter, do wakeup() instead of vm_page_flash(). */
+	wakeup(m);
+}
+
+static void
 vm_page_xunbusy_maybelocked(vm_page_t m)
 {
 	bool lockacq;
 
 	vm_page_assert_xbusied(m);
 
+	/*
+	 * Fast path for unbusy.  If it succeeds, we know that there
+	 * are no waiters, so we do not need a wakeup.
+	 */
+	if (atomic_cmpset_rel_int(&m->busy_lock, VPB_SINGLE_EXCLUSIVER,
+	    VPB_UNBUSIED))
+		return;
+
 	lockacq = !mtx_owned(vm_page_lockptr(m));
 	if (lockacq)
 		vm_page_lock(m);
-	vm_page_flash(m);
-	atomic_store_rel_int(&m->busy_lock, VPB_UNBUSIED);
+	vm_page_xunbusy_locked(m);
 	if (lockacq)
 		vm_page_unlock(m);
 }
@@ -788,8 +807,7 @@ vm_page_xunbusy_hard(vm_page_t m)
 	vm_page_assert_xbusied(m);
 
 	vm_page_lock(m);
-	atomic_store_rel_int(&m->busy_lock, VPB_UNBUSIED);
-	wakeup(m);
+	vm_page_xunbusy_locked(m);
 	vm_page_unlock(m);
 }
 
@@ -1112,8 +1130,6 @@ static int
 vm_page_insert_after(vm_page_t m, vm_object_t object, vm_pindex_t pindex,
     vm_page_t mpred)
 {
-	vm_pindex_t sidx;
-	vm_object_t sobj;
 	vm_page_t msucc;
 
 	VM_OBJECT_ASSERT_WLOCKED(object);
@@ -1134,8 +1150,6 @@ vm_page_insert_after(vm_page_t m, vm_object_t object, vm_pindex_t pindex,
 	/*
 	 * Record the object/offset pair in this page
 	 */
-	sobj = m->object;
-	sidx = m->pindex;
 	m->object = object;
 	m->pindex = pindex;
 
@@ -1143,8 +1157,8 @@ vm_page_insert_after(vm_page_t m, vm_object_t object, vm_pindex_t pindex,
 	 * Now link into the object's ordered list of backed pages.
 	 */
 	if (vm_radix_insert(&object->rtree, m)) {
-		m->object = sobj;
-		m->pindex = sidx;
+		m->object = NULL;
+		m->pindex = 0;
 		return (1);
 	}
 	vm_page_insert_radixdone(m, object, mpred);
@@ -1752,6 +1766,7 @@ vm_page_alloc(vm_object_t object, vm_pindex_t pindex, int req)
 			}
 			m->object = NULL;
 			m->oflags = VPO_UNMANAGED;
+			m->busy_lock = VPB_UNBUSIED;
 			vm_page_free(m);
 			return (NULL);
 		}
@@ -1953,6 +1968,7 @@ retry:
 						m->object = NULL;
 						m->oflags |= VPO_UNMANAGED;
 					}
+					m->busy_lock = VPB_UNBUSIED;
 					vm_page_free(m);
 				}
 				return (NULL);

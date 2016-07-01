@@ -66,7 +66,8 @@ PROG_FULL=${PROG}.full
     ${BINDIR} == "/bin" ||\
     ${BINDIR:C%/libexec(/.*)?%/libexec%} == "/libexec" ||\
     ${BINDIR} == "/sbin" ||\
-    ${BINDIR:C%/usr/(bin|bsdinstall|libexec|lpr|sendmail|sm.bin|sbin|tests)(/.*)?%/usr/bin%} == "/usr/bin"\
+    ${BINDIR:C%/usr/(bin|bsdinstall|libexec|lpr|sendmail|sm.bin|sbin|tests)(/.*)?%/usr/bin%} == "/usr/bin" ||\
+    ${BINDIR} == "/usr/lib" \
      )
 DEBUGFILEDIR=	${DEBUGDIR}${BINDIR}
 .else
@@ -90,7 +91,7 @@ OBJS+=  ${SRCS:N*.h:R:S/$/.o/g}
 beforelinking: ${OBJS}
 ${PROG_FULL}: beforelinking
 .endif
-${PROG_FULL}: ${OBJS} ${OP_META}
+${PROG_FULL}: ${OBJS}
 .if defined(PROG_CXX)
 	${CXX:N${CCACHE_BIN}} ${CXXFLAGS:N-M*} ${LDFLAGS} -o ${.TARGET} \
 	    ${OBJS} ${LDADD}
@@ -122,7 +123,7 @@ OBJS+=	${PROG}.o
 beforelinking: ${OBJS}
 ${PROG_FULL}: beforelinking
 .endif
-${PROG_FULL}: ${OBJS} ${OP_META}
+${PROG_FULL}: ${OBJS}
 .if defined(PROG_CXX)
 	${CXX:N${CCACHE_BIN}} ${CXXFLAGS:N-M*} ${LDFLAGS} -o ${.TARGET} \
 	    ${OBJS} ${LDADD}
@@ -138,11 +139,11 @@ ${PROG_FULL}: ${OBJS} ${OP_META}
 .endif # !defined(SRCS)
 
 .if ${MK_DEBUG_FILES} != "no"
-${PROG}: ${PROG_FULL} ${PROGNAME}.debug ${OP_META}
+${PROG}: ${PROG_FULL} ${PROGNAME}.debug
 	${OBJCOPY} --strip-debug --add-gnu-debuglink=${PROGNAME}.debug \
 	    ${PROG_FULL} ${.TARGET}
 
-${PROGNAME}.debug: ${PROG_FULL} ${OP_META}
+${PROGNAME}.debug: ${PROG_FULL}
 	${OBJCOPY} --only-keep-debug ${PROG_FULL} ${.TARGET}
 .endif
 
@@ -178,6 +179,7 @@ CLEANFILES+= ${OBJS}
 .include <bsd.libnames.mk>
 
 .if defined(PROG)
+.if !defined(NO_EXTRADEPEND)
 _EXTRADEPEND:
 .if defined(LDFLAGS) && !empty(LDFLAGS:M-nostdlib)
 .if defined(DPADD) && !empty(DPADD)
@@ -193,6 +195,7 @@ _EXTRADEPEND:
 .endif
 .endif
 .endif
+.endif	# !defined(NO_EXTRADEPEND)
 .endif
 
 .if !target(install)
