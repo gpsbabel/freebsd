@@ -39,217 +39,13 @@
 #include <vm/pmap.h>
 
 #include <dev/hyperv/vmbus/hv_vmbus_priv.h>
+#include <dev/hyperv/vmbus/hyperv_reg.h>
 #include <dev/hyperv/vmbus/vmbus_reg.h>
 #include <dev/hyperv/vmbus/vmbus_var.h>
 
-/*
- * Globals
- */
-hv_vmbus_connection hv_vmbus_g_connection =
-	{ .connect_state = HV_DISCONNECTED,
-	  .next_gpadl_handle = 0xE1E10, };
-
-uint32_t hv_vmbus_protocal_version = HV_VMBUS_VERSION_WS2008;
-
-static uint32_t
-hv_vmbus_get_next_version(uint32_t current_ver)
-{
-	switch (current_ver) {
-	case (HV_VMBUS_VERSION_WIN7):
-		return(HV_VMBUS_VERSION_WS2008);
-
-	case (HV_VMBUS_VERSION_WIN8):
-		return(HV_VMBUS_VERSION_WIN7);
-
-	case (HV_VMBUS_VERSION_WIN8_1):
-		return(HV_VMBUS_VERSION_WIN8);
-
-	case (HV_VMBUS_VERSION_WS2008):
-	default:
-		return(HV_VMBUS_VERSION_INVALID);
-	}
-}
-
-/**
- * Negotiate the highest supported hypervisor version.
- */
-static int
-hv_vmbus_negotiate_version(struct vmbus_softc *sc,
-    hv_vmbus_channel_msg_info *msg_info, uint32_t version)
-{
-	int					ret = 0;
-	hv_vmbus_channel_initiate_contact	*msg;
-
-	sema_init(&msg_info->wait_sema, 0, "Msg Info Sema");
-	msg = (hv_vmbus_channel_initiate_contact*) msg_info->msg;
-
-	msg->header.message_type = HV_CHANNEL_MESSAGE_INITIATED_CONTACT;
-	msg->vmbus_version_requested = version;
-
-	msg->interrupt_page = sc->vmbus_evtflags_dma.hv_paddr;
-	msg->monitor_page_1 = sc->vmbus_mnf1_dma.hv_paddr;
-	msg->monitor_page_2 = sc->vmbus_mnf2_dma.hv_paddr;
-
-	/**
-	 * Add to list before we send the request since we may receive the
-	 * response before returning from this routine
-	 */
-	mtx_lock(&hv_vmbus_g_connection.channel_msg_lock);
-
-	TAILQ_INSERT_TAIL(
-		&hv_vmbus_g_connection.channel_msg_anchor,
-		msg_info,
-		msg_list_entry);
-
-	mtx_unlock(&hv_vmbus_g_connection.channel_msg_lock);
-
-	ret = hv_vmbus_post_message(
-		msg,
-		sizeof(hv_vmbus_channel_initiate_contact));
-
-	if (ret != 0) {
-		mtx_lock(&hv_vmbus_g_connection.channel_msg_lock);
-		TAILQ_REMOVE(
-			&hv_vmbus_g_connection.channel_msg_anchor,
-			msg_info,
-			msg_list_entry);
-		mtx_unlock(&hv_vmbus_g_connection.channel_msg_lock);
-		return (ret);
-	}
-
-	/**
-	 * Wait for the connection response
-	 */
-	ret = sema_timedwait(&msg_info->wait_sema, 5 * hz); /* KYS 5 seconds */
-
-	mtx_lock(&hv_vmbus_g_connection.channel_msg_lock);
-	TAILQ_REMOVE(
-		&hv_vmbus_g_connection.channel_msg_anchor,
-		msg_info,
-		msg_list_entry);
-	mtx_unlock(&hv_vmbus_g_connection.channel_msg_lock);
-
-	/**
-	 * Check if successful
-	 */
-	if (msg_info->response.version_response.version_supported) {
-		hv_vmbus_g_connection.connect_state = HV_CONNECTED;
-	} else {
-		ret = ECONNREFUSED;
-	}
-
-	return (ret);
-}
-
-/**
- * Send a connect request on the partition service connection
- */
-int
-hv_vmbus_connect(struct vmbus_softc *sc)
-{
-	int					ret = 0;
-	uint32_t				version;
-	hv_vmbus_channel_msg_info*		msg_info = NULL;
-
-	/**
-	 * Make sure we are not connecting or connected
-	 */
-	if (hv_vmbus_g_connection.connect_state != HV_DISCONNECTED) {
-		return (-1);
-	}
-
-	/**
-	 * Initialize the vmbus connection
-	 */
-	hv_vmbus_g_connection.connect_state = HV_CONNECTING;
-
-	TAILQ_INIT(&hv_vmbus_g_connection.channel_msg_anchor);
-	mtx_init(&hv_vmbus_g_connection.channel_msg_lock, "vmbus channel msg",
-		NULL, MTX_DEF);
-
-	TAILQ_INIT(&hv_vmbus_g_connection.channel_anchor);
-	mtx_init(&hv_vmbus_g_connection.channel_lock, "vmbus channel",
-		NULL, MTX_DEF);
-
-	msg_info = (hv_vmbus_channel_msg_info*)
-		malloc(sizeof(hv_vmbus_channel_msg_info) +
-			sizeof(hv_vmbus_channel_initiate_contact),
-			M_DEVBUF, M_WAITOK | M_ZERO);
-
-	hv_vmbus_g_connection.channels = malloc(sizeof(hv_vmbus_channel*) *
-	    VMBUS_CHAN_MAX, M_DEVBUF, M_WAITOK | M_ZERO);
-	/*
-	 * Find the highest vmbus version number we can support.
-	 */
-	version = HV_VMBUS_VERSION_CURRENT;
-
-	do {
-		ret = hv_vmbus_negotiate_version(sc, msg_info, version);
-		if (ret == EWOULDBLOCK) {
-			/*
-			 * We timed out.
-			 */
-			goto cleanup;
-		}
-
-		if (hv_vmbus_g_connection.connect_state == HV_CONNECTED)
-			break;
-
-		version = hv_vmbus_get_next_version(version);
-	} while (version != HV_VMBUS_VERSION_INVALID);
-
-	hv_vmbus_protocal_version = version;
-	if (bootverbose)
-		printf("VMBUS: Protocol Version: %d.%d\n",
-		    version >> 16, version & 0xFFFF);
-
-	sema_destroy(&msg_info->wait_sema);
-	free(msg_info, M_DEVBUF);
-
-	return (0);
-
-	/*
-	 * Cleanup after failure!
-	 */
-	cleanup:
-
-	hv_vmbus_g_connection.connect_state = HV_DISCONNECTED;
-
-	mtx_destroy(&hv_vmbus_g_connection.channel_lock);
-	mtx_destroy(&hv_vmbus_g_connection.channel_msg_lock);
-
-	if (msg_info) {
-		sema_destroy(&msg_info->wait_sema);
-		free(msg_info, M_DEVBUF);
-	}
-
-	free(hv_vmbus_g_connection.channels, M_DEVBUF);
-	return (ret);
-}
-
-/**
- * Send a disconnect request on the partition service connection
- */
-int
-hv_vmbus_disconnect(void)
-{
-	int			 ret = 0;
-	hv_vmbus_channel_unload  msg;
-
-	msg.message_type = HV_CHANNEL_MESSAGE_UNLOAD;
-
-	ret = hv_vmbus_post_message(&msg, sizeof(hv_vmbus_channel_unload));
-
-	mtx_destroy(&hv_vmbus_g_connection.channel_msg_lock);
-
-	free(hv_vmbus_g_connection.channels, M_DEVBUF);
-	hv_vmbus_g_connection.connect_state = HV_DISCONNECTED;
-
-	return (ret);
-}
-
 static __inline void
-vmbus_event_flags_proc(volatile u_long *event_flags, int flag_cnt)
+vmbus_event_flags_proc(struct vmbus_softc *sc, volatile u_long *event_flags,
+    int flag_cnt)
 {
 	int f;
 
@@ -272,7 +68,7 @@ vmbus_event_flags_proc(volatile u_long *event_flags, int flag_cnt)
 			flags &= ~(1UL << bit);
 
 			rel_id = rel_id_base + bit;
-			channel = hv_vmbus_g_connection.channels[rel_id];
+			channel = sc->vmbus_chmap[rel_id];
 
 			/* if channel is closed or closing */
 			if (channel == NULL || channel->rxq == NULL)
@@ -295,7 +91,7 @@ vmbus_event_proc(struct vmbus_softc *sc, int cpu)
 	 * to get the id of the channel that has the pending interrupt.
 	 */
 	eventf = VMBUS_PCPU_GET(sc, event_flags, cpu) + VMBUS_SINT_MESSAGE;
-	vmbus_event_flags_proc(eventf->evt_flags,
+	vmbus_event_flags_proc(sc, eventf->evt_flags,
 	    VMBUS_PCPU_GET(sc, event_flags_cnt, cpu));
 }
 
@@ -306,60 +102,9 @@ vmbus_event_proc_compat(struct vmbus_softc *sc, int cpu)
 
 	eventf = VMBUS_PCPU_GET(sc, event_flags, cpu) + VMBUS_SINT_MESSAGE;
 	if (atomic_testandclear_long(&eventf->evt_flags[0], 0)) {
-		vmbus_event_flags_proc(sc->vmbus_rx_evtflags,
+		vmbus_event_flags_proc(sc, sc->vmbus_rx_evtflags,
 		    VMBUS_CHAN_MAX_COMPAT >> VMBUS_EVTFLAG_SHIFT);
 	}
-}
-
-/**
- * Send a msg on the vmbus's message connection
- */
-int hv_vmbus_post_message(void *buffer, size_t bufferLen)
-{
-	hv_vmbus_connection_id connId;
-	sbintime_t time = SBT_1MS;
-	int retries;
-	int ret;
-
-	connId.as_uint32_t = 0;
-	connId.u.id = HV_VMBUS_MESSAGE_CONNECTION_ID;
-
-	/*
-	 * We retry to cope with transient failures caused by host side's
-	 * insufficient resources. 20 times should suffice in practice.
-	 */
-	for (retries = 0; retries < 20; retries++) {
-		ret = hv_vmbus_post_msg_via_msg_ipc(connId,
-		    VMBUS_MSGTYPE_CHANNEL, buffer, bufferLen);
-		if (ret == HV_STATUS_SUCCESS)
-			return (0);
-
-		pause_sbt("pstmsg", time, 0, C_HARDCLOCK);
-		if (time < SBT_1S * 2)
-			time *= 2;
-	}
-
-	KASSERT(ret == HV_STATUS_SUCCESS,
-		("Error VMBUS: Message Post Failed, ret=%d\n", ret));
-
-	return (EAGAIN);
-}
-
-/**
- * Send an event notification to the parent
- */
-int
-hv_vmbus_set_event(hv_vmbus_channel *channel)
-{
-	struct vmbus_softc *sc = vmbus_get_softc();
-	int ret = 0;
-	uint32_t chanid = channel->offer_msg.child_rel_id;
-
-	atomic_set_long(&sc->vmbus_tx_evtflags[chanid >> VMBUS_EVTFLAG_SHIFT],
-	    1UL << (chanid & VMBUS_EVTFLAG_MASK));
-	ret = hv_vmbus_signal_event(channel->signal_event_param);
-
-	return (ret);
 }
 
 void
@@ -369,7 +114,7 @@ vmbus_on_channel_open(const struct hv_vmbus_channel *chan)
 	int flag_cnt;
 
 	flag_cnt = (chan->offer_msg.child_rel_id / VMBUS_EVTFLAG_LEN) + 1;
-	flag_cnt_ptr = VMBUS_PCPU_PTR(vmbus_get_softc(), event_flags_cnt,
+	flag_cnt_ptr = VMBUS_PCPU_PTR(chan->vmbus_sc, event_flags_cnt,
 	    chan->target_cpu);
 
 	for (;;) {
