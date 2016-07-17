@@ -823,6 +823,7 @@ restart:
 				if (control->on_strm_q) {
 					TAILQ_REMOVE(&strm->uno_inqueue, control, next_instrm);
 					control->on_strm_q = 0;
+					SCTP_STAT_INCR_COUNTER64(sctps_reasmusrmsgs);
 				}
 				if (control->on_read_q == 0) {
 					sctp_add_to_readq(stcb->sctp_ep, stcb, control,
@@ -1028,6 +1029,7 @@ sctp_deliver_reasm_check(struct sctp_tcb *stcb, struct sctp_association *asoc, s
 					    control, control->on_strm_q);
 				}
 #endif
+				SCTP_STAT_INCR_COUNTER64(sctps_reasmusrmsgs);
 				TAILQ_REMOVE(&strm->uno_inqueue, control, next_instrm);
 				control->on_strm_q = 0;
 			}
@@ -1082,6 +1084,7 @@ done_un:
 					    control, control->on_strm_q);
 				}
 #endif
+				SCTP_STAT_INCR_COUNTER64(sctps_reasmusrmsgs);
 				TAILQ_REMOVE(&strm->inqueue, control, next_instrm);
 				control->on_strm_q = 0;
 			}
@@ -1127,6 +1130,7 @@ deliver_more:
 						    control, control->on_strm_q);
 					}
 #endif
+					SCTP_STAT_INCR_COUNTER64(sctps_reasmusrmsgs);
 					TAILQ_REMOVE(&strm->inqueue, control, next_instrm);
 					control->on_strm_q = 0;
 				}
@@ -5279,10 +5283,11 @@ sctp_kick_prsctp_reorder_queue(struct sctp_tcb *stcb,
 	}
 }
 
+
 static void
 sctp_flush_reassm_for_str_seq(struct sctp_tcb *stcb,
     struct sctp_association *asoc,
-    uint16_t stream, uint32_t seq)
+    uint16_t stream, uint32_t seq, int ordered, int old)
 {
 	struct sctp_queued_to_read *control;
 	struct sctp_stream_in *strm;
@@ -5297,7 +5302,7 @@ sctp_flush_reassm_for_str_seq(struct sctp_tcb *stcb,
 	 * queue.
 	 */
 	strm = &asoc->strmin[stream];
-	control = find_reasm_entry(strm, (uint32_t) seq, 0, 0);
+	control = find_reasm_entry(strm, (uint32_t) seq, ordered, old);
 	if (control == NULL) {
 		/* Not found */
 		return;
@@ -5429,6 +5434,7 @@ sctp_handle_forward_tsn(struct sctp_tcb *stcb,
 		unsigned int num_str;
 		uint32_t sequence;
 		uint16_t stream;
+		uint16_t ordered, flags;
 		int old;
 		struct sctp_strseq *stseq, strseqbuf;
 		struct sctp_strseq_mid *stseq_m, strseqbuf_m;
@@ -5454,6 +5460,12 @@ sctp_handle_forward_tsn(struct sctp_tcb *stcb,
 				}
 				stream = ntohs(stseq_m->stream);
 				sequence = ntohl(stseq_m->msg_id);
+				flags = ntohs(stseq_m->flags);
+				if (flags & PR_SCTP_UNORDERED_FLAG) {
+					ordered = 0;
+				} else {
+					ordered = 1;
+				}
 			} else {
 				stseq = (struct sctp_strseq *)sctp_m_getptr(m, offset,
 				    sizeof(struct sctp_strseq),
@@ -5464,6 +5476,7 @@ sctp_handle_forward_tsn(struct sctp_tcb *stcb,
 				}
 				stream = ntohs(stseq->stream);
 				sequence = (uint32_t) ntohs(stseq->sequence);
+				ordered = 1;
 			}
 			/* Convert */
 
@@ -5489,7 +5502,7 @@ sctp_handle_forward_tsn(struct sctp_tcb *stcb,
 				asoc->fragmented_delivery_inprogress = 0;
 			}
 			strm = &asoc->strmin[stream];
-			sctp_flush_reassm_for_str_seq(stcb, asoc, stream, sequence);
+			sctp_flush_reassm_for_str_seq(stcb, asoc, stream, sequence, ordered, old);
 			TAILQ_FOREACH(ctl, &stcb->sctp_ep->read_queue, next) {
 				if ((ctl->sinfo_stream == stream) &&
 				    (ctl->sinfo_ssn == sequence)) {
