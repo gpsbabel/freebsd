@@ -275,7 +275,9 @@ static __inline void
 pagezero(void *p)
 {
 
+	//printf("bzero 0x%016lx size %d\n", p, PAGE_SIZE);
 	bzero(p, PAGE_SIZE);
+	//printf("bzero 0x%016lx size %d done\n", p, PAGE_SIZE);
 }
 
 #define	pmap_l1_index(va)	(((va) >> L1_SHIFT) & Ln_ADDR_MASK)
@@ -478,6 +480,10 @@ pmap_bootstrap_dmap(vm_offset_t l1pt, vm_paddr_t kernstart)
 	pt_entry_t entry;
 	pn_t pn;
 
+	kernstart = 0;
+
+	printf("%s: l1pt 0x%016lx kernstart 0x%016lx\n", __func__, l1pt, kernstart);
+
 	pa = kernstart & ~L1_OFFSET;
 	va = DMAP_MIN_ADDRESS;
 	l1 = (pd_entry_t *)l1pt;
@@ -486,6 +492,8 @@ pmap_bootstrap_dmap(vm_offset_t l1pt, vm_paddr_t kernstart)
 	for (; va < DMAP_MAX_ADDRESS;
 	    pa += L1_SIZE, va += L1_SIZE, l1_slot++) {
 		KASSERT(l1_slot < Ln_ENTRIES, ("Invalid L1 index"));
+		printf("dmap va 0x%016lx pa 0x%016lx, l1_slot %d\n",
+		    va, pa, l1_slot);
 
 		/* superpages */
 		pn = (pa / PAGE_SIZE);
@@ -510,30 +518,41 @@ pmap_bootstrap_l3(vm_offset_t l1pt, vm_offset_t va, vm_offset_t l3_start)
 
 	KASSERT((va & L2_OFFSET) == 0, ("Invalid virtual address"));
 
+	printf("%s: l1pt 0x%016lx\n", __func__, l1pt);
+
 	l2 = pmap_l2(kernel_pmap, va);
 	l2 = (pd_entry_t *)((uintptr_t)l2 & ~(PAGE_SIZE - 1));
 	l2pt = (vm_offset_t)l2;
 	l2_slot = pmap_l2_index(va);
 	l3pt = l3_start;
 
+	printf("%s 1\n", __func__);
+
 	for (; va < VM_MAX_KERNEL_ADDRESS; l2_slot++, va += L2_SIZE) {
 		KASSERT(l2_slot < Ln_ENTRIES, ("Invalid L2 index"));
+		printf("%s 2\n", __func__);
 
 		pa = pmap_early_vtophys(l1pt, l3pt);
+		printf("%s 22\n", __func__);
 		pn = (pa / PAGE_SIZE);
 		entry = (PTE_VALID | (PTE_TYPE_PTR << PTE_TYPE_S));
 		entry |= (pn << PTE_PPN0_S);
+		printf("%s 23: pmap_load_store &l2[l2_slot] 0x%016lx\n", __func__, &l2[l2_slot]);
 		pmap_load_store(&l2[l2_slot], entry);
+		printf("%s 24\n", __func__);
 		l3pt += PAGE_SIZE;
 	}
 
+	printf("%s 3\n", __func__);
+
 	/* Clean the L2 page table */
 	memset((void *)l3_start, 0, l3pt - l3_start);
+	printf("%s 4\n", __func__);
 	cpu_dcache_wb_range(l3_start, l3pt - l3_start);
 
 	cpu_dcache_wb_range((vm_offset_t)l2, PAGE_SIZE);
 
-	return l3pt;
+	return (l3pt);
 }
 
 /*
@@ -549,6 +568,8 @@ pmap_bootstrap(vm_offset_t l1pt, vm_paddr_t kernstart, vm_size_t kernlen)
 	vm_offset_t dpcpu, msgbufpv;
 	vm_paddr_t pa, min_pa;
 	int i;
+
+	kernstart = 0x80000000;
 
 	kern_delta = KERNBASE - kernstart;
 	physmem = 0;
@@ -570,6 +591,7 @@ pmap_bootstrap(vm_offset_t l1pt, vm_paddr_t kernstart, vm_size_t kernlen)
 
 	/* Assume the address we were loaded to is a valid physical address */
 	min_pa = KERNBASE - kern_delta;
+	printf("min_pa 0x%016lx\n", min_pa);
 
 	/*
 	 * Find the minimum physical address. physmap is sorted,
@@ -582,6 +604,7 @@ pmap_bootstrap(vm_offset_t l1pt, vm_paddr_t kernstart, vm_size_t kernlen)
 			min_pa = physmap[i];
 		break;
 	}
+	printf("min_pa 0x%016lx\n", min_pa);
 
 	/* Create a direct map region early so we can use it for pa -> va */
 	pmap_bootstrap_dmap(l1pt, min_pa);
@@ -589,6 +612,7 @@ pmap_bootstrap(vm_offset_t l1pt, vm_paddr_t kernstart, vm_size_t kernlen)
 	va = KERNBASE;
 	pa = KERNBASE - kern_delta;
 
+	printf("pa 0x%016lx\n", pa);
 	/*
 	 * Start to initialize phys_avail by copying from physmap
 	 * up to the physical address KERNBASE points at.
@@ -598,6 +622,13 @@ pmap_bootstrap(vm_offset_t l1pt, vm_paddr_t kernstart, vm_size_t kernlen)
 		if (physmap[map_slot] == physmap[map_slot + 1])
 			continue;
 
+		printf("pa 0x%016lx\n", pa);
+		if (physmap[map_slot] <= pa &&
+		    physmap[map_slot + 1] > pa)
+			break;
+
+		printf("adding 0x%016lx end 0x%016lx\n",
+		    physmap[map_slot], physmap[map_slot + 1]);
 		phys_avail[avail_slot] = physmap[map_slot];
 		phys_avail[avail_slot + 1] = physmap[map_slot + 1];
 		physmem += (phys_avail[avail_slot + 1] -
@@ -620,11 +651,14 @@ pmap_bootstrap(vm_offset_t l1pt, vm_paddr_t kernstart, vm_size_t kernlen)
 	 * This assumes we have mapped a block of memory from KERNBASE
 	 * using a single L1 entry.
 	 */
+	printf("here 0\n");
 	l2 = pmap_early_page_idx(l1pt, KERNBASE, &l1_slot, &l2_slot);
 
+	printf("here 1\n");
 	/* Sanity check the index, KERNBASE should be the first VA */
 	KASSERT(l2_slot == 0, ("The L2 index is non-zero"));
 
+	printf("here 2\n");
 	/* Find how many pages we have mapped */
 	for (; l2_slot < Ln_ENTRIES; l2_slot++) {
 		if ((l2[l2_slot] & PTE_VALID) == 0)
@@ -638,52 +672,76 @@ pmap_bootstrap(vm_offset_t l1pt, vm_paddr_t kernstart, vm_size_t kernlen)
 		pa += L2_SIZE;
 	}
 
+	printf("here 3\n");
 	va = roundup2(va, L2_SIZE);
 
+	printf("here 4\n");
 	freemempos = KERNBASE + kernlen;
 	freemempos = roundup2(freemempos, PAGE_SIZE);
 
+	printf("here 5\n");
 	/* Create the l3 tables for the early devmap */
 	freemempos = pmap_bootstrap_l3(l1pt,
 	    VM_MAX_KERNEL_ADDRESS - L2_SIZE, freemempos);
+	printf("here 51\n");
 
 	cpu_tlb_flushID();
 
+	printf("here 6\n");
 #define alloc_pages(var, np)						\
 	(var) = freemempos;						\
 	freemempos += (np * PAGE_SIZE);					\
 	memset((char *)(var), 0, ((np) * PAGE_SIZE));
 
+	printf("here 7\n");
+
 	/* Allocate dynamic per-cpu area. */
 	alloc_pages(dpcpu, DPCPU_SIZE / PAGE_SIZE);
 	dpcpu_init((void *)dpcpu, 0);
+
+	printf("here 8\n");
 
 	/* Allocate memory for the msgbuf, e.g. for /sbin/dmesg */
 	alloc_pages(msgbufpv, round_page(msgbufsize) / PAGE_SIZE);
 	msgbufp = (void *)msgbufpv;
 
+	printf("here 9\n");
+
 	virtual_avail = roundup2(freemempos, L2_SIZE);
 	virtual_end = VM_MAX_KERNEL_ADDRESS - L2_SIZE;
 	kernel_vm_end = virtual_avail;
 	
+	printf("freemempos 0x%016lx\n", freemempos);
+
+	printf("here 10\n");
+
 	pa = pmap_early_vtophys(l1pt, freemempos);
+	printf("pa 0x%016lx\n", pa);
+
+	printf("here 11\n");
 
 	/* Finish initialising physmap */
 	map_slot = used_map_slot;
 	for (; avail_slot < (PHYS_AVAIL_SIZE - 2) &&
 	    map_slot < (physmap_idx * 2); map_slot += 2) {
-		if (physmap[map_slot] == physmap[map_slot + 1])
+		if (physmap[map_slot] == physmap[map_slot + 1]) {
+			printf("physmap[map_slot] == physmap[map_slot + 1]\n");
 			continue;
+		}
 
 		/* Have we used the current range? */
-		if (physmap[map_slot + 1] <= pa)
+		if (physmap[map_slot + 1] <= pa) {
+			printf("physmap[map_slot + 1] <= pa\n");
 			continue;
+		}
 
 		/* Do we need to split the entry? */
 		if (physmap[map_slot] < pa) {
+			printf("adding 0x%016lx end 0x%016lx\n", pa, physmap[map_slot + 1]);
 			phys_avail[avail_slot] = pa;
 			phys_avail[avail_slot + 1] = physmap[map_slot + 1];
 		} else {
+			printf("adding 0x%016lx end 0x%016lx\n", physmap[map_slot], physmap[map_slot + 1]);
 			phys_avail[avail_slot] = physmap[map_slot];
 			phys_avail[avail_slot + 1] = physmap[map_slot + 1];
 		}
@@ -692,6 +750,7 @@ pmap_bootstrap(vm_offset_t l1pt, vm_paddr_t kernstart, vm_size_t kernlen)
 
 		avail_slot += 2;
 	}
+	printf("avail_slot %d\n", avail_slot);
 	phys_avail[avail_slot] = 0;
 	phys_avail[avail_slot + 1] = 0;
 
@@ -1409,14 +1468,18 @@ pmap_growkernel(vm_offset_t addr)
 	pt_entry_t entry;
 	pn_t pn;
 
+	//printf("%s: addr 0x%016lx\n", __func__, addr);
 	mtx_assert(&kernel_map->system_mtx, MA_OWNED);
 
 	addr = roundup2(addr, L2_SIZE);
 	if (addr - 1 >= kernel_map->max_offset)
 		addr = kernel_map->max_offset;
 	while (kernel_vm_end < addr) {
+		//printf("while\n");
 		l1 = pmap_l1(kernel_pmap, kernel_vm_end);
+		//printf("l1 0x%016lx\n", l1);
 		if (pmap_load(l1) == 0) {
+			//printf("%s: new L1\n", __func__);
 			/* We need a new PDP entry */
 			nkpg = vm_page_alloc(NULL, kernel_vm_end >> L1_SHIFT,
 			    VM_ALLOC_INTERRUPT | VM_ALLOC_NOOBJ |
@@ -1439,6 +1502,7 @@ pmap_growkernel(vm_offset_t addr)
 		}
 		l2 = pmap_l1_to_l2(l1, kernel_vm_end);
 		if ((pmap_load(l2) & PTE_REF) != 0) {
+			printf("%s: PTE_REF\n", __func__);
 			kernel_vm_end = (kernel_vm_end + L2_SIZE) & ~L2_OFFSET;
 			if (kernel_vm_end - 1 >= kernel_map->max_offset) {
 				kernel_vm_end = kernel_map->max_offset;
@@ -1447,15 +1511,22 @@ pmap_growkernel(vm_offset_t addr)
 			continue;
 		}
 
+		//printf("%s: vm_page_alloc\n", __func__);
 		nkpg = vm_page_alloc(NULL, kernel_vm_end >> L2_SHIFT,
 		    VM_ALLOC_INTERRUPT | VM_ALLOC_NOOBJ | VM_ALLOC_WIRED |
 		    VM_ALLOC_ZERO);
+		//printf("%s: vm_page_alloc done\n", __func__);
 		if (nkpg == NULL)
 			panic("pmap_growkernel: no memory to grow kernel");
-		if ((nkpg->flags & PG_ZERO) == 0)
+		if ((nkpg->flags & PG_ZERO) == 0) {
+			//printf("%s: pmap_zero_page here\n", __func__);
 			pmap_zero_page(nkpg);
+			//printf("%s: pmap_zero_page here done\n", __func__);
+		}
+		//printf("%s: getting paddr\n", __func__);
 		paddr = VM_PAGE_TO_PHYS(nkpg);
 
+		//printf("%s: new l2\n", __func__);
 		pn = (paddr / PAGE_SIZE);
 		entry = (PTE_VALID | (PTE_TYPE_PTR << PTE_TYPE_S));
 		entry |= (pn << PTE_PPN0_S);
@@ -1470,6 +1541,7 @@ pmap_growkernel(vm_offset_t addr)
 			break;                       
 		}
 	}
+	//printf("%s: addr 0x%016lx done\n", __func__, addr);
 }
 
 
@@ -2502,7 +2574,9 @@ pmap_zero_page(vm_page_t m)
 {
 	vm_offset_t va = PHYS_TO_DMAP(VM_PAGE_TO_PHYS(m));
 
+	//printf("%s\n", __func__);
 	pagezero((void *)va);
+	//printf("%s done\n", __func__);
 }
 
 /*
@@ -3178,7 +3252,7 @@ pmap_activate(struct thread *td)
 	pmap = vmspace_pmap(td->td_proc->p_vmspace);
 	td->td_pcb->pcb_l1addr = vtophys(pmap->pm_l1);
 
-	__asm __volatile("csrw sptbr, %0" :: "r"(td->td_pcb->pcb_l1addr));
+	__asm __volatile("csrw sptbr, %0" :: "r"(td->td_pcb->pcb_l1addr >> PAGE_SHIFT));
 
 	pmap_invalidate_all(pmap);
 	critical_exit();

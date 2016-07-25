@@ -101,30 +101,60 @@
 	.text
 
 mentry:
-	/* User mode entry point (mtvec + 0x000) */
-	.align 6
-	j	user_trap
-
-	/* Supervisor mode entry point (mtvec + 0x040) */
-	.align 6
-	j	supervisor_trap
-
-	/* Hypervisor mode entry point (mtvec + 0x080) */
-	.align 6
-	j	bad_trap
-
-	/* Machine mode entry point (mtvec + 0x0C0) */
-	.align 6
-	j	bad_trap
+	/* Vectors */
+	j	_start		/* reset */
+	j	bad_trap	/* nmi */
+	j	machine_trap	/* trap */
 
 	/* Reset vector */
 	.text
-	.align 8
 	.globl _start
 _start:
 	/* Direct secondary cores to mpentry */
 	csrr	a0, mhartid
 	bnez	a0, mpentry
+
+	la	t0, machine_trap
+	csrw	mtvec, t0
+
+	li	t1, 0
+	la	t0, tohost
+	sd	t1, 0(t0)
+	la	t0, fromhost
+	sd	t1, 0(t0)
+
+#if 0
+  uintptr_t interrupts = MIP_SSIP | MIP_STIP | MIP_SEIP;
+  uintptr_t exceptions =
+    (1U << CAUSE_MISALIGNED_FETCH) |
+    (1U << CAUSE_FAULT_FETCH) |
+    (1U << CAUSE_BREAKPOINT) |
+    (1U << CAUSE_FAULT_LOAD) |
+    (1U << CAUSE_FAULT_STORE) |
+    (1U << CAUSE_BREAKPOINT) |
+    (1U << CAUSE_USER_ECALL);
+
+  write_csr(mideleg, interrupts);
+  write_csr(medeleg, exceptions);
+#endif
+
+	li	t0, (MIP_SSIP | MIP_STIP | MIP_SEIP)
+	csrw	mideleg, t0
+#if 1
+	li	t0,	(1 << CAUSE_MISALIGNED_FETCH) |	\
+			(1 << CAUSE_FAULT_FETCH) |		\
+			(1 << CAUSE_BREAKPOINT) |		\
+			(1 << CAUSE_FAULT_LOAD) |		\
+			(1 << CAUSE_FAULT_STORE) |		\
+			(1 << CAUSE_BREAKPOINT) |		\
+			(1 << CAUSE_USER_ECALL);
+	csrw	medeleg, t0
+#endif
+
+	la	t0, cpu_exception_handler
+	li	t1, KERNBASE
+	add	t0, t0, t1
+	csrw	stvec, t0
 
 	/* Build event queue for current core */
 	build_ring
@@ -165,6 +195,7 @@ _start:
 	srli	s2, s2, PAGE_SHIFT
 
 	li	a5, KERNBASE
+	li	a5, 0xffffffc080000000
 	srli	a5, a5, L1_SHIFT	/* >> L1_SHIFT */
 	andi	a5, a5, 0x1ff		/* & 0x1ff */
 	li	t4, (PTE_VALID | (PTE_TYPE_PTR << PTE_TYPE_S))
@@ -179,8 +210,10 @@ _start:
 
 	/* Level 2 superpages (512 x 2MiB) */
 	la	s1, pagetable_l2
-	li	t3, 512			/* Build 512 entries */
-	li	t4, 0			/* Counter */
+	li	t3, 1536		/* Build 512 entries */
+	li	t4, 1024		/* Counter */
+	//li	t3, 512		/* Build 512 entries */
+	//li	t4, 0		/* Counter */
 	li	t5, 0
 2:
 	li	t0, (PTE_VALID | (PTE_TYPE_SRWX << PTE_TYPE_S))
@@ -194,15 +227,15 @@ _start:
 
 	/* Set page tables base register */
 	la	s1, pagetable_l1
+	srli	s1, s1, PAGE_SHIFT
 	csrw	sptbr, s1
 
 	/* Page tables END */
 
 	/* Enter supervisor mode */
+	// (MSTATUS_MIE)
 	li	s0, ((MSTATUS_VM_SV39 << MSTATUS_VM_SHIFT) | \
-		     (MSTATUS_PRV_M << MSTATUS_PRV_SHIFT) | \
-		     (MSTATUS_PRV_S << MSTATUS_PRV1_SHIFT) | \
-		     (MSTATUS_PRV_U << MSTATUS_PRV2_SHIFT));
+		     (MSTATUS_PRV_S << MSTATUS_MPP_SHIFT));
 	csrw	mstatus, s0
 
 	/*
@@ -212,18 +245,24 @@ _start:
 	li	t0, MIE_MSIE
 	csrs	mie, t0
 
+	csrwi	mscounteren, -1
+
 	/* Exit from machine mode */
 	la	t0, .Lmmu_on
 	li	s11, KERNBASE
 	add	t0, t0, s11
+	//li	s11, 0x80000000
+	//sub	t0, t0, s11
 	csrw	mepc, t0
-	eret
+	mret
 
 .Lmmu_on:
 	/* Initialize stack pointer */
 	la	s3, initstack_end
 	mv	sp, s3
 	addi	sp, sp, -PCB_SIZE
+
+	//csrr	t0, stime
 
 	/* Clear BSS  */
 	la	a0, _C_LABEL(__bss_start)
@@ -258,6 +297,11 @@ htif_ring:
 
 	.globl console_intr
 console_intr:
+	.space (8)
+
+tohost:
+	.space (8)
+fromhost:
 	.space (8)
 
 ENTRY(sigcode)
@@ -330,13 +374,12 @@ ENTRY(mpentry)
 
 	/* Set page tables base register */
 	la	t0, pagetable_l1
+	srli	s1, s1, PAGE_SHIFT
 	csrw	sptbr, t0
 
 	/* Configure mstatus */
 	li	s0, ((MSTATUS_VM_SV39 << MSTATUS_VM_SHIFT) | \
-		     (MSTATUS_PRV_M << MSTATUS_PRV_SHIFT) | \
-		     (MSTATUS_PRV_S << MSTATUS_PRV1_SHIFT) | \
-		     (MSTATUS_PRV_U << MSTATUS_PRV2_SHIFT));
+		     (MSTATUS_PRV_S << MSTATUS_MPP_SHIFT));
 	csrw	mstatus, s0
 
 	/* Setup stack for machine mode exceptions */
@@ -364,7 +407,7 @@ ENTRY(mpentry)
 	li	s11, KERNBASE
 	add	t0, t0, s11
 	csrw	mepc, t0
-	eret
+	mret
 
 mp_virtdone:
 	/* We are now in virtual address space */

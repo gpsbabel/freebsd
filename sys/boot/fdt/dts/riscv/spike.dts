@@ -52,12 +52,6 @@
 			compatible = "riscv,rv64i";
 			reg = <0x40002000>;
 		};
-
-		cpu@1 {
-			device_type = "cpu";
-			compatible = "riscv,rv64i";
-			reg = <0x4000a000>;
-		};
 	};
 
 	aliases {
@@ -66,12 +60,12 @@
 
 	memory {
 		device_type = "memory";
-		reg = <0x0 0x40000000>; /* 1GB at 0x0 */
+		reg = <0x80000000 0x40000000>; /* 1GB at 0x80000000 */
 	};
 
 	soc {
-		#address-cells = <2>;
-		#size-cells = <2>;
+		#address-cells = <1>;
+		#size-cells = <1>;
 		#interrupt-cells = <1>;
 
 		compatible = "simple-bus";
@@ -84,14 +78,15 @@
 
 		timer0: timer@0 {
 			compatible = "riscv,timer";
-			interrupts = < 1 >;
+			reg = < 0x40000000 0x100 >;
+			interrupts = < 5 >;
 			interrupt-parent = < &pic0 >;
-			clock-frequency = < 1000000 >;
+			clock-frequency = < 10000000 >;
 		};
 
 		htif0: htif@0 {
 			compatible = "riscv,htif";
-			interrupts = < 0 >;
+			interrupts = < 1 >;
 			interrupt-parent = < &pic0 >;
 
 			console0: console@0 {

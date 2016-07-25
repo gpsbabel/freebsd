@@ -118,6 +118,8 @@ htif_putc(int c)
 
 }
 
+int flag = 0;
+
 static uint8_t
 htif_getc(void)
 {
@@ -127,7 +129,14 @@ htif_getc(void)
 	cmd = (HTIF_CMD_READ << HTIF_CMD_SHIFT);
 	cmd |= (CONSOLE_DEFAULT_ID << HTIF_DEV_ID_SHIFT);
 
-	res = htif_command(cmd);
+	//if (flag == 0) {
+		machine_command(ECALL_HTIF_GETC, cmd);
+		flag = 1;
+	//}
+
+	res = 0;
+
+	//res = htif_command(cmd);
 
 	return (res);
 }

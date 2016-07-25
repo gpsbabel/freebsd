@@ -94,11 +94,15 @@ riscv_mask_irq(void *source)
 
 	irq = (uintptr_t)source;
 
+	printf("mask irq %d\n", irq);
+
 	switch (irq) {
 	case IRQ_TIMER:
 		csr_clear(sie, SIE_STIE);
 		break;
-	case IRQ_SOFTWARE:
+	case IRQ_SOFTWARE_USER:
+	case IRQ_SOFTWARE_SUPERVISOR:
+		csr_clear(sie, SIE_USIE);
 		csr_clear(sie, SIE_SSIE);
 		break;
 	case IRQ_UART:
@@ -116,11 +120,15 @@ riscv_unmask_irq(void *source)
 
 	irq = (uintptr_t)source;
 
+	printf("unmask irq %d\n", irq);
+
 	switch (irq) {
 	case IRQ_TIMER:
 		csr_set(sie, SIE_STIE);
 		break;
-	case IRQ_SOFTWARE:
+	case IRQ_SOFTWARE_USER:
+	case IRQ_SOFTWARE_SUPERVISOR:
+		csr_set(sie, SIE_USIE);
 		csr_set(sie, SIE_SSIE);
 		break;
 	case IRQ_UART:
@@ -201,6 +209,8 @@ riscv_cpu_intr(struct trapframe *frame)
 	struct intr_event *event;
 	int active_irq;
 
+	//printf(".");
+
 	critical_enter();
 
 	KASSERT(frame->tf_scause & EXCP_INTR,
@@ -210,7 +220,9 @@ riscv_cpu_intr(struct trapframe *frame)
 
 	switch (active_irq) {
 	case IRQ_UART:
-	case IRQ_SOFTWARE:
+	case IRQ_SOFTWARE_USER:
+	case IRQ_SOFTWARE_SUPERVISOR:
+		//printf("sirq\n");
 	case IRQ_TIMER:
 		event = intr_events[active_irq];
 		/* Update counters */

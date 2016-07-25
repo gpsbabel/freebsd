@@ -117,14 +117,14 @@ __FBSDID("$FreeBSD$");
 	ld	t0, (TF_SSTATUS)(sp)
 .if \el == 0
 	/* Ensure user interrupts will be enabled on eret. */
-	ori	t0, t0, SSTATUS_PIE
+	ori	t0, t0, (SSTATUS_SPIE | SSTATUS_UPIE)
 .else
 	/*
 	 * Disable interrupts for supervisor mode exceptions.
 	 * For user mode exceptions we have already done this
 	 * in do_ast.
 	 */
-	li	t1, ~SSTATUS_IE
+	li	t1, ~SSTATUS_SIE
 	and	t0, t0, t1
 .endif
 	csrw	sstatus, t0
@@ -182,7 +182,7 @@ __FBSDID("$FreeBSD$");
 	/* Disable interrupts */
 	csrr	a4, sstatus
 1:
-	csrci	sstatus, SSTATUS_IE
+	csrci	sstatus, (SSTATUS_SIE | SSTATUS_UIE)
 
 	ld	a1, PC_CURTHREAD(gp)
 	lw	a2, TD_FLAGS(a1)
@@ -192,7 +192,7 @@ __FBSDID("$FreeBSD$");
 	beqz	a2, 2f
 
 	/* Restore interrupts */
-	andi	a4, a4, SSTATUS_IE
+	andi	a4, a4, (SSTATUS_SIE | SSTATUS_UIE)
 	csrs	sstatus, a4
 
 	/* Handle the ast */
@@ -204,12 +204,24 @@ __FBSDID("$FreeBSD$");
 2:
 .endm
 
+ENTRY(cpu_exception_handler)
+	csrrw	sp, sscratch, sp
+	beqz	sp, 1f
+	/* user mode detected */
+	csrrw	sp, sscratch, sp
+	j	cpu_exception_handler_user
+1:
+	/* supervisor mode detected */
+	csrrw	sp, sscratch, sp
+	j	cpu_exception_handler_supervisor
+END(cpu_exception_handler)
+
 ENTRY(cpu_exception_handler_supervisor)
 	save_registers 1
 	mv	a0, sp
 	call	_C_LABEL(do_trap_supervisor)
 	load_registers 1
-	eret
+	sret
 END(cpu_exception_handler_supervisor)
 
 ENTRY(cpu_exception_handler_user)
@@ -220,7 +232,7 @@ ENTRY(cpu_exception_handler_user)
 	do_ast
 	load_registers 0
 	csrrw	sp, sscratch, sp
-	eret
+	sret
 END(cpu_exception_handler_user)
 
 /*
@@ -230,7 +242,7 @@ END(cpu_exception_handler_user)
 bad_trap:
 	j bad_trap
 
-user_trap:
+machine_trap:
 	/* Save state */
 	csrrw	sp, mscratch, sp
 	addi	sp, sp, -64
@@ -242,45 +254,48 @@ user_trap:
 	sd	t5, (8 * 5)(sp)
 	sd	a0, (8 * 7)(sp)
 
-	la	t2, _C_LABEL(cpu_exception_handler_user)
-
-	csrr    t0, mcause
-	bltz    t0, machine_interrupt
-	j	exit_mrts
-
-supervisor_trap:
-	/* Save state */
-	csrrw	sp, mscratch, sp
-	addi	sp, sp, -64
-	sd	t0, (8 * 0)(sp)
-	sd	t1, (8 * 1)(sp)
-	sd	t2, (8 * 2)(sp)
-	sd	t3, (8 * 3)(sp)
-	sd	t4, (8 * 4)(sp)
-	sd	t5, (8 * 5)(sp)
-	sd	a0, (8 * 7)(sp)
-
-	la	t2, _C_LABEL(cpu_exception_handler_supervisor)
-
+	csrr	t3, mstatus
+	csrr	t0, mstatus
+	li	t1, (MSTATUS_PRV_M << MSTATUS_MPP_SHIFT)
+	and	t0, t0, t1
+	li	t1, (MSTATUS_PRV_S << MSTATUS_MPP_SHIFT)
+	beq	t0, t1, 1f
+	li	t1, (MSTATUS_PRV_U << MSTATUS_MPP_SHIFT)
+	beq	t0, t1, 2f
+	j	3f
+1:	la	t2, _C_LABEL(cpu_exception_handler_supervisor)
+	j	3f
+2:	la	t2, _C_LABEL(cpu_exception_handler_user)
+	j	3f
+3:
 	csrr	t0, mcause
 	bltz	t0, machine_interrupt
 
 	li	t1, EXCP_SMODE_ENV_CALL
 	beq	t0, t1, supervisor_call
-	j	exit_mrts
+4:
+	j	4b
+	//j	exit
+	//j	exit_mrts
 
 machine_interrupt:
 	/* Type of interrupt ? */
 	csrr	t0, mcause
 	andi	t0, t0, EXCP_MASK
+#if 0
 	li	t1, 0
 	beq	t1, t0, software_interrupt
-	li	t1, 1
-	beq	t1, t0, timer_interrupt
 	li	t1, 2
 	beq	t1, t0, htif_interrupt
 	li	t1, 4
 	beq	t1, t0, io_interrupt	/* lowRISC only */
+#endif
+	li	t1, 1
+	beq	t1, t0, supervisor_software_interrupt
+	li	t1, 5
+	beq	t1, t0, supervisor_timer_interrupt
+	li	t1, 7
+	beq	t1, t0, machine_timer_interrupt
 
 	/* not reached */
 1:
@@ -293,7 +308,25 @@ io_interrupt:
 	/* Handle the trap in supervisor mode */
 	j	exit_mrts
 
+supervisor_software_interrupt:
+1:
+	j	1b
+	//li	t0, MIE_MSIP
+	//csrc	mie, t0
+
+	/* Disable supervisor soft interrupts */
+	li	t0, MIE_SSIE
+	csrc	mie, t0
+	/* Clear supervisor soft interrupt pending */
+	li	t0, MIP_SSIP
+	csrc	mip, t0
+
+	j	exit_mrts
+
 software_interrupt:
+1:
+	j	1b
+
 	li	t0, MIP_MSIP
 	csrc	mip, t0
 	li	t0, MIP_SSIP
@@ -301,7 +334,7 @@ software_interrupt:
 
 	/* If PRV1 is PRV_U (user) then serve the trap */
 	csrr	t0, mstatus
-	li	t1, (MSTATUS_PRV_M << MSTATUS_PRV1_SHIFT)
+	li	t1, (MSTATUS_PRV_M << MSTATUS_MPP_SHIFT)
 	and	t0, t0, t1
 	beqz	t0, 1f
 
@@ -310,9 +343,9 @@ software_interrupt:
 	 * then serve the trap.
 	 */
 	csrr	t0, mstatus
-	li	t1, (SR_IE1 | (MSTATUS_PRV_M << MSTATUS_PRV1_SHIFT))
+	li	t1, (MSTATUS_SPIE | (MSTATUS_PRV_M << MSTATUS_MPP_SHIFT))
 	and	t0, t0, t1
-	li	t1, (SR_IE1 | (MSTATUS_PRV_S << MSTATUS_PRV1_SHIFT))
+	li	t1, (MSTATUS_SPIE | (MSTATUS_PRV_S << MSTATUS_MPP_SHIFT))
 	beq	t0, t1, 1f
 
 	j	exit
@@ -321,12 +354,26 @@ software_interrupt:
 	/* Handle the trap in supervisor mode */
 	j	exit_mrts
 
-timer_interrupt:
+supervisor_timer_interrupt:
+1:
+	/* Nothing here as we are using mideleg feature */
+	j	1b
+
+	/* Disable supervisor timer interrupts */
+	//li	t0, MIE_STIE
+	//csrc	mie, t0
+	/* Clear supervisor timer interrupt pending */
+	//li	t0, MIP_STIP
+	//csrc	mip, t0
+
+	j	exit_mrts
+
+machine_timer_interrupt:
 	/* Disable machine timer interrupts */
 	li	t0, MIE_MTIE
 	csrc	mie, t0
 
-	/* Clear machine pending */
+	/* Clear machine timer interrupt pending */
 	li	t0, MIP_MTIP
 	csrc	mip, t0
 
@@ -334,9 +381,10 @@ timer_interrupt:
 	li	t0, MIP_STIP
 	csrs	mip, t0
 
+#if 0
 	/* If PRV1 is PRV_U (user) then serve the trap */
 	csrr	t0, mstatus
-	li	t1, (MSTATUS_PRV_M << MSTATUS_PRV1_SHIFT)
+	li	t1, (MSTATUS_PRV_M << MSTATUS_MPP_SHIFT)
 	and	t0, t0, t1
 	beqz	t0, 1f
 
@@ -345,11 +393,13 @@ timer_interrupt:
 	 * then serve the trap.
 	 */
 	csrr	t0, mstatus
-	li	t1, (SR_IE1 | (MSTATUS_PRV_M << MSTATUS_PRV1_SHIFT))
+	li	t1, (MSTATUS_MPIE | (MSTATUS_PRV_M << MSTATUS_MPP_SHIFT))
 	and	t0, t0, t1
-	li	t1, (SR_IE1 | (MSTATUS_PRV_S << MSTATUS_PRV1_SHIFT))
+	li	t1, (MSTATUS_MPIE | (MSTATUS_PRV_S << MSTATUS_MPP_SHIFT))
 	beq	t0, t1, 1f
+#endif
 
+#if 0
 	j	exit
 
 1:
@@ -358,10 +408,15 @@ timer_interrupt:
 
 htif_interrupt:
 1:
-	li	t5, 0
-	csrrw	t5, mfromhost, t5
+	j	1b
+#endif
+
+1:
+	la	t1, fromhost
+	ld	t5, 0(t1)
 	beqz	t5, 3f
 
+#if 0
 	/* Console PUT intr ? */
 	mv	t1, t5
 	li	t0, 0x101
@@ -372,8 +427,13 @@ htif_interrupt:
 	li	t1, 1
 	sd	t1, 0(t0)
 
+	la	t1, fromhost
+	li	t5, 0
+	sd	t5, 0(t1)
+
 	/* Check if there is any other pending event */
 	j	1b
+#endif
 
 2:
 	/* Save entry */
@@ -397,8 +457,14 @@ htif_interrupt:
 	li	t0, MIP_SSIP
 	csrs	mip, t0
 
+	la	t1, fromhost
+	li	t5, 0
+	sd	t5, 0(t1)
+
+#if 0
 	/* Check if there is any other pending event */
 	j	1b
+#endif
 
 3:
 	j	exit
@@ -408,6 +474,8 @@ supervisor_call:
 	addi	t1, t1, 4	/* Next instruction in t1 */
 	li	t4, ECALL_HTIF_CMD
 	beq	t5, t4, htif_cmd
+	li	t4, ECALL_HTIF_GETC
+	beq	t5, t4, htif_getc
 	li	t4, ECALL_HTIF_GET_ENTRY
 	beq	t5, t4, htif_get_entry
 	li	t4, ECALL_MTIMECMP
@@ -439,7 +507,7 @@ mie_set:
 	j	exit_next_instr
 
 mcpuid_get:
-	csrr	t6, mcpuid
+	csrr	t6, misa
 	j	exit_next_instr
 
 mimpid_get:
@@ -504,20 +572,39 @@ htif_get_entry:
 
 htif_cmd:
 1:
-	mv	t0, t6
-	csrrw	t0, mtohost, t0
-	bnez	t0, 1b
+	la	t4, tohost
+	sd	t6, 0(t4)
+	la	t4, fromhost
+2:
+	ld	t6, 0(t4)
+	beqz	t6, 2b
+
+	li	t5, 0
+	sd	t5, 0(t4)
+	j	exit_next_instr
+
+htif_getc:
+	li	t0, (MIE_MSIE | MIE_SSIE | MIE_USIE)
+	csrs	mie, t0
+	//li	t0, MIE_MSIP
+	//csrc	mie, t0
+
+	la	t4, tohost
+	sd	t6, 0(t4)
+
 	j	exit_next_instr
 
 htif_lowputc:
 1:
 	mv	t0, t6
-	csrrw	t0, mtohost, t0
-	bnez	t0, 1b
+	la	t4, tohost
+	sd	t0, 0(t4)
+	//csrrw	t0, mtohost, t0
+	//bnez	t0, 1b
 
 2:
-	li	t4, 0
-	csrrw	t5, mfromhost, t4
+	la	t4, fromhost
+	ld	t5, 0(t4)
 	beqz	t5, 2b
 
 	/* Console PUT intr ? */
@@ -547,25 +634,37 @@ htif_lowputc:
 	li	t0, MIP_SSIP
 	csrs	mip, t0
 
+	/* Cleanup interrupt */
+	//li	t5, 0
+	//la	t4, fromhost
+	//sd	t5, 0(t4)
+
 	/* Wait for console intr again */
 	j	2b
 
 3:
+	li	t5, 0
+	la	t4, fromhost
+	sd	t5, 0(t4)
 	j	exit_next_instr
 
 set_mtimecmp:
-	csrr	t2, stime
-	add	t6, t6, t2
-	csrw	mtimecmp, t6
+	//csrr	t2, stime
+	//add	t6, t6, t2
+	//csrw	mtimecmp, t6
+
+	/* Clear machine pending */
+	//li	t0, MIP_MTIP
+	//csrc	mip, t0
 
 	/* Enable interrupts */
-	li	t0, (MIE_MTIE | MIE_STIE)
+	li	t0, MIE_MTIE | MIE_STIE
 	csrs	mie, t0
 	j	exit_next_instr
 
 clear_pending:
-	li      t0, MIP_STIP
-	csrc    mip, t0
+	li	t0, MIP_STIP
+	csrc	mip, t0
 	j	exit_next_instr
 
 /*
@@ -585,16 +684,74 @@ exit:
 	ld	a0, (8 * 7)(sp)
 	addi	sp, sp, 64
 	csrrw	sp, mscratch, sp
-	eret
+	mret
 
 /*
  * Redirect to supervisor
  */
 exit_mrts:
+1:
+	j	1b
+
 	/* Setup exception handler */
 	li	t1, KERNBASE
 	add	t2, t2, t1
-	csrw	stvec, t2
+	//csrw	stvec, t2
+
+	csrr	t1, mepc
+	csrw	sepc, t1
+	csrw	mepc, t2
+
+	csrr	t1, mcause
+	csrw	scause, t1
+
+	csrr	t1, mbadaddr
+	csrw	sbadaddr, t1
+
+#if 0
+  write_csr(sepc, epc);
+  write_csr(scause, read_csr(mcause));
+  write_csr(mepc, read_csr(stvec));
+
+  uintptr_t prev_priv = EXTRACT_FIELD(mstatus, MSTATUS_MPP);
+  uintptr_t prev_ie = EXTRACT_FIELD(mstatus, MSTATUS_MPIE);
+  mstatus = INSERT_FIELD(mstatus, MSTATUS_SPP, prev_priv);
+  mstatus = INSERT_FIELD(mstatus, MSTATUS_SPIE, prev_ie);
+  mstatus = INSERT_FIELD(mstatus, MSTATUS_MPP, PRV_S);
+  mstatus = INSERT_FIELD(mstatus, MSTATUS_MPIE, 0);
+  write_csr(mstatus, mstatus);
+#endif
+
+	/* Enter supervisor mode */
+	csrr	t0, mstatus
+	/* t1 = prev_priv */
+	srli	t1, t0, MSTATUS_MPP_SHIFT
+	andi	t1, t1, 0x3
+	/* t2 = prev_ie */
+	srli	t2, t0, MSTATUS_MPIE_SHIFT
+	andi	t2, t2, 0x1
+	li	t3, ~((MSTATUS_PRV_M << MSTATUS_MPP_SHIFT) | (MSTATUS_SPP))
+	and	t0, t0, t3
+	slli	t4, t1, MSTATUS_SPP_SHIFT
+	or	t0, t0, t4
+	slli	t4, t2, MSTATUS_SPIE_SHIFT
+	or	t0, t0, t4
+	li	t4, (MSTATUS_PRV_S << MSTATUS_MPP_SHIFT)
+	or	t0, t0, t4
+	csrw	mstatus, t0
+
+#if 0
++  uintptr_t new_mstatus = mstatus & ~(MSTATUS_SPP | MSTATUS_SPIE | MSTATUS_MPIE);
+ +  uintptr_t mpp_s = MSTATUS_MPP & (MSTATUS_MPP >> 1);
+ +  new_mstatus |= (mstatus / (MSTATUS_MPIE / MSTATUS_SPIE)) & MSTATUS_SPIE;
+ +  new_mstatus |= (mstatus / (mpp_s / MSTATUS_SPP)) & MSTATUS_SPP;
+ +  new_mstatus |= mpp_s;
+ +  write_csr(mstatus, new_mstatus);
+
+	csrr	t0, mstatus
+	li	t1, ~(MSTATUS_SPP | MSTATUS_SPIE | MSTATUS_MPIE)
+	and	t0, t0, t1
+#endif
 
 	/* Restore state */
 	ld	t0, (8 * 0)(sp)
@@ -606,6 +763,4 @@ exit_mrts:
 	ld	a0, (8 * 7)(sp)
 	addi	sp, sp, 64
 	csrrw	sp, mscratch, sp
-
-	/* Redirect to supervisor */
-	mrts
+	mret

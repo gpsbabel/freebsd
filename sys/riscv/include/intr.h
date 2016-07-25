@@ -57,9 +57,12 @@ void riscv_unmask_ipi(void);
 #endif
 
 enum {
-	IRQ_SOFTWARE,
-	IRQ_TIMER,
+	IRQ_SOFTWARE_USER,
+	IRQ_SOFTWARE_SUPERVISOR,
 	IRQ_HTIF,
+	IRQ_C,
+	IRQ_D,
+	IRQ_TIMER,
 	IRQ_COP,	/* lowRISC only */
 	IRQ_UART,	/* lowRISC only */
 	NIRQS

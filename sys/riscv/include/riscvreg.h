@@ -49,6 +49,7 @@
 #define	ECALL_HTIF_LOWPUTC	0x09
 #define	ECALL_MIE_SET		0x0a
 #define	ECALL_IO_IRQ_MASK	0x0b
+#define	ECALL_HTIF_GETC		0x0c
 
 #define	EXCP_SHIFT			0
 #define	EXCP_MASK			(0xf << EXCP_SHIFT)
@@ -64,59 +65,131 @@
 #define	EXCP_SMODE_ENV_CALL		9
 #define	EXCP_HMODE_ENV_CALL		10
 #define	EXCP_MMODE_ENV_CALL		11
-#define	EXCP_INTR			(1 << 31)
+#define	EXCP_INTR			(1ul << 63)
 #define	EXCP_INTR_SOFTWARE		0
 #define	EXCP_INTR_TIMER			1
 #define	EXCP_INTR_HTIF			2
 
-#define	SSTATUS_IE			(1 << 0)
-#define	SSTATUS_PIE			(1 << 3)
-#define	SSTATUS_PS			(1 << 4)
+#define	SSTATUS_UIE			(1 << 0)
+#define	SSTATUS_SIE			(1 << 1)
+#define	SSTATUS_UPIE			(1 << 4)
+#define	SSTATUS_SPIE			(1 << 5)
+#define	SSTATUS_SPIE_SHIFT		5
+#define	SSTATUS_SPP			(1 << 8)
+#define	SSTATUS_SPP_SHIFT		8
 
+#define	MSTATUS_SPP			(1 << 8)
+#define	MSTATUS_SPP_SHIFT		8
+#define	MSTATUS_SPIE			(1 << 5)
+#define	MSTATUS_SPIE_SHIFT		5
+
+#if 0
 #define	MSTATUS_MPRV		(1 << 16)
 #define	MSTATUS_PRV_SHIFT	1
 #define	MSTATUS_PRV1_SHIFT	4
 #define	MSTATUS_PRV2_SHIFT	7
+
 #define	MSTATUS_PRV_MASK	(0x3 << MSTATUS_PRV_SHIFT)
+#define	MSTATUS_VM_SHIFT	17
+#endif
+
+#if 0
+#define MSTATUS_UIE         0x00000001
+#define MSTATUS_SIE         0x00000002
+#define MSTATUS_HIE         0x00000004
+#define MSTATUS_MIE         0x00000008
+#define MSTATUS_UPIE        0x00000010
+#define MSTATUS_SPIE        0x00000020
+#define MSTATUS_HPIE        0x00000040
+#define MSTATUS_MPIE        0x00000080
+#define MSTATUS_SPP         0x00000100
+#define MSTATUS_HPP         0x00000600
+#define MSTATUS_MPP         0x00001800
+#define MSTATUS_FS          0x00006000
+#define MSTATUS_XS          0x00018000
+#define MSTATUS_MPRV        0x00020000
+#define MSTATUS_PUM         0x00040000
+#define MSTATUS_VM          0x1F000000
+#define MSTATUS32_SD        0x80000000
+#define MSTATUS64_SD        0x8000000000000000
+#endif
+
+#define	MSTATUS_UIE		(1 << 0)
+#define	MSTATUS_SIE		(1 << 1)
+#define	MSTATUS_HIE		(1 << 2)
+#define	MSTATUS_MIE		(1 << 3)
+
+#define	MSTATUS_SPIE		(1 << 5)
+#define	MSTATUS_MPIE		(1 << 7)
+#define	MSTATUS_MPIE_SHIFT	7
+
 #define	MSTATUS_PRV_U		0	/* user */
 #define	MSTATUS_PRV_S		1	/* supervisor */
 #define	MSTATUS_PRV_H		2	/* hypervisor */
 #define	MSTATUS_PRV_M		3	/* machine */
 
-#define	MSTATUS_VM_SHIFT	17
-#define	MSTATUS_VM_MASK		0x1f
-#define	MSTATUS_VM_MBARE	0
-#define	MSTATUS_VM_MBB		1
-#define	MSTATUS_VM_MBBID	2
-#define	MSTATUS_VM_SV32		8
-#define	MSTATUS_VM_SV39		9
-#define	MSTATUS_VM_SV48		10
+#define	MSTATUS_MPP_SHIFT	11
 
+#define	MSTATUS_VM_SHIFT	24
+#define	MSTATUS_VM_MASK		0x1f
+#define	 MSTATUS_VM_MBARE	0
+#define	 MSTATUS_VM_MBB		1
+#define	 MSTATUS_VM_MBBID	2
+#define	 MSTATUS_VM_SV32	8
+#define	 MSTATUS_VM_SV39	9
+#define	 MSTATUS_VM_SV48	10
+#define	 MSTATUS_VM_SV57	11
+#define	 MSTATUS_VM_SV64	12
+
+#define	MIE_USIE	(1 << 0)
 #define	MIE_SSIE	(1 << 1)
 #define	MIE_HSIE	(1 << 2)
 #define	MIE_MSIE	(1 << 3)
+#define	MIE_UTIE	(1 << 4)
 #define	MIE_STIE	(1 << 5)
 #define	MIE_HTIE	(1 << 6)
 #define	MIE_MTIE	(1 << 7)
 
+#define	MIP_USIP	(1 << 0)
 #define	MIP_SSIP	(1 << 1)
 #define	MIP_HSIP	(1 << 2)
 #define	MIP_MSIP	(1 << 3)
+#define	MIP_UTIP	(1 << 4)
 #define	MIP_STIP	(1 << 5)
 #define	MIP_HTIP	(1 << 6)
 #define	MIP_MTIP	(1 << 7)
 
+#if 0
 #define	SR_IE		(1 << 0)
 #define	SR_IE1		(1 << 3)
 #define	SR_IE2		(1 << 6)
 #define	SR_IE3		(1 << 9)
+#endif
 
+#define	SIE_USIE	(1 << 0)
 #define	SIE_SSIE	(1 << 1)
+#define	SIE_UTIE	(1 << 4)
 #define	SIE_STIE	(1 << 5)
+
+#define	MIP_SEIP	(1 << 9)
 
 /* Note: sip register has no SIP_STIP bit in Spike simulator */
 #define	SIP_SSIP	(1 << 1)
 #define	SIP_STIP	(1 << 5)
+
+#define CAUSE_MISALIGNED_FETCH 0x0
+#define CAUSE_FAULT_FETCH 0x1
+#define CAUSE_ILLEGAL_INSTRUCTION 0x2
+#define CAUSE_BREAKPOINT 0x3
+#define CAUSE_MISALIGNED_LOAD 0x4
+#define CAUSE_FAULT_LOAD 0x5
+#define CAUSE_MISALIGNED_STORE 0x6
+#define CAUSE_FAULT_STORE 0x7
+#define CAUSE_USER_ECALL 0x8
+#define CAUSE_SUPERVISOR_ECALL 0x9
+#define CAUSE_HYPERVISOR_ECALL 0xa
+#define CAUSE_MACHINE_ECALL 0xb
+
 
 #define	NCSRS		4096
 #define	CSR_IPI		0x783

@@ -196,6 +196,7 @@ data_abort(struct trapframe *frame, int lower)
 	}
 
 	sbadaddr = frame->tf_sbadaddr;
+	//printf("data_abort sbadaddr 0x%016lx\n", sbadaddr);
 
 	p = td->td_proc;
 
@@ -269,9 +270,17 @@ void
 do_trap_supervisor(struct trapframe *frame)
 {
 	uint64_t exception;
+	uint64_t sstatus;
+
+	/* Ensure we came from supervisor mode, interrupts disabled */
+	__asm __volatile("csrr %0, sstatus" : "=&r" (sstatus));
+	if ((sstatus & (SSTATUS_SPP | SSTATUS_UIE | SSTATUS_SIE)) != SSTATUS_SPP)
+		panic("do_trap_supervisor: unexpected sstatus 0x%016lx\n",
+			sstatus);
 
 	exception = (frame->tf_scause & EXCP_MASK);
 	if (frame->tf_scause & EXCP_INTR) {
+		//printf("tf_scause intr 0x%016lx EXCP_INTR 0x%016lx\n", frame->tf_scause, EXCP_INTR);
 		/* Interrupt */
 		riscv_cpu_intr(frame);
 		return;
@@ -321,12 +330,22 @@ do_trap_user(struct trapframe *frame)
 {
 	uint64_t exception;
 	struct thread *td;
+	uint64_t sstatus;
 
 	td = curthread;
 	td->td_frame = frame;
 
+	/* Ensure we came from usermode, interrupts disabled */
+	__asm __volatile("csrr %0, sstatus" : "=&r" (sstatus));
+	if (sstatus & (SSTATUS_SPP | SSTATUS_UIE | SSTATUS_SIE))
+		panic("do_trap_user: unexpected sstatus 0x%016lx\n",
+			sstatus);
+
 	exception = (frame->tf_scause & EXCP_MASK);
 	if (frame->tf_scause & EXCP_INTR) {
+
+		//printf("ui %d\n", exception);
+
 		/* Interrupt */
 		riscv_cpu_intr(frame);
 		return;

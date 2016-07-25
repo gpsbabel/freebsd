@@ -239,7 +239,9 @@ htif_blk_task(void *arg)
 			cmd |= req_paddr;
 
 			sc->cmd_done = 0;
-			htif_command(cmd);
+			uint64_t res = htif_command(cmd);
+			//printf("res 0x%016lx\n", res);
+			htif_blk_intr(sc, res);
 
 			/* Wait for interrupt */
 			i = 0;
