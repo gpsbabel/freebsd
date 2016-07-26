@@ -492,8 +492,8 @@ pmap_bootstrap_dmap(vm_offset_t l1pt, vm_paddr_t kernstart)
 	for (; va < DMAP_MAX_ADDRESS;
 	    pa += L1_SIZE, va += L1_SIZE, l1_slot++) {
 		KASSERT(l1_slot < Ln_ENTRIES, ("Invalid L1 index"));
-		printf("dmap va 0x%016lx pa 0x%016lx, l1_slot %d\n",
-		    va, pa, l1_slot);
+		//printf("dmap va 0x%016lx pa 0x%016lx, l1_slot %d\n",
+			//   va, pa, l1_slot);
 
 		/* superpages */
 		pn = (pa / PAGE_SIZE);

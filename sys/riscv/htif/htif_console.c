@@ -110,10 +110,14 @@ htif_putc(int c)
 	cmd |= (CONSOLE_DEFAULT_ID << HTIF_DEV_ID_SHIFT);
 	cmd |= c;
 
+	machine_command(ECALL_HTIF_CMD_ATOMIC, cmd);
+
+#if 0
 #ifdef SPIN_IN_MACHINE_MODE
 	machine_command(ECALL_HTIF_LOWPUTC, cmd);
 #else
 	htif_command(cmd);
+#endif
 #endif
 
 }
@@ -130,7 +134,8 @@ htif_getc(void)
 	cmd |= (CONSOLE_DEFAULT_ID << HTIF_DEV_ID_SHIFT);
 
 	//if (flag == 0) {
-		machine_command(ECALL_HTIF_GETC, cmd);
+		//machine_command(ECALL_HTIF_GETC, cmd);
+		machine_command(ECALL_HTIF_CMD_ATOMIC_NORESP, cmd);
 		flag = 1;
 	//}
 
@@ -156,6 +161,7 @@ riscv_putc(int c)
 
 	htif_putc(c);
 
+#if 0
 #ifndef SPIN_IN_MACHINE_MODE
 	/* Wait for an interrupt */
 	__asm __volatile(
@@ -169,6 +175,7 @@ riscv_putc(int c)
 	"2:"
 		: "=&r"(counter), "=&r"(val) : "r"(cc)
 	);
+#endif
 #endif
 }
 
@@ -350,6 +357,8 @@ htif_console_intr(void *arg, uint64_t entry)
 	struct htif_console_softc *sc;
 	uint8_t devcmd;
 	uint64_t data;
+
+	//printf(".");
 
 	sc = arg;
 

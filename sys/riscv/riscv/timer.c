@@ -143,7 +143,24 @@ riscv_tmr_start(struct eventtimer *et, sbintime_t first, sbintime_t period)
 		counts += READ8(sc, 0);
 		//if (counts >= 0x0fffffff)
 		//	printf("counts %d\n", counts);
-		WRITE8(sc, 0x08, counts);
+
+		int cpu;
+		cpu = PCPU_GET(cpuid);
+
+		//printf("cpu %d\n", cpu);
+
+		WRITE8(sc, (0x08 + (cpu * 8)), counts);
+
+#if 0
+		if (cpu == 0)
+			WRITE8(sc, 0x08, counts);
+		if (cpu == 1) {
+			WRITE8(sc, 0x10, counts);
+		}
+		if (cpu > 1)
+			panic("cpu id > 1");
+#endif
+
 		//printf("conf timer %d done\n", counts);
 		csr_set(sie, SIE_STIE);
 		machine_command(ECALL_MTIMECMP, counts);

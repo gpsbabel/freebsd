@@ -50,6 +50,12 @@
 		cpu@0 {
 			device_type = "cpu";
 			compatible = "riscv,rv64i";
+			reg = <0x40001000>;
+		};
+
+		cpu@1 {
+			device_type = "cpu";
+			compatible = "riscv,rv64i";
 			reg = <0x40002000>;
 		};
 	};

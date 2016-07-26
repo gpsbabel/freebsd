@@ -249,7 +249,7 @@ void
 riscv_setup_ipihandler(driver_filter_t *filt)
 {
 
-	riscv_setup_intr("ipi", filt, NULL, NULL, IRQ_SOFTWARE,
+	riscv_setup_intr("ipi", filt, NULL, NULL, IRQ_SOFTWARE_SUPERVISOR,
 	    INTR_TYPE_MISC, NULL);
 }
 

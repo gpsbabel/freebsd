@@ -110,18 +110,9 @@ mentry:
 	.text
 	.globl _start
 _start:
-	/* Direct secondary cores to mpentry */
-	csrr	a0, mhartid
-	bnez	a0, mpentry
-
+	/* Setup machine trap vector */
 	la	t0, machine_trap
 	csrw	mtvec, t0
-
-	li	t1, 0
-	la	t0, tohost
-	sd	t1, 0(t0)
-	la	t0, fromhost
-	sd	t1, 0(t0)
 
 #if 0
   uintptr_t interrupts = MIP_SSIP | MIP_STIP | MIP_SEIP;
@@ -140,7 +131,6 @@ _start:
 
 	li	t0, (MIP_SSIP | MIP_STIP | MIP_SEIP)
 	csrw	mideleg, t0
-#if 1
 	li	t0,	(1 << CAUSE_MISALIGNED_FETCH) |	\
 			(1 << CAUSE_FAULT_FETCH) |		\
 			(1 << CAUSE_BREAKPOINT) |		\
@@ -149,12 +139,21 @@ _start:
 			(1 << CAUSE_BREAKPOINT) |		\
 			(1 << CAUSE_USER_ECALL);
 	csrw	medeleg, t0
-#endif
 
 	la	t0, cpu_exception_handler
 	li	t1, KERNBASE
 	add	t0, t0, t1
 	csrw	stvec, t0
+
+	/* Direct secondary cores to mpentry */
+	csrr	a0, mhartid
+	bnez	a0, mpentry
+
+	li	t1, 0
+	la	t0, tohost
+	sd	t1, 0(t0)
+	la	t0, fromhost
+	sd	t1, 0(t0)
 
 	/* Build event queue for current core */
 	build_ring
@@ -244,6 +243,9 @@ _start:
 	 */
 	li	t0, MIE_MSIE
 	csrs	mie, t0
+	/* for getc */
+	li	t0, MIE_SSIE
+	csrs	mie, t0
 
 	csrwi	mscounteren, -1
 
@@ -298,7 +300,8 @@ htif_ring:
 	.globl console_intr
 console_intr:
 	.space (8)
-
+htif_lock:
+	.space (8)
 tohost:
 	.space (8)
 fromhost:
@@ -374,7 +377,7 @@ ENTRY(mpentry)
 
 	/* Set page tables base register */
 	la	t0, pagetable_l1
-	srli	s1, s1, PAGE_SHIFT
+	srli	t0, t0, PAGE_SHIFT
 	csrw	sptbr, t0
 
 	/* Configure mstatus */
@@ -398,6 +401,11 @@ ENTRY(mpentry)
 	 */
 	li	t0, MIE_MSIE
 	csrs	mie, t0
+	/* for getc */
+	li	t0, MIE_SSIE
+	csrs	mie, t0
+
+	csrwi	mscounteren, -1
 
 	/*
 	 * Exit from machine mode and go to
