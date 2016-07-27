@@ -565,9 +565,8 @@ htif_cmd_atomic:
 
 	/* Check for unexpected event */
 	srli	t0, t6, 48
-	li	t2, 0x100
-	//srli	t2, t3, 48
-	bne	t2, t0, 3f
+	srli	t2, t3, 48
+	beq	t2, t0, 3f
 
 	/*
 	 * We have something unexpected (e.g. keyboard keypress)

@@ -220,19 +220,18 @@ riscv_cngetc(struct consdev *cp)
 	uint64_t entry;
 	uint64_t devid;
 #endif
-	uint8_t data;
 	uint64_t cmd;
+	uint8_t data;
 	int ch;
 
 	cmd = (HTIF_CMD_READ << HTIF_CMD_SHIFT);
 	cmd |= (CONSOLE_DEFAULT_ID << HTIF_DEV_ID_SHIFT);
 
+	machine_command(ECALL_HTIF_CMD_ATOMIC_NORESP, cmd);
+
 #if defined(KDB)
 	if (kdb_active) {
-		machine_command(ECALL_HTIF_CMD_ATOMIC_NORESP, cmd);
 
-		//entry = machine_command(ECALL_HTIF_CMD_ATOMIC, cmd);
-		//entry = machine_command(ECALL_HTIF_GET_ENTRY, 0);
 		entry = machine_command(ECALL_HTIF_CMD_ATOMIC_NOREQ, 0);
 		while (entry) {
 			devid = HTIF_DEV_ID(entry);
@@ -248,12 +247,10 @@ riscv_cngetc(struct consdev *cp)
 				    devid);
 			}
 
-			//entry = machine_command(ECALL_HTIF_CMD_ATOMIC, cmd);
 			entry = machine_command(ECALL_HTIF_CMD_ATOMIC_NOREQ, 0);
 		}
-	} else
+	}
 #endif
-		machine_command(ECALL_HTIF_CMD_ATOMIC_NORESP, cmd);
 
 	if (entry_served->used == 1) {
 		data = entry_served->data;
