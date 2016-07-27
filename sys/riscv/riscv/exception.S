@@ -413,6 +413,8 @@ supervisor_call:
 	beq	t5, t4, htif_cmd_atomic
 	li	t4, ECALL_HTIF_CMD_ATOMIC_NORESP
 	beq	t5, t4, htif_cmd_atomic_noresp
+	li	t4, ECALL_HTIF_CMD_ATOMIC_NOREQ
+	beq	t5, t4, htif_cmd_atomic_noreq
 	li	t4, ECALL_HTIF_GET_ENTRY
 	beq	t5, t4, htif_get_entry
 	li	t4, ECALL_MTIMECMP
@@ -501,6 +503,30 @@ htif_get_entry:
 	/* Exit. Result is stored in t6 */
 	j	exit_next_instr
 
+htif_cmd_atomic_noreq:
+	la	t0, htif_lock
+	li	t2, 1
+1:
+	amoswap.d t3, t2, 0(t0)
+	bnez	t3, 1b
+
+	/* We have lock. Read for data */
+	la	t4, fromhost
+	ld	t6, 0(t4)
+	beqz	t6, 2f
+
+	/* Clear event */
+	li	t5, 0
+	sd	t5, 0(t4)
+
+2:
+	/* Release lock */
+	la	t0, htif_lock
+	li	t2, 0
+	amoswap.d t3, t2, 0(t0)
+
+	j	exit_next_instr
+
 htif_cmd_atomic_noresp:
 	la	t0, htif_lock
 	li	t2, 1
@@ -539,8 +565,9 @@ htif_cmd_atomic:
 
 	/* Check for unexpected event */
 	srli	t0, t6, 48
-	srli	t2, t3, 48
-	beq	t2, t0, 3f
+	li	t2, 0x100
+	//srli	t2, t3, 48
+	bne	t2, t0, 3f
 
 	/*
 	 * We have something unexpected (e.g. keyboard keypress)

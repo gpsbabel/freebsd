@@ -229,7 +229,11 @@ riscv_cngetc(struct consdev *cp)
 
 #if defined(KDB)
 	if (kdb_active) {
-		entry = machine_command(ECALL_HTIF_CMD_ATOMIC, cmd);
+		machine_command(ECALL_HTIF_CMD_ATOMIC_NORESP, cmd);
+
+		//entry = machine_command(ECALL_HTIF_CMD_ATOMIC, cmd);
+		//entry = machine_command(ECALL_HTIF_GET_ENTRY, 0);
+		entry = machine_command(ECALL_HTIF_CMD_ATOMIC_NOREQ, 0);
 		while (entry) {
 			devid = HTIF_DEV_ID(entry);
 			devcmd = HTIF_DEV_CMD(entry);
@@ -244,7 +248,8 @@ riscv_cngetc(struct consdev *cp)
 				    devid);
 			}
 
-			entry = machine_command(ECALL_HTIF_GET_ENTRY, 0);
+			//entry = machine_command(ECALL_HTIF_CMD_ATOMIC, cmd);
+			entry = machine_command(ECALL_HTIF_CMD_ATOMIC_NOREQ, 0);
 		}
 	} else
 #endif
