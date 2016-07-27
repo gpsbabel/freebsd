@@ -39,16 +39,13 @@
 
 /* Machine mode requests */
 #define	ECALL_MTIMECMP		0x01
-#define	ECALL_HTIF_CMD		0x02
 #define	ECALL_HTIF_GET_ENTRY	0x03
 #define	ECALL_MCPUID_GET	0x04
 #define	ECALL_MIMPID_GET	0x05
 #define	ECALL_SEND_IPI		0x06
 #define	ECALL_CLEAR_IPI		0x07
-#define	ECALL_HTIF_LOWPUTC	0x08
 #define	ECALL_MIE_SET		0x09
 #define	ECALL_IO_IRQ_MASK	0x0a
-#define	ECALL_HTIF_GETC		0x0b
 #define	ECALL_HTIF_CMD_ATOMIC	0x0c
 #define	ECALL_HTIF_CMD_ATOMIC_NORESP	0x0d
 

@@ -103,8 +103,8 @@
 mentry:
 	/* Vectors */
 	j	_start		/* reset */
-	j	bad_trap	/* nmi */
-	j	machine_trap	/* trap */
+	j	bad_trap	/* NMI (non-maskable interrupt) */
+	j	machine_trap
 
 	/* Reset vector */
 	.text

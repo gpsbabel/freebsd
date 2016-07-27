@@ -254,22 +254,7 @@ machine_trap:
 	sd	t5, (8 * 5)(sp)
 	sd	a0, (8 * 7)(sp)
 
-	csrr	t3, mstatus
-	csrr	t0, mstatus
-#if 0
-	li	t1, (MSTATUS_PRV_M << MSTATUS_MPP_SHIFT)
-	and	t0, t0, t1
-	li	t1, (MSTATUS_PRV_S << MSTATUS_MPP_SHIFT)
-	beq	t0, t1, 1f
-	li	t1, (MSTATUS_PRV_U << MSTATUS_MPP_SHIFT)
-	beq	t0, t1, 2f
-	j	3f
-1:	la	t2, _C_LABEL(cpu_exception_handler_supervisor)
-	j	3f
-2:	la	t2, _C_LABEL(cpu_exception_handler_user)
-	j	3f
-3:
-#endif
+	csrr	t3, mstatus	/* Required for debug */
 	csrr	t0, mcause
 	bltz	t0, machine_interrupt
 
@@ -325,10 +310,6 @@ machine_software_interrupt:
 	add	t0, t0, t2
 	li	t2, 0
 	sd	t2, 0(t0)
-
-	/* Disable machine software interrupts */
-	//li	t0, MIE_MSIE
-	//csrc	mie, t0
 
 	/* Clear machine software pending bit */
 	li	t0, MIP_MSIP
@@ -428,14 +409,10 @@ machine_timer_interrupt:
 supervisor_call:
 	csrr	t1, mepc
 	addi	t1, t1, 4	/* Next instruction in t1 */
-	li	t4, ECALL_HTIF_CMD
-	beq	t5, t4, htif_cmd
 	li	t4, ECALL_HTIF_CMD_ATOMIC
 	beq	t5, t4, htif_cmd_atomic
 	li	t4, ECALL_HTIF_CMD_ATOMIC_NORESP
 	beq	t5, t4, htif_cmd_atomic_noresp
-	li	t4, ECALL_HTIF_GETC
-	beq	t5, t4, htif_getc
 	li	t4, ECALL_HTIF_GET_ENTRY
 	beq	t5, t4, htif_get_entry
 	li	t4, ECALL_MTIMECMP
@@ -448,8 +425,6 @@ supervisor_call:
 	beq	t5, t4, send_ipi
 	li	t4, ECALL_CLEAR_IPI
 	beq	t5, t4, clear_ipi
-	li	t4, ECALL_HTIF_LOWPUTC
-	beq	t5, t4, htif_lowputc
 	li	t4, ECALL_MIE_SET
 	beq	t5, t4, mie_set
 	li	t4, ECALL_IO_IRQ_MASK
@@ -473,25 +448,13 @@ mimpid_get:
 	j	exit_next_instr
 
 send_ipi:
-#if 0
-1:
-	j	1b
-#endif
-
 	/* CPU mmio base in t6 */
 	mv	t0, t6
-	//li	t2, (CSR_IPI * XLEN)
-	//add	t0, t0, t2	/* t0 = CSR_IPI */
 	li	t2, 1
 	sd	t2, 0(t0)
 	j	exit_next_instr
 
 clear_ipi:
-#if 0
-1:
-	j	1b
-#endif
-
 	/* Do only clear if there are no new entries in HTIF ring */
 	la	t0, htif_ring
 	csrr	t2, mhartid
@@ -503,13 +466,6 @@ clear_ipi:
 	ld	t2, 8(t0)	/* load htif_ring_last */
 	ld	t2, 8(t2)	/* load used */
 	bnez	t2, 1f
-
-#if 0
-	/* CPU mmio base in t6 */
-	mv	t0, t6
-	li	t2, 0
-	sd	t2, 0(t0)
-#endif
 
 	/* Clear supervisor software interrupt pending bit */
 	li	t0, MIP_SSIP
@@ -580,8 +536,7 @@ htif_cmd_atomic:
 	ld	t6, 0(t4)
 	beqz	t6, 2b
 
-	/* Check for keyboard keypress */
-	/* Console GET intr ? */
+	/* Check for keyboard keypresses */
 	mv	t2, t6
 	li	t0, 0x100
 	srli	t2, t2, 48
@@ -623,88 +578,6 @@ htif_cmd_atomic:
 	la	t0, htif_lock
 	li	t2, 0
 	amoswap.d t3, t2, 0(t0)
-
-	j	exit_next_instr
-
-htif_cmd:
-1:
-	la	t4, tohost
-	sd	t6, 0(t4)
-	la	t4, fromhost
-2:
-	ld	t6, 0(t4)
-	beqz	t6, 2b
-
-	li	t5, 0
-	sd	t5, 0(t4)
-	j	exit_next_instr
-
-htif_getc:
-	//li	t0, (MIE_MSIE | MIE_SSIE | MIE_USIE)
-	li	t0, (MIE_SSIE | MIE_USIE)
-	csrs	mie, t0
-	//li	t0, MIE_MSIP
-	//csrc	mie, t0
-
-	la	t4, tohost
-	sd	t6, 0(t4)
-
-	j	exit_next_instr
-
-htif_lowputc:
-1:
-	mv	t0, t6
-	la	t4, tohost
-	sd	t0, 0(t4)
-	//csrrw	t0, mtohost, t0
-	//bnez	t0, 1b
-
-#if 0
-2:
-	la	t4, fromhost
-	ld	t5, 0(t4)
-	beqz	t5, 2b
-
-	/* Console PUT intr ? */
-	mv	t2, t5
-	srli	t2, t2, 48
-	li	t3, 0x0101
-	beq	t2, t3, 3f
-
-	/* Not a console PUT, so save entry */
-	la	t0, htif_ring
-	csrr	t2, mhartid
-	li	t4, (HTIF_RING_SIZE + 16)
-	mulw	t4, t4, t2
-	add	t0, t0, t4
-	li	t4, (HTIF_RING_SIZE)
-	add	t0, t0, t4	/* t0 == htif_ring_cursor */
-
-	ld	t2, 0(t0)	/* load ptr to cursor */
-	sd	t5, 0(t2)	/* put entry */
-	li	t4, 1
-	sd	t4, 8(t2)	/* mark used */
-	ld	t4, 16(t2)	/* take next */
-	/* Update cursor */
-	sd	t4, 0(t0)
-
-	/* Post supervisor software interrupt */
-	li	t0, MIP_SSIP
-	csrs	mip, t0
-
-	/* Cleanup interrupt */
-	//li	t5, 0
-	//la	t4, fromhost
-	//sd	t5, 0(t4)
-
-	/* Wait for console intr again */
-	//j	2b
-
-3:
-	li	t5, 0
-	la	t4, fromhost
-	sd	t5, 0(t4)
-#endif
 
 	j	exit_next_instr
 
