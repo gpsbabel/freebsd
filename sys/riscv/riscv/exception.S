@@ -413,8 +413,6 @@ supervisor_call:
 	beq	t5, t4, htif_cmd_atomic
 	li	t4, ECALL_HTIF_CMD_ATOMIC_NORESP
 	beq	t5, t4, htif_cmd_atomic_noresp
-	li	t4, ECALL_HTIF_CMD_ATOMIC_GETC
-	beq	t5, t4, htif_cmd_atomic_getc
 	li	t4, ECALL_HTIF_GET_ENTRY
 	beq	t5, t4, htif_get_entry
 	li	t4, ECALL_MTIMECMP
@@ -503,10 +501,6 @@ htif_get_entry:
 	/* Exit. Result is stored in t6 */
 	j	exit_next_instr
 
-htif_cmd_atomic_getc:
-1:
-	j	1b
-
 htif_cmd_atomic_noresp:
 	la	t0, htif_lock
 	li	t2, 1
@@ -543,14 +537,15 @@ htif_cmd_atomic:
 	ld	t6, 0(t4)
 	beqz	t6, 2b
 
-	/* Check for keyboard keypresses */
-	//mv	t2, t5
-	//li	t0, 0x100
+	/* Check for unexpected event */
 	srli	t0, t6, 48
 	srli	t2, t3, 48
 	beq	t2, t0, 3f
 
-	/* Save entry */
+	/*
+	 * We have something unexpected (e.g. keyboard keypress)
+	 * Save entry.
+	 */
 	la	t0, htif_ring
 	csrr	t2, mhartid
 	li	t4, (HTIF_RING_SIZE + 16)
@@ -571,7 +566,7 @@ htif_cmd_atomic:
 	li	t0, MIP_SSIP
 	csrs	mip, t0
 
-	/* Clear and look for main response again */
+	/* Clear and look for response again */
 	la	t2, fromhost
 	li	t5, 0
 	sd	t5, 0(t2)

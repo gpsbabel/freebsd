@@ -100,7 +100,7 @@ struct queue_entry *entry_last;
 struct queue_entry *entry_served;
 
 static void
-htif_putc(int c)
+riscv_putc(int c)
 {
 	uint64_t cmd;
 
@@ -109,26 +109,6 @@ htif_putc(int c)
 	cmd |= c;
 
 	machine_command(ECALL_HTIF_CMD_ATOMIC, cmd);
-}
-
-static uint8_t
-htif_getc(void)
-{
-	uint64_t cmd;
-
-	cmd = (HTIF_CMD_READ << HTIF_CMD_SHIFT);
-	cmd |= (CONSOLE_DEFAULT_ID << HTIF_DEV_ID_SHIFT);
-
-	machine_command(ECALL_HTIF_CMD_ATOMIC_NORESP, cmd);
-
-	return (0);
-}
-
-static void
-riscv_putc(int c)
-{
-
-	htif_putc(c);
 }
 
 #ifdef EARLY_PRINTF
@@ -241,17 +221,14 @@ riscv_cngetc(struct consdev *cp)
 	uint64_t devid;
 #endif
 	uint8_t data;
+	uint64_t cmd;
 	int ch;
+
+	cmd = (HTIF_CMD_READ << HTIF_CMD_SHIFT);
+	cmd |= (CONSOLE_DEFAULT_ID << HTIF_DEV_ID_SHIFT);
 
 #if defined(KDB)
 	if (kdb_active) {
-		//entry = machine_command(ECALL_HTIF_GET_ENTRY, 0);
-		//entry = machine_command(ECALL_HTIF_CMD_ATOMIC_GETC, 0);
-
-		uint64_t cmd;
-		cmd = (HTIF_CMD_READ << HTIF_CMD_SHIFT);
-		cmd |= (CONSOLE_DEFAULT_ID << HTIF_DEV_ID_SHIFT);
-
 		entry = machine_command(ECALL_HTIF_CMD_ATOMIC, cmd);
 		while (entry) {
 			devid = HTIF_DEV_ID(entry);
@@ -271,7 +248,7 @@ riscv_cngetc(struct consdev *cp)
 		}
 	} else
 #endif
-		htif_getc();
+		machine_command(ECALL_HTIF_CMD_ATOMIC_NORESP, cmd);
 
 	if (entry_served->used == 1) {
 		data = entry_served->data;
