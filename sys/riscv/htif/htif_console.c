@@ -57,8 +57,6 @@ __FBSDID("$FreeBSD$");
 
 #include <ddb/ddb.h>
 
-extern uint64_t console_intr;
-
 static tsw_outwakeup_t riscvtty_outwakeup;
 
 static struct ttydevsw riscv_ttydevsw = {
@@ -111,72 +109,26 @@ htif_putc(int c)
 	cmd |= c;
 
 	machine_command(ECALL_HTIF_CMD_ATOMIC, cmd);
-
-#if 0
-#ifdef SPIN_IN_MACHINE_MODE
-	machine_command(ECALL_HTIF_LOWPUTC, cmd);
-#else
-	htif_command(cmd);
-#endif
-#endif
-
 }
-
-int flag = 0;
 
 static uint8_t
 htif_getc(void)
 {
 	uint64_t cmd;
-	uint8_t res;
 
 	cmd = (HTIF_CMD_READ << HTIF_CMD_SHIFT);
 	cmd |= (CONSOLE_DEFAULT_ID << HTIF_DEV_ID_SHIFT);
 
-	//if (flag == 0) {
-		//machine_command(ECALL_HTIF_GETC, cmd);
-		machine_command(ECALL_HTIF_CMD_ATOMIC_NORESP, cmd);
-		flag = 1;
-	//}
+	machine_command(ECALL_HTIF_CMD_ATOMIC_NORESP, cmd);
 
-	res = 0;
-
-	//res = htif_command(cmd);
-
-	return (res);
+	return (0);
 }
 
 static void
 riscv_putc(int c)
 {
-	uint64_t counter;
-	uint64_t *cc;
-	uint64_t val;
-
-	val = 0;
-	counter = 0;
-
-	cc = (uint64_t*)&console_intr;
-	*cc = 0;
 
 	htif_putc(c);
-
-#if 0
-#ifndef SPIN_IN_MACHINE_MODE
-	/* Wait for an interrupt */
-	__asm __volatile(
-		"li	%0, 1\n"	/* counter = 1 */
-		"slli	%0, %0, 12\n"	/* counter <<= 12 */
-	"1:"
-		"addi	%0, %0, -1\n"	/* counter -= 1 */
-		"beqz	%0, 2f\n"	/* counter == 0 ? finish */
-		"ld	%1, 0(%2)\n"	/* val = *cc */
-		"beqz	%1, 1b\n"	/* val == 0 ? repeat */
-	"2:"
-		: "=&r"(counter), "=&r"(val) : "r"(cc)
-	);
-#endif
-#endif
 }
 
 #ifdef EARLY_PRINTF
@@ -291,11 +243,16 @@ riscv_cngetc(struct consdev *cp)
 	uint8_t data;
 	int ch;
 
-	htif_getc();
-
 #if defined(KDB)
 	if (kdb_active) {
-		entry = machine_command(ECALL_HTIF_GET_ENTRY, 0);
+		//entry = machine_command(ECALL_HTIF_GET_ENTRY, 0);
+		//entry = machine_command(ECALL_HTIF_CMD_ATOMIC_GETC, 0);
+
+		uint64_t cmd;
+		cmd = (HTIF_CMD_READ << HTIF_CMD_SHIFT);
+		cmd |= (CONSOLE_DEFAULT_ID << HTIF_DEV_ID_SHIFT);
+
+		entry = machine_command(ECALL_HTIF_CMD_ATOMIC, cmd);
 		while (entry) {
 			devid = HTIF_DEV_ID(entry);
 			devcmd = HTIF_DEV_CMD(entry);
@@ -312,8 +269,9 @@ riscv_cngetc(struct consdev *cp)
 
 			entry = machine_command(ECALL_HTIF_GET_ENTRY, 0);
 		}
-	}
+	} else
 #endif
+		htif_getc();
 
 	if (entry_served->used == 1) {
 		data = entry_served->data;

@@ -413,6 +413,8 @@ supervisor_call:
 	beq	t5, t4, htif_cmd_atomic
 	li	t4, ECALL_HTIF_CMD_ATOMIC_NORESP
 	beq	t5, t4, htif_cmd_atomic_noresp
+	li	t4, ECALL_HTIF_CMD_ATOMIC_GETC
+	beq	t5, t4, htif_cmd_atomic_getc
 	li	t4, ECALL_HTIF_GET_ENTRY
 	beq	t5, t4, htif_get_entry
 	li	t4, ECALL_MTIMECMP
@@ -501,6 +503,10 @@ htif_get_entry:
 	/* Exit. Result is stored in t6 */
 	j	exit_next_instr
 
+htif_cmd_atomic_getc:
+1:
+	j	1b
+
 htif_cmd_atomic_noresp:
 	la	t0, htif_lock
 	li	t2, 1
@@ -526,10 +532,11 @@ htif_cmd_atomic:
 	amoswap.d t3, t2, 0(t0)
 	bnez	t3, 1b
 
+	mv	t3, t6
+
 	/* We have lock. Store new request */
 	la	t4, tohost
 	sd	t6, 0(t4)
-
 2:
 	/* Poll for result */
 	la	t4, fromhost
@@ -537,10 +544,11 @@ htif_cmd_atomic:
 	beqz	t6, 2b
 
 	/* Check for keyboard keypresses */
-	mv	t2, t6
-	li	t0, 0x100
-	srli	t2, t2, 48
-	bne	t2, t0, 3f
+	//mv	t2, t5
+	//li	t0, 0x100
+	srli	t0, t6, 48
+	srli	t2, t3, 48
+	beq	t2, t0, 3f
 
 	/* Save entry */
 	la	t0, htif_ring
@@ -552,7 +560,7 @@ htif_cmd_atomic:
 	add	t0, t0, t4	/* t0 == htif_ring_cursor */
 
 	ld	t2, 0(t0)	/* load ptr to cursor */
-	sd	t5, 0(t2)	/* put entry */
+	sd	t6, 0(t2)	/* put entry */
 	li	t4, 1
 	sd	t4, 8(t2)	/* mark used */
 	ld	t4, 16(t2)	/* take next */

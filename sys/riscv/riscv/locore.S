@@ -296,10 +296,6 @@ hardstack_end:
 	.globl htif_ring
 htif_ring:
 	.space ((HTIF_RING_SIZE + 16) * MAXCPU)
-
-	.globl console_intr
-console_intr:
-	.space (8)
 htif_lock:
 	.space (8)
 tohost:
