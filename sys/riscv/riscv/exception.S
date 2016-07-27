@@ -362,27 +362,32 @@ machine_timer_interrupt:
 	 * Check for HTIF interrupts.
 	 * The only interrupt expected here is key press.
 	 */
-	la		t0, htif_lock
-	li		t2, 1
-	amoswap.d	t3, t2, 0(t0)
-	bnez		t3, 5f
+	la	t0, htif_lock
+	li	t2, 1
+	amoswap.d t3, t2, 0(t0)
+	bnez	t3, 5f		/* Another operation in progress, give up */
 
+	/* We have lock */
 	la	t1, fromhost
 	ld	t5, 0(t1)
 	beqz	t5, 4f
 
-	/* Console PUT intr ? */
+	/* Console GET intr ? */
 	mv	t1, t5
-	li	t0, 0x101
+	li	t0, 0x100
 	srli	t1, t1, 48
-	bne	t1, t0, 2f
+	beq	t1, t0, 2f
+1:
+	j	1b
 
-	/* Yes */
+	/* Yes, so save entry */
+#if 0
 	la	t0, console_intr
 	li	t1, 1
 	sd	t1, 0(t0)
 
 	j	3f
+#endif
 
 2:
 	/* Save entry */
@@ -413,9 +418,9 @@ machine_timer_interrupt:
 
 4:
 	/* Release lock */
-	la		t0, htif_lock
-	li		t2, 0
-	amoswap.d	t3, t2, 0(t0)
+	la	t0, htif_lock
+	li	t2, 0
+	amoswap.d t3, t2, 0(t0)
 
 5:
 	j	exit
@@ -541,39 +546,47 @@ htif_get_entry:
 	j	exit_next_instr
 
 htif_cmd_atomic_noresp:
-	la		t0, htif_lock
-	li		t2, 1
+	la	t0, htif_lock
+	li	t2, 1
 1:
-	amoswap.d	t3, t2, 0(t0)
-	bnez		t3, 1b
+	amoswap.d t3, t2, 0(t0)
+	bnez	t3, 1b
 
 	/* We have lock. Store new request */
-	la		t4, tohost
-	sd		t6, 0(t4)
+	la	t4, tohost
+	sd	t6, 0(t4)
 
 	/* Release lock */
-	la		t0, htif_lock
-	li		t2, 0
-	amoswap.d	t3, t2, 0(t0)
+	la	t0, htif_lock
+	li	t2, 0
+	amoswap.d t3, t2, 0(t0)
 
-	j		exit_next_instr
+	j	exit_next_instr
 
 htif_cmd_atomic:
-	la		t0, htif_lock
-	li		t2, 1
+	la	t0, htif_lock
+	li	t2, 1
 1:
-	amoswap.d	t3, t2, 0(t0)
-	bnez		t3, 1b
+	amoswap.d t3, t2, 0(t0)
+	bnez	t3, 1b
 
 	/* We have lock. Store new request */
-	la		t4, tohost
-	sd		t6, 0(t4)
-	la		t4, fromhost
-2:
-	ld		t6, 0(t4)
-	beqz		t6, 2b
+	la	t4, tohost
+	sd	t6, 0(t4)
 
-#if 0
+2:
+	/* Poll for result */
+	la	t4, fromhost
+	ld	t6, 0(t4)
+	beqz	t6, 2b
+
+	/* Check for keyboard keypress */
+	/* Console GET intr ? */
+	mv	t2, t6
+	li	t0, 0x100
+	srli	t2, t2, 48
+	bne	t2, t0, 3f
+
 	/* Save entry */
 	la	t0, htif_ring
 	csrr	t2, mhartid
@@ -590,18 +603,28 @@ htif_cmd_atomic:
 	ld	t4, 16(t2)	/* take next */
 	/* Update cursor */
 	sd	t4, 0(t0)
-#endif
 
-	la		t2, fromhost
-	li		t5, 0
-	sd		t5, 0(t2)
+	/* Post supervisor software interrupt */
+	li	t0, MIP_SSIP
+	csrs	mip, t0
+
+	/* Clear and look for main response again */
+	la	t2, fromhost
+	li	t5, 0
+	sd	t5, 0(t2)
+	j	2b
+
+3:
+	la	t2, fromhost
+	li	t5, 0
+	sd	t5, 0(t2)
 
 	/* Release lock */
-	la		t0, htif_lock
-	li		t2, 0
-	amoswap.d	t3, t2, 0(t0)
+	la	t0, htif_lock
+	li	t2, 0
+	amoswap.d t3, t2, 0(t0)
 
-	j		exit_next_instr
+	j	exit_next_instr
 
 htif_cmd:
 1:
