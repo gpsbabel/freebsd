@@ -87,7 +87,7 @@
 			reg = < 0x40000000 0x100 >;
 			interrupts = < 5 >;
 			interrupt-parent = < &pic0 >;
-			clock-frequency = < 100000000 >;
+			clock-frequency = < 1000000 >;
 		};
 
 		htif0: htif@0 {
