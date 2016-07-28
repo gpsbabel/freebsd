@@ -178,7 +178,7 @@ _start:
 	li	a5, (VM_MAX_KERNEL_ADDRESS - L2_SIZE)
 	srli	a5, a5, L1_SHIFT	/* >> L1_SHIFT */
 	andi	a5, a5, 0x1ff		/* & 0x1ff */
-	li	t4, (PTE_VALID | (PTE_TYPE_PTR << PTE_TYPE_S))
+	li	t4, PTE_V
 	slli	t5, s2, PTE_PPN0_S	/* (s2 << PTE_PPN0_S) */
 	or	t6, t4, t5
 
@@ -197,7 +197,7 @@ _start:
 	li	a5, 0xffffffc080000000
 	srli	a5, a5, L1_SHIFT	/* >> L1_SHIFT */
 	andi	a5, a5, 0x1ff		/* & 0x1ff */
-	li	t4, (PTE_VALID | (PTE_TYPE_PTR << PTE_TYPE_S))
+	li	t4, PTE_V
 	slli	t5, s2, PTE_PPN0_S	/* (s2 << PTE_PPN0_S) */
 	or	t6, t4, t5
 
@@ -215,7 +215,7 @@ _start:
 	//li	t4, 0		/* Counter */
 	li	t5, 0
 2:
-	li	t0, (PTE_VALID | (PTE_TYPE_SRWX << PTE_TYPE_S))
+	li	t0, (PTE_V | PTE_RWX)
 	slli	t2, t4, PTE_PPN1_S	/* << PTE_PPN1_S */
 	or	t5, t0, t2
 	sd	t5, (s1)		/* Store PTE entry to position */
