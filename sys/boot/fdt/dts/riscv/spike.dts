@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
+ * Copyright (c) 2015-2016 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
  *
  * Portions of this software were developed by SRI International and the
@@ -37,8 +37,8 @@
 /dts-v1/;
 
 / {
-	model = "UC Berkeley Spike Simulator RV64I";
-	compatible = "riscv,rv64i";
+	model = "UC Berkeley Spike Simulator RV64";
+	compatible = "riscv,rv64";
 	#address-cells = <1>;
 	#size-cells = <1>;
 	#interrupt-cells = <1>;
@@ -49,13 +49,13 @@
 
 		cpu@0 {
 			device_type = "cpu";
-			compatible = "riscv,rv64i";
+			compatible = "riscv,rv64";
 			reg = <0x40001000>;
 		};
 
 		cpu@1 {
 			device_type = "cpu";
-			compatible = "riscv,rv64i";
+			compatible = "riscv,rv64";
 			reg = <0x40002000>;
 		};
 	};
