@@ -101,7 +101,6 @@ htif_handle_entry(struct htif_softc *sc)
 	uint8_t devid;
 
 	entry = machine_command(ECALL_HTIF_GET_ENTRY, 0);
-	//printf("entry %x\n", entry);
 	while (entry) {
 		devid = HTIF_DEV_ID(entry);
 		devcmd = HTIF_DEV_CMD(entry);
@@ -126,8 +125,6 @@ htif_intr(void *arg)
 	struct htif_softc *sc;
 
 	sc = arg;
-
-	//printf("htif intr\n");
 
 	csr_clear(sip, SIP_SSIP);
 
@@ -178,16 +175,7 @@ htif_enumerate(struct htif_softc *sc)
 		cmd |= (HTIF_CMD_IDENTIFY << HTIF_CMD_SHIFT);
 		cmd |= data;
 
-		printf("do poll\n");
-
-		uint64_t ret;
-		ret = htif_command(cmd);
-
-		/* Do poll as interrupts are disabled yet */
-		//while (sc->identify_done == 0) {
-		//	htif_handle_entry(sc);
-		//}
-		printf("do poll done\n");
+		htif_command(cmd);
 
 		len = strnlen(id, sizeof(id));
 		if (len <= 0)
@@ -265,7 +253,6 @@ htif_attach(device_t dev)
 
 	csr_set(sie, SIE_SSIE);
 
-	//return (0);
 	return (htif_enumerate(sc));
 }
 
