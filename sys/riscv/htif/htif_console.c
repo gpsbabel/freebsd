@@ -295,8 +295,6 @@ htif_console_intr(void *arg, uint64_t entry)
 	uint8_t devcmd;
 	uint64_t data;
 
-	//printf(".");
-
 	sc = arg;
 
 	devcmd = HTIF_DEV_CMD(entry);
