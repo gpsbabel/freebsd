@@ -34,7 +34,6 @@ CFLAGS += -fno-omit-frame-pointer -fno-optimize-sibling-calls
 
 # hack because genassym.c includes sys/bus.h which includes these.
 genassym.o: bus_if.h device_if.h
-iicbb.o: ofw_bus_if.h
 
 %BEFORE_DEPEND
 
