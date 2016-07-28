@@ -108,7 +108,7 @@ riscv_putc(int c)
 	cmd |= (CONSOLE_DEFAULT_ID << HTIF_DEV_ID_SHIFT);
 	cmd |= c;
 
-	machine_command(ECALL_HTIF_CMD_ATOMIC, cmd);
+	machine_command(ECALL_HTIF_CMD, cmd);
 }
 
 #ifdef EARLY_PRINTF
@@ -227,12 +227,12 @@ riscv_cngetc(struct consdev *cp)
 	cmd = (HTIF_CMD_READ << HTIF_CMD_SHIFT);
 	cmd |= (CONSOLE_DEFAULT_ID << HTIF_DEV_ID_SHIFT);
 
-	machine_command(ECALL_HTIF_CMD_ATOMIC_NORESP, cmd);
+	machine_command(ECALL_HTIF_CMD_REQ, cmd);
 
 #if defined(KDB)
 	if (kdb_active) {
 
-		entry = machine_command(ECALL_HTIF_CMD_ATOMIC_NOREQ, 0);
+		entry = machine_command(ECALL_HTIF_CMD_RESP, 0);
 		while (entry) {
 			devid = HTIF_DEV_ID(entry);
 			devcmd = HTIF_DEV_CMD(entry);
@@ -247,7 +247,7 @@ riscv_cngetc(struct consdev *cp)
 				    devid);
 			}
 
-			entry = machine_command(ECALL_HTIF_CMD_ATOMIC_NOREQ, 0);
+			entry = machine_command(ECALL_HTIF_CMD_RESP, 0);
 		}
 	}
 #endif

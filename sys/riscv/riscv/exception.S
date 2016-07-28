@@ -409,12 +409,12 @@ machine_timer_interrupt:
 supervisor_call:
 	csrr	t1, mepc
 	addi	t1, t1, 4	/* Next instruction in t1 */
-	li	t4, ECALL_HTIF_CMD_ATOMIC
-	beq	t5, t4, htif_cmd_atomic
-	li	t4, ECALL_HTIF_CMD_ATOMIC_NORESP
-	beq	t5, t4, htif_cmd_atomic_noresp
-	li	t4, ECALL_HTIF_CMD_ATOMIC_NOREQ
-	beq	t5, t4, htif_cmd_atomic_noreq
+	li	t4, ECALL_HTIF_CMD
+	beq	t5, t4, htif_cmd
+	li	t4, ECALL_HTIF_CMD_REQ
+	beq	t5, t4, htif_cmd_req
+	li	t4, ECALL_HTIF_CMD_RESP
+	beq	t5, t4, htif_cmd_resp
 	li	t4, ECALL_HTIF_GET_ENTRY
 	beq	t5, t4, htif_get_entry
 	li	t4, ECALL_MTIMECMP
@@ -503,7 +503,7 @@ htif_get_entry:
 	/* Exit. Result is stored in t6 */
 	j	exit_next_instr
 
-htif_cmd_atomic_noreq:
+htif_cmd_resp:
 	la	t0, htif_lock
 	li	t2, 1
 1:
@@ -527,7 +527,7 @@ htif_cmd_atomic_noreq:
 
 	j	exit_next_instr
 
-htif_cmd_atomic_noresp:
+htif_cmd_req:
 	la	t0, htif_lock
 	li	t2, 1
 1:
@@ -545,7 +545,7 @@ htif_cmd_atomic_noresp:
 
 	j	exit_next_instr
 
-htif_cmd_atomic:
+htif_cmd:
 	la	t0, htif_lock
 	li	t2, 1
 1:

@@ -77,7 +77,7 @@ uint64_t
 htif_command(uint64_t arg)
 {
 
-	return (machine_command(ECALL_HTIF_CMD_ATOMIC, arg));
+	return (machine_command(ECALL_HTIF_CMD, arg));
 }
 
 int
