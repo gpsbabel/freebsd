@@ -114,24 +114,12 @@ _start:
 	la	t0, machine_trap
 	csrw	mtvec, t0
 
-#if 0
-  uintptr_t interrupts = MIP_SSIP | MIP_STIP | MIP_SEIP;
-  uintptr_t exceptions =
-    (1U << CAUSE_MISALIGNED_FETCH) |
-    (1U << CAUSE_FAULT_FETCH) |
-    (1U << CAUSE_BREAKPOINT) |
-    (1U << CAUSE_FAULT_LOAD) |
-    (1U << CAUSE_FAULT_STORE) |
-    (1U << CAUSE_BREAKPOINT) |
-    (1U << CAUSE_USER_ECALL);
-
-  write_csr(mideleg, interrupts);
-  write_csr(medeleg, exceptions);
-#endif
-
+	/* Delegate interrupts to supervisor mode */
 	li	t0, (MIP_SSIP | MIP_STIP | MIP_SEIP)
 	csrw	mideleg, t0
-	li	t0,	(1 << CAUSE_MISALIGNED_FETCH) |	\
+
+	/* Delegate exceptions to supervisor mode */
+	li	t0,	(1 << CAUSE_MISALIGNED_FETCH) |		\
 			(1 << CAUSE_FAULT_FETCH) |		\
 			(1 << CAUSE_BREAKPOINT) |		\
 			(1 << CAUSE_FAULT_LOAD) |		\

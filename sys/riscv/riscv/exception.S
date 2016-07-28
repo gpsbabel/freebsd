@@ -269,10 +269,7 @@ machine_interrupt:
 	csrr	t0, mcause
 	andi	t0, t0, EXCP_MASK
 #if 0
-	li	t1, 0
-	beq	t1, t0, software_interrupt
-	li	t1, 2
-	beq	t1, t0, htif_interrupt
+	/* lowRISC TODO */
 	li	t1, 4
 	beq	t1, t0, io_interrupt	/* lowRISC only */
 #endif
@@ -450,7 +447,7 @@ mimpid_get:
 	j	exit_next_instr
 
 send_ipi:
-	/* CPU mmio base in t6 */
+	/* CPU ipi MMIO register in t6 */
 	mv	t0, t6
 	li	t2, 1
 	sd	t2, 0(t0)
