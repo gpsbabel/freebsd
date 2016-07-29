@@ -49,7 +49,7 @@
 #define	HW_STACK_SIZE		(96)
 
 /*
- * Event queue for each CPU core:
+ * Event queue:
  *
  * struct htif_ring {
  *     uint64_t data;
@@ -62,12 +62,6 @@
 
 .macro build_ring
 	la	t0, htif_ring
-#ifdef SMP
-	csrr	a0, mhartid
-	li	s0, (HTIF_RING_SIZE + 16)
-	mulw	s0, a0, s0
-	add	t0, t0, s0
-#endif
 	li	t1, 0
 	sd	t1, 0(t0)	/* zero data */
 	sd	t1, 8(t0)	/* zero used */
@@ -283,7 +277,7 @@ hardstack_end:
 
 	.globl htif_ring
 htif_ring:
-	.space ((HTIF_RING_SIZE + 16) * MAXCPU)
+	.space (HTIF_RING_SIZE + 16)
 htif_lock:
 	.space (8)
 tohost:
@@ -355,9 +349,6 @@ ENTRY(mpentry)
 	/* Wait the kernel to be ready */
 	lw	t1, 0(t0)
 	beqz	t1, 1b
-
-	/* Build event queue ring for this core */
-	build_ring
 
 	/* Set page tables base register */
 	la	t0, pagetable_l1

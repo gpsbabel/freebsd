@@ -370,10 +370,6 @@ machine_timer_interrupt:
 2:
 	/* Save entry */
 	la	t0, htif_ring
-	csrr	t1, mhartid
-	li	t4, (HTIF_RING_SIZE + 16)
-	mulw	t4, t4, t1
-	add	t0, t0, t4
 	li	t4, (HTIF_RING_SIZE)
 	add	t0, t0, t4	/* t0 == htif_ring_cursor */
 
@@ -456,10 +452,6 @@ send_ipi:
 clear_ipi:
 	/* Do only clear if there are no new entries in HTIF ring */
 	la	t0, htif_ring
-	csrr	t2, mhartid
-	li	t4, (HTIF_RING_SIZE + 16)
-	mulw	t4, t4, t2
-	add	t0, t0, t4
 	li	t4, (HTIF_RING_SIZE)
 	add	t0, t0, t4	/* t0  == ptr to htif_ring_cursor */
 	ld	t2, 8(t0)	/* load htif_ring_last */
@@ -476,10 +468,6 @@ clear_ipi:
 htif_get_entry:
 	/* Get a htif_ring for current core */
 	la	t0, htif_ring
-	csrr	t2, mhartid
-	li	t4, (HTIF_RING_SIZE + 16)
-	mulw	t4, t4, t2
-	add	t0, t0, t4
 	li	t4, (HTIF_RING_SIZE + 8)
 	add	t0, t0, t4	/* t0 == htif_ring_last */
 
@@ -570,10 +558,6 @@ htif_cmd:
 	 * Save entry.
 	 */
 	la	t0, htif_ring
-	csrr	t2, mhartid
-	li	t4, (HTIF_RING_SIZE + 16)
-	mulw	t4, t4, t2
-	add	t0, t0, t4
 	li	t4, (HTIF_RING_SIZE)
 	add	t0, t0, t4	/* t0 == htif_ring_cursor */
 
