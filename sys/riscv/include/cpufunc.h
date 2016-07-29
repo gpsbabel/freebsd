@@ -58,7 +58,7 @@ intr_disable(void)
 		: "=&r" (ret) : "i" (SSTATUS_UIE | SSTATUS_SIE)
 	);
 
-	return (ret & SSTATUS_SIE);
+	return (ret & (SSTATUS_UIE | SSTATUS_SIE));
 }
 
 static __inline void
