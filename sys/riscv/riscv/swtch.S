@@ -46,8 +46,6 @@ __FBSDID("$FreeBSD$");
  * void cpu_throw(struct thread *old, struct thread *new)
  */
 ENTRY(cpu_throw)
-	csrwi	sscratch, 0
-
 	/* Store the new curthread */
 	sd	a1, PC_CURTHREAD(gp)
 	/* And the new pcb */
