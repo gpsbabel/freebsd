@@ -209,8 +209,6 @@ riscv_cpu_intr(struct trapframe *frame)
 	struct intr_event *event;
 	int active_irq;
 
-	//printf(".");
-
 	critical_enter();
 
 	KASSERT(frame->tf_scause & EXCP_INTR,
