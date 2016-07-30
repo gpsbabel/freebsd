@@ -147,11 +147,11 @@ main(int argc, char **argv)
 
     scase = ps.pcase = false;
     squest = 0;
-    sc_end = 0;
-    bp_save = 0;
-    be_save = 0;
+    sc_end = NULL;
+    bp_save = NULL;
+    be_save = NULL;
 
-    output = 0;
+    output = NULL;
     tabs_to_var = 0;
 
     /*--------------------------------------------------*\
@@ -328,7 +328,7 @@ main(int argc, char **argv)
 
 	    case lbrace:	/* this is a brace that starts the compound
 				 * stmt */
-		if (sc_end == 0) {	/* ignore buffering if a comment wasn't
+		if (sc_end == NULL) {	/* ignore buffering if a comment wasn't
 					 * stored up */
 		    ps.search_brace = false;
 		    goto check_type;
@@ -341,9 +341,9 @@ main(int argc, char **argv)
 		}
 	    case comment:	/* we have a comment, so we must copy it into
 				 * the buffer */
-		if (!flushed_nl || sc_end != 0) {
-		    if (sc_end == 0) {	/* if this is the first comment, we
-					 * must set up the buffer */
+		if (!flushed_nl || sc_end != NULL) {
+		    if (sc_end == NULL) { /* if this is the first comment, we
+					   * must set up the buffer */
 			save_com[0] = save_com[1] = ' ';
 			sc_end = &(save_com[2]);
 		    }
@@ -386,7 +386,7 @@ main(int argc, char **argv)
 			&& e_code != s_code && e_code[-1] == '}'))
 		    force_nl = false;
 
-		if (sc_end == 0) {	/* ignore buffering if comment wasn't
+		if (sc_end == NULL) {	/* ignore buffering if comment wasn't
 					 * saved up */
 		    ps.search_brace = false;
 		    goto check_type;
@@ -417,7 +417,7 @@ main(int argc, char **argv)
 					 * save_com */
 		*sc_end++ = ' ';/* add trailing blank, just in case */
 		buf_end = sc_end;
-		sc_end = 0;
+		sc_end = NULL;
 		break;
 	    }			/* end of switch */
 	    if (type_code != 0)	/* we must make this check, just in case there
@@ -701,10 +701,9 @@ check_type:
 	    break;
 
 	case semicolon:	/* got a ';' */
-	    if (ps.dec_nest == 0) {
-		/* we are not in an initialization or structure declaration */
-		ps.in_or_st = false;
-	    }
+	    if (ps.dec_nest == 0)
+		ps.in_or_st = false;/* we are not in an initialization or
+				     * structure declaration */
 	    scase = false;	/* these will only need resetting in an error */
 	    squest = 0;
 	    if (ps.last_token == rparen && rparen_count == 0)
@@ -1101,9 +1100,9 @@ check_type:
 
 		while (e_lab > s_lab && (e_lab[-1] == ' ' || e_lab[-1] == '\t'))
 		    e_lab--;
-		if (e_lab - s_lab == com_end && bp_save == 0) {	/* comment on
-								 * preprocessor line */
-		    if (sc_end == 0)	/* if this is the first comment, we
+		if (e_lab - s_lab == com_end && bp_save == NULL) {
+		    /* comment on preprocessor line */
+		    if (sc_end == NULL)	/* if this is the first comment, we
 					 * must set up the buffer */
 			sc_end = &(save_com[0]);
 		    else {
@@ -1126,7 +1125,7 @@ check_type:
 					 * save_com */
 		    *sc_end++ = ' ';	/* add trailing blank, just in case */
 		    buf_end = sc_end;
-		    sc_end = 0;
+		    sc_end = NULL;
 		}
 		*e_lab = '\0';	/* null terminate line */
 		ps.pcase = false;
@@ -1139,7 +1138,7 @@ check_type:
 		    while ((c = getc(input)) == '\n');
 		    ungetc(c, input);
 		}
-		if ((size_t)ifdef_level < sizeof(state_stack)/sizeof(state_stack[0])) {
+		if ((size_t)ifdef_level < nitems(state_stack)) {
 		    match_state[ifdef_level].tos = -1;
 		    state_stack[ifdef_level++] = ps;
 		}
