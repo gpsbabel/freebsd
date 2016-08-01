@@ -101,8 +101,8 @@ riscv_mask_irq(void *source)
 		csr_clear(sie, SIE_STIE);
 		break;
 	case IRQ_SOFTWARE_USER:
-	case IRQ_SOFTWARE_SUPERVISOR:
 		csr_clear(sie, SIE_USIE);
+	case IRQ_SOFTWARE_SUPERVISOR:
 		csr_clear(sie, SIE_SSIE);
 		break;
 #if 0
@@ -130,8 +130,9 @@ riscv_unmask_irq(void *source)
 		csr_set(sie, SIE_STIE);
 		break;
 	case IRQ_SOFTWARE_USER:
-	case IRQ_SOFTWARE_SUPERVISOR:
 		csr_set(sie, SIE_USIE);
+		break;
+	case IRQ_SOFTWARE_SUPERVISOR:
 		csr_set(sie, SIE_SSIE);
 		break;
 #if 0
@@ -235,12 +236,6 @@ riscv_cpu_intr(struct trapframe *frame)
 		atomic_add_long(riscv_intr_counters[active_irq], 1);
 		PCPU_INC(cnt.v_intr);
 		break;
-#if 0
-	case IRQ_HTIF:
-		/* HTIF interrupts are only handled in machine mode */
-		panic("%s: HTIF interrupt", __func__);
-		break;
-#endif
 	default:
 		event = NULL;
 	}
