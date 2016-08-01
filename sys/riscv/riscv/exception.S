@@ -258,7 +258,7 @@ machine_trap:
 	csrr	t0, mcause
 	bltz	t0, machine_interrupt
 
-	li	t1, EXCP_SMODE_ENV_CALL
+	li	t1, EXCP_SUPERVISOR_ECALL
 	beq	t0, t1, supervisor_call
 4:
 	/* NOT REACHED */

@@ -212,7 +212,7 @@ data_abort(struct trapframe *frame, int lower)
 
 	va = trunc_page(sbadaddr);
 
-	if (frame->tf_scause == EXCP_STORE_ACCESS_FAULT) {
+	if (frame->tf_scause == EXCP_FAULT_STORE) {
 		ftype = (VM_PROT_READ | VM_PROT_WRITE);
 	} else {
 		ftype = (VM_PROT_READ);
@@ -295,12 +295,12 @@ do_trap_supervisor(struct trapframe *frame)
 	    curthread, frame->tf_sepc, frame);
 
 	switch(exception) {
-	case EXCP_LOAD_ACCESS_FAULT:
-	case EXCP_STORE_ACCESS_FAULT:
-	case EXCP_INSTR_ACCESS_FAULT:
+	case EXCP_FAULT_LOAD:
+	case EXCP_FAULT_STORE:
+	case EXCP_FAULT_FETCH:
 		data_abort(frame, 0);
 		break;
-	case EXCP_INSTR_BREAKPOINT:
+	case EXCP_BREAKPOINT:
 #ifdef KDTRACE_HOOKS
 		if (dtrace_invop_jump_addr != 0) {
 			dtrace_invop_jump_addr(frame);
@@ -314,7 +314,7 @@ do_trap_supervisor(struct trapframe *frame)
 		panic("No debugger in kernel.\n");
 #endif
 		break;
-	case EXCP_INSTR_ILLEGAL:
+	case EXCP_ILLEGAL_INSTRUCTION:
 		dump_regs(frame);
 		panic("Illegal instruction at 0x%016lx\n", frame->tf_sepc);
 		break;
@@ -355,20 +355,20 @@ do_trap_user(struct trapframe *frame)
 	    curthread, frame->tf_sepc, frame);
 
 	switch(exception) {
-	case EXCP_LOAD_ACCESS_FAULT:
-	case EXCP_STORE_ACCESS_FAULT:
-	case EXCP_INSTR_ACCESS_FAULT:
+	case EXCP_FAULT_LOAD:
+	case EXCP_FAULT_STORE:
+	case EXCP_FAULT_FETCH:
 		data_abort(frame, 1);
 		break;
-	case EXCP_UMODE_ENV_CALL:
+	case EXCP_USER_ECALL:
 		frame->tf_sepc += 4;	/* Next instruction */
 		svc_handler(frame);
 		break;
-	case EXCP_INSTR_ILLEGAL:
+	case EXCP_ILLEGAL_INSTRUCTION:
 		call_trapsignal(td, SIGILL, ILL_ILLTRP, (void *)frame->tf_sepc);
 		userret(td, frame);
 		break;
-	case EXCP_INSTR_BREAKPOINT:
+	case EXCP_BREAKPOINT:
 		call_trapsignal(td, SIGTRAP, TRAP_BRKPT, (void *)frame->tf_sepc);
 		userret(td, frame);
 		break;

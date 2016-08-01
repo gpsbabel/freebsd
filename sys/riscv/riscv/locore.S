@@ -113,13 +113,13 @@ _start:
 	csrw	mideleg, t0
 
 	/* Delegate exceptions to supervisor mode */
-	li	t0,	CAUSE_MISALIGNED_FETCH	| \
-			CAUSE_FAULT_FETCH	| \
-			CAUSE_BREAKPOINT	| \
-			CAUSE_FAULT_LOAD	| \
-			CAUSE_FAULT_STORE	| \
-			CAUSE_BREAKPOINT	| \
-			CAUSE_USER_ECALL
+	li	t0,	(1 << EXCP_MISALIGNED_FETCH)	| \
+			(1 << EXCP_FAULT_FETCH)		| \
+			(1 << EXCP_ILLEGAL_INSTRUCTION)	| \
+			(1 << EXCP_FAULT_LOAD)		| \
+			(1 << EXCP_FAULT_STORE)		| \
+			(1 << EXCP_BREAKPOINT)		| \
+			(1 << EXCP_USER_ECALL)
 	csrw	medeleg, t0
 
 	la	t0, cpu_exception_handler
