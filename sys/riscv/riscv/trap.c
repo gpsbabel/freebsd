@@ -274,13 +274,11 @@ do_trap_supervisor(struct trapframe *frame)
 
 	/* Ensure we came from supervisor mode, interrupts disabled */
 	__asm __volatile("csrr %0, sstatus" : "=&r" (sstatus));
-	if ((sstatus & (SSTATUS_SPP | SSTATUS_UIE | SSTATUS_SIE)) != SSTATUS_SPP)
-		panic("do_trap_supervisor: unexpected sstatus 0x%016lx\n",
-			sstatus);
+	KASSERT((sstatus & (SSTATUS_SPP | SSTATUS_UIE | SSTATUS_SIE)) == SSTATUS_SPP,
+			("We must came from S mode with interrupts disabled"));
 
 	exception = (frame->tf_scause & EXCP_MASK);
 	if (frame->tf_scause & EXCP_INTR) {
-		//printf("tf_scause intr 0x%016lx EXCP_INTR 0x%016lx\n", frame->tf_scause, EXCP_INTR);
 		/* Interrupt */
 		riscv_cpu_intr(frame);
 		return;
@@ -337,15 +335,11 @@ do_trap_user(struct trapframe *frame)
 
 	/* Ensure we came from usermode, interrupts disabled */
 	__asm __volatile("csrr %0, sstatus" : "=&r" (sstatus));
-	if (sstatus & (SSTATUS_SPP | SSTATUS_UIE | SSTATUS_SIE))
-		panic("do_trap_user: unexpected sstatus 0x%016lx\n",
-			sstatus);
+	KASSERT((sstatus & (SSTATUS_SPP | SSTATUS_UIE | SSTATUS_SIE)) == 0,
+			("We must came from U mode with interrupts disabled"));
 
 	exception = (frame->tf_scause & EXCP_MASK);
 	if (frame->tf_scause & EXCP_INTR) {
-
-		//printf("ui %d\n", exception);
-
 		/* Interrupt */
 		riscv_cpu_intr(frame);
 		return;
