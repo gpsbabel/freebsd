@@ -779,7 +779,6 @@ initriscv(struct riscv_bootparams *rvbp)
 	/* Bootstrap enough of pmap to enter the kernel proper */
 	kernlen = (lastaddr - KERNBASE);
 	pmap_bootstrap(rvbp->kern_l1pt, KERNENTRY, kernlen);
-	//pmap_bootstrap(rvbp->kern_l1pt, 0x80000000, kernlen);
 
 	cninit();
 
