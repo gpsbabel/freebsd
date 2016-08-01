@@ -86,7 +86,8 @@ cpu_fork(struct thread *td1, struct proc *p2, struct thread *td2, int flags)
 	/* Arguments for child */
 	tf->tf_a[0] = 0;
 	tf->tf_a[1] = 0;
-	tf->tf_sstatus = SSTATUS_UPIE | SSTATUS_SPIE;
+	tf->tf_sstatus = (SSTATUS_SPIE);
+	tf->tf_sstatus |= (MSTATUS_PRV_U << MSTATUS_SPP_SHIFT);
 
 	td2->td_frame = tf;
 

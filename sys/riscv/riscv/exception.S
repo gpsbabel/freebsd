@@ -117,7 +117,8 @@ __FBSDID("$FreeBSD$");
 	ld	t0, (TF_SSTATUS)(sp)
 .if \el == 0
 	/* Ensure user interrupts will be enabled on eret. */
-	ori	t0, t0, (SSTATUS_SPIE | SSTATUS_UPIE)
+	li	t1, SSTATUS_SPIE
+	or	t0, t0, t1
 .else
 	/*
 	 * Disable interrupts for supervisor mode exceptions.
@@ -182,7 +183,7 @@ __FBSDID("$FreeBSD$");
 	/* Disable interrupts */
 	csrr	a4, sstatus
 1:
-	csrci	sstatus, (SSTATUS_SIE | SSTATUS_UIE)
+	csrci	sstatus, (SSTATUS_SIE)
 
 	ld	a1, PC_CURTHREAD(gp)
 	lw	a2, TD_FLAGS(a1)
@@ -192,7 +193,7 @@ __FBSDID("$FreeBSD$");
 	beqz	a2, 2f
 
 	/* Restore interrupts */
-	andi	a4, a4, (SSTATUS_SIE | SSTATUS_UIE)
+	andi	a4, a4, (SSTATUS_SIE)
 	csrs	sstatus, a4
 
 	/* Handle the ast */

@@ -440,13 +440,11 @@ sys_sigreturn(struct thread *td, struct sigreturn_args *uap)
 	/*
 	 * Make sure the processor mode has not been tampered with and
 	 * interrupts have not been disabled.
+	 * Supervisor interrupts in user mode are always enabled.
 	 */
 	sstatus = uc.uc_mcontext.mc_gpregs.gp_sstatus;
-#if 0
-	if ((sstatus & SSTATUS_PS) != 0 ||
-	    (sstatus & SSTATUS_PIE) == 0)
+	if ((sstatus & SSTATUS_SPP) != 0)
 		return (EINVAL);
-#endif
 
 	error = set_mcontext(td, &uc.uc_mcontext);
 	if (error != 0)
@@ -798,5 +796,4 @@ initriscv(struct riscv_bootparams *rvbp)
 	riscv_init_interrupts();
 
 	early_boot = 0;
-	printf("init riscv done\n");
 }

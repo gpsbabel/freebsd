@@ -196,7 +196,6 @@ data_abort(struct trapframe *frame, int lower)
 	}
 
 	sbadaddr = frame->tf_sbadaddr;
-	//printf("data_abort sbadaddr 0x%016lx\n", sbadaddr);
 
 	p = td->td_proc;
 

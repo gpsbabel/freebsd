@@ -55,10 +55,10 @@ intr_disable(void)
 
 	__asm __volatile(
 		"csrrci %0, sstatus, %1"
-		: "=&r" (ret) : "i" (SSTATUS_UIE | SSTATUS_SIE)
+		: "=&r" (ret) : "i" (SSTATUS_SIE)
 	);
 
-	return (ret & (SSTATUS_UIE | SSTATUS_SIE));
+	return (ret & (SSTATUS_SIE));
 }
 
 static __inline void
@@ -77,7 +77,7 @@ intr_enable(void)
 
 	__asm __volatile(
 		"csrsi sstatus, %0"
-		:: "i" (SSTATUS_UIE | SSTATUS_SIE)
+		:: "i" (SSTATUS_SIE)
 	);
 }
 
