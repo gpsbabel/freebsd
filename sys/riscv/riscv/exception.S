@@ -286,12 +286,15 @@ machine_interrupt:
 1:
 	j	1b
 
+#if 0
+	/* lowRISC TODO */
 io_interrupt:
 	/* Disable IO interrupts so we can go to supervisor mode */
 	csrwi	CSR_IO_IRQ, 0
 
 	/* Handle the trap in supervisor mode */
 	j	exit_mrts
+#endif
 
 supervisor_software_interrupt:
 1:
@@ -422,13 +425,19 @@ supervisor_call:
 	beq	t5, t4, clear_ipi
 	li	t4, ECALL_MIE_SET
 	beq	t5, t4, mie_set
+#if 0
+	/* lowRISC TODO */
 	li	t4, ECALL_IO_IRQ_MASK
 	beq	t5, t4, io_irq_mask
+#endif
 	j	exit_next_instr
 
+#if 0
+	/* lowRISC TODO */
 io_irq_mask:
 	csrw	CSR_IO_IRQ, t6
 	j	exit_next_instr
+#endif
 
 mie_set:
 	csrs	mie, t6
