@@ -511,36 +511,26 @@ pmap_bootstrap_l3(vm_offset_t l1pt, vm_offset_t va, vm_offset_t l3_start)
 
 	KASSERT((va & L2_OFFSET) == 0, ("Invalid virtual address"));
 
-	printf("%s: l1pt 0x%016lx\n", __func__, l1pt);
-
 	l2 = pmap_l2(kernel_pmap, va);
 	l2 = (pd_entry_t *)((uintptr_t)l2 & ~(PAGE_SIZE - 1));
 	l2pt = (vm_offset_t)l2;
 	l2_slot = pmap_l2_index(va);
 	l3pt = l3_start;
 
-	printf("%s 1\n", __func__);
-
 	for (; va < VM_MAX_KERNEL_ADDRESS; l2_slot++, va += L2_SIZE) {
 		KASSERT(l2_slot < Ln_ENTRIES, ("Invalid L2 index"));
-		printf("%s 2\n", __func__);
 
 		pa = pmap_early_vtophys(l1pt, l3pt);
-		printf("%s 22\n", __func__);
 		pn = (pa / PAGE_SIZE);
 		entry = (PTE_V);
 		entry |= (pn << PTE_PPN0_S);
-		printf("%s 23: pmap_load_store &l2[l2_slot] 0x%016lx\n", __func__, &l2[l2_slot]);
 		pmap_load_store(&l2[l2_slot], entry);
-		printf("%s 24\n", __func__);
 		l3pt += PAGE_SIZE;
 	}
 
-	printf("%s 3\n", __func__);
 
 	/* Clean the L2 page table */
 	memset((void *)l3_start, 0, l3pt - l3_start);
-	printf("%s 4\n", __func__);
 	cpu_dcache_wb_range(l3_start, l3pt - l3_start);
 
 	cpu_dcache_wb_range((vm_offset_t)l2, PAGE_SIZE);
@@ -561,8 +551,6 @@ pmap_bootstrap(vm_offset_t l1pt, vm_paddr_t kernstart, vm_size_t kernlen)
 	vm_offset_t dpcpu, msgbufpv;
 	vm_paddr_t pa, min_pa;
 	int i;
-
-	kernstart = 0x80000000;
 
 	kern_delta = KERNBASE - kernstart;
 	physmem = 0;
