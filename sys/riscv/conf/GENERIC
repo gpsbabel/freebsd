@@ -78,7 +78,6 @@ options 	SMP
 # options 	MD_ROOT
 # options 	MD_ROOT_SIZE=8192	# 8MB ram disk
 # makeoptions	MFS_IMAGE=/path/to/img
-# makeoptions	MFS__IMAGE=/home/rb743/dev/freebsd-riscv/riscv.img
 # options 	ROOTDEVNAME=\"ufs:/dev/md0\"
 
 # Debugging support.  Always need this:
