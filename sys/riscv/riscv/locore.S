@@ -213,7 +213,6 @@ _start:
 	/* Page tables END */
 
 	/* Enter supervisor mode */
-	// (MSTATUS_MIE)
 	li	s0, ((MSTATUS_VM_SV39 << MSTATUS_VM_SHIFT) | \
 		     (MSTATUS_PRV_S << MSTATUS_MPP_SHIFT));
 	csrw	mstatus, s0
@@ -224,7 +223,8 @@ _start:
 	 */
 	li	t0, MIE_MSIE
 	csrs	mie, t0
-	/* for getc */
+
+	/* Enable supervisor software interrupts */
 	li	t0, MIE_SSIE
 	csrs	mie, t0
 
@@ -242,8 +242,6 @@ _start:
 	la	s3, initstack_end
 	mv	sp, s3
 	addi	sp, sp, -PCB_SIZE
-
-	//csrr	t0, stime
 
 	/* Clear BSS  */
 	la	a0, _C_LABEL(__bss_start)
@@ -373,7 +371,8 @@ ENTRY(mpentry)
 	 */
 	li	t0, MIE_MSIE
 	csrs	mie, t0
-	/* for getc */
+
+	/* Enable supervisor software interrupts */
 	li	t0, MIE_SSIE
 	csrs	mie, t0
 

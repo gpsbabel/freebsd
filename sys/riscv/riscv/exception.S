@@ -602,10 +602,6 @@ htif_cmd:
 	j	exit_next_instr
 
 set_mtimecmp:
-	/* Clear machine pending */
-	//li	t0, MIP_MTIP
-	//csrc	mip, t0
-
 	/* Enable interrupts */
 	li	t0, (MIE_MTIE | MIE_STIE)
 	csrs	mie, t0
