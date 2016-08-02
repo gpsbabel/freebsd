@@ -273,7 +273,7 @@ do_trap_supervisor(struct trapframe *frame)
 
 	/* Ensure we came from supervisor mode, interrupts disabled */
 	__asm __volatile("csrr %0, sstatus" : "=&r" (sstatus));
-	KASSERT((sstatus & (SSTATUS_SPP | SSTATUS_UIE | SSTATUS_SIE)) == SSTATUS_SPP,
+	KASSERT((sstatus & (SSTATUS_SPP | SSTATUS_SIE)) == SSTATUS_SPP,
 			("We must came from S mode with interrupts disabled"));
 
 	exception = (frame->tf_scause & EXCP_MASK);
@@ -334,7 +334,7 @@ do_trap_user(struct trapframe *frame)
 
 	/* Ensure we came from usermode, interrupts disabled */
 	__asm __volatile("csrr %0, sstatus" : "=&r" (sstatus));
-	KASSERT((sstatus & (SSTATUS_SPP | SSTATUS_UIE | SSTATUS_SIE)) == 0,
+	KASSERT((sstatus & (SSTATUS_SPP | SSTATUS_SIE)) == 0,
 			("We must came from U mode with interrupts disabled"));
 
 	exception = (frame->tf_scause & EXCP_MASK);
