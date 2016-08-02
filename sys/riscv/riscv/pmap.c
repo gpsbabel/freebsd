@@ -475,8 +475,11 @@ pmap_bootstrap_dmap(vm_offset_t l1pt, vm_paddr_t kernstart)
 	pt_entry_t entry;
 	pn_t pn;
 
+	/*
+	 * Initialize DMAP starting from zero physical address.
+	 * TODO: remove this once machine-mode code splitted out.
+	 */
 	kernstart = 0;
-
 	printf("%s: l1pt 0x%016lx kernstart 0x%016lx\n", __func__, l1pt, kernstart);
 
 	pa = kernstart & ~L1_OFFSET;
