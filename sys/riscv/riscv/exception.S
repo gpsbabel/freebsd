@@ -360,7 +360,7 @@ machine_timer_interrupt:
 	srli	t1, t1, 48
 	beq	t1, t0, 2f
 1:
-	/* We expect GET intr only here */
+	/* There is no interrupts except keypress */
 	j	1b
 
 2:
