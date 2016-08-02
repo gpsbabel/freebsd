@@ -224,12 +224,6 @@ _start:
 	li	t0, MIE_MSIE
 	csrs	mie, t0
 
-	/* Enable supervisor software interrupts */
-	li	t0, MIE_SSIE
-	csrs	mie, t0
-
-	csrwi	mscounteren, -1
-
 	/* Exit from machine mode */
 	la	t0, .Lmmu_on
 	li	s11, KERNBASE
@@ -371,12 +365,6 @@ ENTRY(mpentry)
 	 */
 	li	t0, MIE_MSIE
 	csrs	mie, t0
-
-	/* Enable supervisor software interrupts */
-	li	t0, MIE_SSIE
-	csrs	mie, t0
-
-	csrwi	mscounteren, -1
 
 	/*
 	 * Exit from machine mode and go to
