@@ -104,9 +104,6 @@ identify_cpu(void)
 	mimpid = machine_command(ECALL_MIMPID_GET, 0);
 	misa = machine_command(ECALL_MCPUID_GET, 0);
 
-	printf("mimpid 0x%016lx, misa 0x%016lx\n", mimpid, misa);
-
-	/* SMPTODO: use mhartid ? */
 	cpu = PCPU_GET(cpuid);
 
 	impl_id	= CPU_IMPL(mimpid);

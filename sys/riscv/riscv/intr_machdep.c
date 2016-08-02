@@ -94,8 +94,6 @@ riscv_mask_irq(void *source)
 
 	irq = (uintptr_t)source;
 
-	printf("mask irq %d\n", irq);
-
 	switch (irq) {
 	case IRQ_TIMER_SUPERVISOR:
 		csr_clear(sie, SIE_STIE);
@@ -122,8 +120,6 @@ riscv_unmask_irq(void *source)
 	uintptr_t irq;
 
 	irq = (uintptr_t)source;
-
-	printf("unmask irq %d\n", irq);
 
 	switch (irq) {
 	case IRQ_TIMER_SUPERVISOR:

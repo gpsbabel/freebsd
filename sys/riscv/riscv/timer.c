@@ -67,12 +67,9 @@ __FBSDID("$FreeBSD$");
 
 #define	DEFAULT_FREQ	1000000
 
-#if 0
-#define	READ4(_sc, _reg)        \
-	bus_space_read_4(_sc->bst, _sc->bsh, _reg)
-#define	WRITE4(_sc, _reg, _val) \
-	bus_space_write_4(_sc->bst, _sc->bsh, _reg, _val)
-#endif
+#define	TIMER_COUNTS		0x00
+#define	TIMER_MTIMECMP(cpu)	(0x08 + (cpu * 8))
+
 #define	READ8(_sc, _reg)        \
 	bus_space_read_8(_sc->bst, _sc->bsh, _reg)
 #define	WRITE8(_sc, _reg, _val) \
@@ -110,13 +107,7 @@ static long
 get_counts(struct riscv_tmr_softc *sc)
 {
 
-	return (READ8(sc, 0));
-
-	//printf("bst 0x%016lx bsh 0x%016lx\n", sc->bst, sc->bsh);
-	//return (0);
-	//while (1)
-	//	printf("%d\n", READ4(sc, 0));
-	//return (csr_read(stime));
+	return (READ8(sc, TIMER_COUNTS));
 }
 
 static unsigned
@@ -134,36 +125,18 @@ riscv_tmr_start(struct eventtimer *et, sbintime_t first, sbintime_t period)
 {
 	struct riscv_tmr_softc *sc;
 	uint64_t counts;
+	int cpu;
 
 	sc = (struct riscv_tmr_softc *)et->et_priv;
 
 	if (first != 0) {
 		counts = ((uint32_t)et->et_frequency * first) >> 32;
-		//printf("conf timer %d\n", counts);
-		counts += READ8(sc, 0);
-		//if (counts >= 0x0fffffff)
-		//	printf("counts %d\n", counts);
-
-		int cpu;
+		counts += READ8(sc, TIMER_COUNTS);
 		cpu = PCPU_GET(cpuid);
-
-		//printf("cpu %d\n", cpu);
-
-		WRITE8(sc, (0x08 + (cpu * 8)), counts);
-
-#if 0
-		if (cpu == 0)
-			WRITE8(sc, 0x08, counts);
-		if (cpu == 1) {
-			WRITE8(sc, 0x10, counts);
-		}
-		if (cpu > 1)
-			panic("cpu id > 1");
-#endif
-
-		//printf("conf timer %d done\n", counts);
+		WRITE8(sc, TIMER_MTIMECMP(cpu), counts);
 		csr_set(sie, SIE_STIE);
 		machine_command(ECALL_MTIMECMP, counts);
+
 		return (0);
 	}
 
@@ -190,16 +163,6 @@ riscv_tmr_intr(void *arg)
 
 	sc = (struct riscv_tmr_softc *)arg;
 
-	//printf("tmr_intr\n");
-	//printf(".");
-
-	/*
-	 * Clear interrupt pending bit.
-	 * Note: SIP_STIP bit is not implemented in sip register
-	 * in Spike simulator, so use machine command to clear
-	 * interrupt pending bit in mip.
-	 */
-	//machine_command(ECALL_CLEAR_PENDING, 0);
 	csr_clear(sip, SIP_STIP);
 
 	if (sc->et.et_active)
@@ -316,7 +279,6 @@ DELAY(int usec)
 	int64_t counts, counts_per_usec;
 	uint64_t first, last;
 
-	//printf("%d\n", usec);
 	/*
 	 * Check the timers are setup, if not just
 	 * use a for loop for the meantime
