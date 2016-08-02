@@ -360,16 +360,8 @@ machine_timer_interrupt:
 	srli	t1, t1, 48
 	beq	t1, t0, 2f
 1:
+	/* We expect GET intr only here */
 	j	1b
-
-	/* Yes, so save entry */
-#if 0
-	la	t0, console_intr
-	li	t1, 1
-	sd	t1, 0(t0)
-
-	j	3f
-#endif
 
 2:
 	/* Save entry */
