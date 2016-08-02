@@ -191,10 +191,10 @@ _start:
 
 	/* Level 2 superpages (512 x 2MiB) */
 	la	s1, pagetable_l2
-	li	t3, 1536		/* Build 512 entries */
-	li	t4, 1024		/* Counter */
-	//li	t3, 512		/* Build 512 entries */
-	//li	t4, 0		/* Counter */
+	li	t4, 0x80000000
+	srli	t4, t4, 21		/* Div by 2 MiB */
+	li	t2, 512			/* Build 512 entries */
+	add	t3, t4, t2
 	li	t5, 0
 2:
 	li	t0, (PTE_V | PTE_RWX)
