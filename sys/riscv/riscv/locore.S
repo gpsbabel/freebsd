@@ -175,8 +175,7 @@ _start:
 	la	s2, pagetable_l2	/* Link to next level PN */
 	srli	s2, s2, PAGE_SHIFT
 
-	li	a5, KERNBASE
-	li	a5, 0xffffffc080000000
+	li	a5, (KERNBASE + KERNENTRY)
 	srli	a5, a5, L1_SHIFT	/* >> L1_SHIFT */
 	andi	a5, a5, 0x1ff		/* & 0x1ff */
 	li	t4, PTE_V
@@ -191,7 +190,7 @@ _start:
 
 	/* Level 2 superpages (512 x 2MiB) */
 	la	s1, pagetable_l2
-	li	t4, 0x80000000
+	li	t4, KERNENTRY
 	srli	t4, t4, 21		/* Div by 2 MiB */
 	li	t2, 512			/* Build 512 entries */
 	add	t3, t4, t2
@@ -235,8 +234,6 @@ _start:
 	la	t0, .Lmmu_on
 	li	s11, KERNBASE
 	add	t0, t0, s11
-	//li	s11, 0x80000000
-	//sub	t0, t0, s11
 	csrw	mepc, t0
 	mret
 
