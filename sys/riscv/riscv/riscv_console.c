@@ -397,11 +397,11 @@ struct htif_console_softc {
 void
 htif_console_intr(void *arg, uint64_t entry)
 {
-	int ch;
+	int c;
 
-	ch = sbi_console_getchar();
-	if (ch > 0 && ch < 0xff) {
-		entry_last->data = ch;
+	c = sbi_console_getchar();
+	if (c > 0 && c < 0xff) {
+		entry_last->data = c;
 		entry_last->used = 1;
 		entry_last = entry_last->next;
 	}
