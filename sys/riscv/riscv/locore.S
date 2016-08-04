@@ -43,6 +43,9 @@
 #include <machine/riscvreg.h>
 #include <machine/pte.h>
 
+//#define	PHYSMEM_START	0x80800000
+#define	PHYSMEM_START	0x81000000
+
 #define	HTIF_RING_NENTRIES	(512)
 #define	HTIF_RING_ENTRY_SZ	(24)
 #define	HTIF_RING_SIZE		(HTIF_RING_ENTRY_SZ * HTIF_RING_NENTRIES)
@@ -94,48 +97,23 @@
 	/* Trap entries */
 	.text
 
-mentry:
-	/* Vectors */
-	j	_start		/* reset */
-	j	bad_trap	/* NMI (non-maskable interrupt) */
-	j	machine_trap
-
 	/* Reset vector */
 	.text
 	.globl _start
 _start:
-	/* Setup machine trap vector */
-	la	t0, machine_trap
-	csrw	mtvec, t0
-
-	/* Delegate interrupts to supervisor mode */
-	li	t0, (MIP_SSIP | MIP_STIP | MIP_SEIP)
-	csrw	mideleg, t0
-
-	/* Delegate exceptions to supervisor mode */
-	li	t0,	(1 << EXCP_MISALIGNED_FETCH)	| \
-			(1 << EXCP_FAULT_FETCH)		| \
-			(1 << EXCP_ILLEGAL_INSTRUCTION)	| \
-			(1 << EXCP_FAULT_LOAD)		| \
-			(1 << EXCP_FAULT_STORE)		| \
-			(1 << EXCP_BREAKPOINT)		| \
-			(1 << EXCP_USER_ECALL)
-	csrw	medeleg, t0
-
+	/* Setup supervisor trap vector */
 	la	t0, cpu_exception_handler
-	li	t1, KERNBASE
-	add	t0, t0, t1
+	//li	t1, KERNBASE
+	//li	t1, 0xffffffc000000000
+	//li	t1, PHYSMEM_START
+	//add	t0, t0, t1
 	csrw	stvec, t0
 
+	call	sbi_hart_id
+#if 0
 	/* Direct secondary cores to mpentry */
 	csrr	a0, mhartid
 	bnez	a0, mpentry
-
-	li	t1, 0
-	la	t0, tohost
-	sd	t1, 0(t0)
-	la	t0, fromhost
-	sd	t1, 0(t0)
 
 	/* Build event queue for current core */
 	build_ring
@@ -143,6 +121,7 @@ _start:
 	/* Setup machine-mode stack for CPU 0 */
 	la	t0, hardstack_end
 	csrw	mscratch, t0
+#endif
 
 	li	t0, 0
 	csrw	sscratch, t0
@@ -155,6 +134,10 @@ _start:
 	/* Create an L1 page for early devmap */
 	la	s1, pagetable_l1
 	la	s2, pagetable_l2_devmap	/* Link to next level PN */
+	li	t0, 0xffffffc000000000
+	sub	s2, s2, t0
+	li	t0, PHYSMEM_START
+	add	s2, s2, t0
 	srli	s2, s2, PAGE_SHIFT
 
 	li	a5, (VM_MAX_KERNEL_ADDRESS - L2_SIZE)
@@ -170,9 +153,84 @@ _start:
 	add	t0, s1, a5
 	sd	t6, (t0)
 
+	/* Create an L1 page for SBI */
+	la	s1, pagetable_l1
+	la	s2, pagetable_l2_sbi	/* Link to next level PN */
+	li	t0, 0xffffffc000000000
+	sub	s2, s2, t0
+	li	t0, PHYSMEM_START
+	add	s2, s2, t0
+	srli	s2, s2, PAGE_SHIFT
+
+	//li	a5, (0xffffffffffffffff)
+	//srli	a5, a5, L1_SHIFT	/* >> L1_SHIFT */
+	//andi	a5, a5, 0x1ff		/* & 0x1ff */
+	li	a5, 511
+	li	t4, PTE_V
+	slli	t5, s2, PTE_PPN0_S	/* (s2 << PTE_PPN0_S) */
+	or	t6, t4, t5
+
+	/* Store single level1 PTE entry to position */
+	li	a6, PTE_SIZE
+	mulw	a5, a5, a6
+	add	t0, s1, a5
+	sd	t6, (t0)
+	/* END SBI page creation */
+
+	/* Create an L2 page for SBI */
+	la	s1, pagetable_l2_sbi
+	la	s2, pagetable_l3_sbi	/* Link to next level PN */
+	li	t0, 0xffffffc000000000
+	sub	s2, s2, t0
+	li	t0, PHYSMEM_START
+	add	s2, s2, t0
+	srli	s2, s2, PAGE_SHIFT
+
+	//li	a5, (0xffffffffffffffff)
+	//srli	a5, a5, L1_SHIFT	/* >> L1_SHIFT */
+	//andi	a5, a5, 0x1ff		/* & 0x1ff */
+	li	a5, 511
+	li	t4, PTE_V
+	slli	t5, s2, PTE_PPN0_S	/* (s2 << PTE_PPN0_S) */
+	or	t6, t4, t5
+
+	/* Store single level1 PTE entry to position */
+	li	a6, PTE_SIZE
+	mulw	a5, a5, a6
+	add	t0, s1, a5
+	sd	t6, (t0)
+	/* END SBI page creation */
+
+	/* Create an L3 page for SBI */
+	la	s1, pagetable_l3_sbi
+	li	s2, 0x80009000
+	srli	s2, s2, PAGE_SHIFT
+
+	//li	a5, (0xffffffffffffffff)
+	//srli	a5, a5, L1_SHIFT	/* >> L1_SHIFT */
+	//andi	a5, a5, 0x1ff		/* & 0x1ff */
+	li	a5, 511
+	li	t4, PTE_V | PTE_RX | PTE_W
+	slli	t5, s2, PTE_PPN0_S	/* (s2 << PTE_PPN0_S) */
+	or	t6, t4, t5
+
+	/* Store single level1 PTE entry to position */
+	li	a6, PTE_SIZE
+	mulw	a5, a5, a6
+	add	t0, s1, a5
+	sd	t6, (t0)
+	/* END SBI page creation */
+
+
+
+
 	/* Add single Level 1 entry for kernel */
 	la	s1, pagetable_l1
 	la	s2, pagetable_l2	/* Link to next level PN */
+	li	t0, 0xffffffc000000000
+	sub	s2, s2, t0
+	li	t0, PHYSMEM_START
+	add	s2, s2, t0
 	srli	s2, s2, PAGE_SHIFT
 
 	li	a5, (KERNBASE + KERNENTRY)
@@ -190,7 +248,7 @@ _start:
 
 	/* Level 2 superpages (512 x 2MiB) */
 	la	s1, pagetable_l2
-	li	t4, KERNENTRY
+	li	t4, PHYSMEM_START
 	srli	t4, t4, 21		/* Div by 2 MiB */
 	li	t2, 512			/* Build 512 entries */
 	add	t3, t4, t2
@@ -206,10 +264,15 @@ _start:
 	bltu	t4, t3, 2b
 
 	/* Set page tables base register */
-	la	s1, pagetable_l1
-	srli	s1, s1, PAGE_SHIFT
-	csrw	sptbr, s1
+	la	s2, pagetable_l1
+	li	t0, 0xffffffc000000000
+	sub	s2, s2, t0
+	li	t0, PHYSMEM_START
+	add	s2, s2, t0
+	srli	s2, s2, PAGE_SHIFT
+	csrw	sptbr, s2
 
+#if 0
 	/* Page tables END */
 
 	/* Enter supervisor mode */
@@ -232,6 +295,7 @@ _start:
 	mret
 
 .Lmmu_on:
+#endif
 	/* Initialize stack pointer */
 	la	s3, initstack_end
 	mv	sp, s3
@@ -247,8 +311,10 @@ _start:
 
 	/* Fill riscv_bootparams */
 	addi	sp, sp, -16
+
 	la	t0, pagetable_l1
 	sd	t0, 0(sp) /* kern_l1pt */
+
 	la	t0, initstack_end
 	sd	t0, 8(sp) /* kern_stack */
 
@@ -304,6 +370,10 @@ pagetable_l1:
 pagetable_l2:
 	.space	PAGE_SIZE
 pagetable_l2_devmap:
+	.space	PAGE_SIZE
+pagetable_l2_sbi:
+	.space	PAGE_SIZE
+pagetable_l3_sbi:
 	.space	PAGE_SIZE
 
 	.globl init_pt_va
@@ -388,5 +458,3 @@ mp_virtdone:
 	call	init_secondary
 END(mpentry)
 #endif
-
-#include "exception.S"

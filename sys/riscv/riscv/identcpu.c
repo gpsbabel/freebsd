@@ -101,8 +101,8 @@ identify_cpu(void)
 
 	cpu_partsp = NULL;
 
-	mimpid = machine_command(ECALL_MIMPID_GET, 0);
-	misa = machine_command(ECALL_MCPUID_GET, 0);
+	mimpid = 0;//machine_command(ECALL_MIMPID_GET, 0);
+	misa = 0;//machine_command(ECALL_MCPUID_GET, 0);
 
 	cpu = PCPU_GET(cpuid);
 

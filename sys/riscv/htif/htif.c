@@ -58,6 +58,7 @@ __FBSDID("$FreeBSD$");
 #include <machine/asm.h>
 #include <machine/trap.h>
 #include <machine/vmparam.h>
+#include <machine/sbi.h>
 
 #include "htif.h"
 
@@ -77,7 +78,7 @@ uint64_t
 htif_command(uint64_t arg)
 {
 
-	return (machine_command(ECALL_HTIF_CMD, arg));
+	return (0);
 }
 
 int
@@ -100,7 +101,7 @@ htif_handle_entry(struct htif_softc *sc)
 	uint8_t devcmd;
 	uint8_t devid;
 
-	entry = machine_command(ECALL_HTIF_GET_ENTRY, 0);
+	entry = 0; //machine_command(ECALL_HTIF_GET_ENTRY, 0);
 	while (entry) {
 		devid = HTIF_DEV_ID(entry);
 		devcmd = HTIF_DEV_CMD(entry);
@@ -115,7 +116,7 @@ htif_handle_entry(struct htif_softc *sc)
 				intrs[devid].func(intrs[devid].arg, entry);
 		}
 
-		entry = machine_command(ECALL_HTIF_GET_ENTRY, 0);
+		entry = 0; //machine_command(ECALL_HTIF_GET_ENTRY, 0);
 	}
 }
 
@@ -126,9 +127,13 @@ htif_intr(void *arg)
 
 	sc = arg;
 
+	//printf("!");
+	htif_console_intr(NULL, 0);
 	csr_clear(sip, SIP_SSIP);
 
-	htif_handle_entry(sc);
+	if (0 == 1) {
+		htif_handle_entry(sc);
+	}	
 
 	return (FILTER_HANDLED);
 }
@@ -252,6 +257,9 @@ htif_attach(device_t dev)
 	}
 
 	csr_set(sie, SIE_SSIE);
+
+	bus_generic_attach(sc->dev);
+	sbi_console_getchar();
 
 	return (htif_enumerate(sc));
 }

@@ -196,7 +196,7 @@
 #define	SHAREDPAGE		(VM_MAXUSER_ADDRESS - PAGE_SIZE)
 #define	USRSTACK		SHAREDPAGE
 
-#define	KERNENTRY		(0x80000000)
+#define	KERNENTRY		(0)
 
 /*
  * How many physical pages per kmem arena virtual page.

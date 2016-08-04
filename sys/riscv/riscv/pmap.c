@@ -491,12 +491,15 @@ pmap_bootstrap_dmap(vm_offset_t l1pt, vm_paddr_t kernstart)
 	    pa += L1_SIZE, va += L1_SIZE, l1_slot++) {
 		KASSERT(l1_slot < Ln_ENTRIES, ("Invalid L1 index"));
 
+		printf("pa 0x%016lx va %016lx\n", pa, va);
 		/* superpages */
 		pn = (pa / PAGE_SIZE);
 		entry = (PTE_V | PTE_RWX);
 		entry |= (pn << PTE_PPN0_S);
 		pmap_load_store(&l1[l1_slot], entry);
 	}
+
+	printf("%s done\n", __func__);
 
 	cpu_dcache_wb_range((vm_offset_t)l1, PAGE_SIZE);
 	cpu_tlb_flushID();
@@ -598,6 +601,7 @@ pmap_bootstrap(vm_offset_t l1pt, vm_paddr_t kernstart, vm_size_t kernlen)
 	 * Start to initialize phys_avail by copying from physmap
 	 * up to the physical address KERNBASE points at.
 	 */
+	printf("start to init phys_avail\n");
 	map_slot = avail_slot = 0;
 	for (; map_slot < (physmap_idx * 2); map_slot += 2) {
 		if (physmap[map_slot] == physmap[map_slot + 1])
@@ -614,6 +618,8 @@ pmap_bootstrap(vm_offset_t l1pt, vm_paddr_t kernstart, vm_size_t kernlen)
 		avail_slot += 2;
 	}
 
+	printf("Add the memory before the kernel\n");
+
 	/* Add the memory before the kernel */
 	if (physmap[avail_slot] < pa) {
 		phys_avail[avail_slot] = physmap[map_slot];
@@ -629,11 +635,13 @@ pmap_bootstrap(vm_offset_t l1pt, vm_paddr_t kernstart, vm_size_t kernlen)
 	 * This assumes we have mapped a block of memory from KERNBASE
 	 * using a single L1 entry.
 	 */
+	printf("Read the page table to find out what is already mapped\n");
 	l2 = pmap_early_page_idx(l1pt, KERNBASE, &l1_slot, &l2_slot);
 
 	/* Sanity check the index, KERNBASE should be the first VA */
 	KASSERT(l2_slot == 0, ("The L2 index is non-zero"));
 
+#if 1
 	/* Find how many pages we have mapped */
 	for (; l2_slot < Ln_ENTRIES; l2_slot++) {
 		if ((l2[l2_slot] & PTE_V) == 0)
@@ -646,15 +654,22 @@ pmap_bootstrap(vm_offset_t l1pt, vm_paddr_t kernstart, vm_size_t kernlen)
 		va += L2_SIZE;
 		pa += L2_SIZE;
 	}
+#endif
 
 	va = roundup2(va, L2_SIZE);
 
 	freemempos = KERNBASE + kernlen;
 	freemempos = roundup2(freemempos, PAGE_SIZE);
 
+	if (1 == 1) {
 	/* Create the l3 tables for the early devmap */
+	printf("Create l3 pages for devmap\n");
 	freemempos = pmap_bootstrap_l3(l1pt,
 	    VM_MAX_KERNEL_ADDRESS - L2_SIZE, freemempos);
+
+	printf("Create l3 pages for devmap FINISHED\n");
+	}
+
 
 	cpu_tlb_flushID();
 
@@ -678,6 +693,7 @@ pmap_bootstrap(vm_offset_t l1pt, vm_paddr_t kernstart, vm_size_t kernlen)
 	pa = pmap_early_vtophys(l1pt, freemempos);
 
 	/* Finish initialising physmap */
+	printf("Finish initialising physmap\n");
 	map_slot = used_map_slot;
 	for (; avail_slot < (PHYS_AVAIL_SIZE - 2) &&
 	    map_slot < (physmap_idx * 2); map_slot += 2) {

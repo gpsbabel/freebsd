@@ -38,6 +38,7 @@
 #define	_MACHINE_RISCVREG_H_
 
 /* Machine mode requests */
+#if 0
 #define	ECALL_MTIMECMP		0x01
 #define	ECALL_HTIF_GET_ENTRY	0x02
 #define	ECALL_MCPUID_GET	0x03
@@ -49,6 +50,7 @@
 #define	ECALL_HTIF_CMD		0x09
 #define	ECALL_HTIF_CMD_REQ	0x0a
 #define	ECALL_HTIF_CMD_RESP	0x0b
+#endif
 
 #define	EXCP_SHIFT			0
 #define	EXCP_MASK			(0xf << EXCP_SHIFT)

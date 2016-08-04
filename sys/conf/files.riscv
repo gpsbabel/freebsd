@@ -36,6 +36,7 @@ riscv/riscv/db_interface.c	optional	ddb
 riscv/riscv/db_trace.c		optional	ddb
 riscv/riscv/dump_machdep.c	standard
 riscv/riscv/elf_machdep.c	standard
+riscv/riscv/exception.S		standard
 riscv/riscv/intr_machdep.c	standard
 riscv/riscv/in_cksum.c		optional	inet | inet6
 riscv/riscv/identcpu.c		standard
@@ -47,6 +48,7 @@ riscv/riscv/mem.c		standard
 riscv/riscv/nexus.c		standard
 riscv/riscv/ofw_machdep.c	optional	fdt
 riscv/riscv/pmap.c		standard
+riscv/riscv/sbi.S		standard
 riscv/riscv/stack_machdep.c	optional	ddb | stack
 riscv/riscv/support.S		standard
 riscv/riscv/swtch.S		standard

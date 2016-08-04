@@ -50,6 +50,7 @@ __FBSDID("$FreeBSD$");
 
 #include <machine/bus.h>
 #include <machine/trap.h>
+#include <machine/sbi.h>
 
 #include "htif.h"
 
@@ -102,6 +103,7 @@ struct queue_entry *entry_served;
 static void
 riscv_putc(int c)
 {
+#if 0
 	uint64_t cmd;
 
 	cmd = (HTIF_CMD_WRITE << HTIF_CMD_SHIFT);
@@ -109,6 +111,8 @@ riscv_putc(int c)
 	cmd |= c;
 
 	machine_command(ECALL_HTIF_CMD, cmd);
+#endif
+	sbi_console_putchar(c);
 }
 
 #ifdef EARLY_PRINTF
@@ -157,6 +161,8 @@ static void
 riscv_timeout(void *v)
 {
 	int c;
+
+	//printf(",");
 
 	tty_lock(tp);
 	while ((c = riscv_cngetc(NULL)) != -1)
@@ -215,15 +221,23 @@ riscv_cnungrab(struct consdev *cp)
 static int
 riscv_cngetc(struct consdev *cp)
 {
+#if 0
 #if defined(KDB)
 	uint64_t devcmd;
 	uint64_t entry;
 	uint64_t devid;
 #endif
 	uint64_t cmd;
+#endif
 	uint8_t data;
 	int ch;
 
+	//printf(";");
+	//if (ch > 0 && ch < 0xff) {
+	//	return (ch);
+	//}
+
+#if 0
 	cmd = (HTIF_CMD_READ << HTIF_CMD_SHIFT);
 	cmd |= (CONSOLE_DEFAULT_ID << HTIF_DEV_ID_SHIFT);
 
@@ -250,6 +264,7 @@ riscv_cngetc(struct consdev *cp)
 			entry = machine_command(ECALL_HTIF_CMD_RESP, 0);
 		}
 	}
+#endif
 #endif
 
 	if (entry_served->used == 1) {
@@ -288,22 +303,24 @@ struct htif_console_softc {
 	int		index;
 };
 
-static void
+void
 htif_console_intr(void *arg, uint64_t entry)
 {
-	struct htif_console_softc *sc;
-	uint8_t devcmd;
-	uint64_t data;
+	//struct htif_console_softc *sc;
+	//uint8_t devcmd;
+	//uint64_t data;
+	int ch;
+	//sc = arg;
 
-	sc = arg;
-
-	devcmd = HTIF_DEV_CMD(entry);
-	data = HTIF_DEV_DATA(entry);
-
-	if (devcmd == 0) {
-		entry_last->data = data;
+	ch = sbi_console_getchar();
+	if (ch > 0 && ch < 0xff) {
+		//devcmd = HTIF_DEV_CMD(entry);
+		//data = HTIF_DEV_DATA(entry);
+		//if (devcmd == 0) {
+		entry_last->data = ch;
 		entry_last->used = 1;
 		entry_last = entry_last->next;
+		//}
 	}
 }
 

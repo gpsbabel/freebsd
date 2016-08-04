@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
+ * Copyright (c) 2016 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
  *
  * Portions of this software were developed by SRI International and the
@@ -30,67 +30,20 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
- * $FreeBSD$
  */
 
-void htif_console_intr(void *arg, uint64_t entry);
-
-
-#define	HTIF_DEV_ID_SHIFT	(56)
-#define	HTIF_DEV_ID_MASK	(0xfful << HTIF_DEV_ID_SHIFT)
-#define	HTIF_CMD_SHIFT		(48)
-#define	HTIF_CMD_MASK		(0xfful << HTIF_CMD_SHIFT)
-#define	HTIF_DATA_SHIFT		(0)
-#define	HTIF_DATA_MASK		(0xffffffff << HTIF_DATA_SHIFT)
-
-#define	HTIF_CMD_READ			(0x00ul)
-#define	HTIF_CMD_WRITE			(0x01ul)
-#define	HTIF_CMD_READ_CONTROL_REG	(0x02ul)
-#define	HTIF_CMD_WRITE_CONTROL_REG	(0x03ul)
-#define	HTIF_CMD_IDENTIFY		(0xfful)
-#define	 IDENTIFY_PADDR_SHIFT		8
-#define	 IDENTIFY_IDENT			0xff
-
-#define	HTIF_NDEV		(256)
-#define	HTIF_ID_LEN		(64)
-#define	HTIF_ALIGN		(64)
-
-#define	HTIF_DEV_CMD(entry)	((entry & HTIF_CMD_MASK) >> HTIF_CMD_SHIFT)
-#define	HTIF_DEV_ID(entry)	((entry & HTIF_DEV_ID_MASK) >> HTIF_DEV_ID_SHIFT)
-#define	HTIF_DEV_DATA(entry)	((entry & HTIF_DATA_MASK) >> HTIF_DATA_SHIFT)
-
-/* bus softc */
-struct htif_softc {
-	struct resource		*res[1];
-	void			*ihl[1];
-	device_t		dev;
-	uint64_t		identify_id;
-	uint64_t		identify_done;
-};
-
-/* device private data */
-struct htif_dev_ivars {
-	char			*id;
-	int			index;
-	device_t		dev;
-	struct htif_softc	*sc;
-};
-
-uint64_t htif_command(uint64_t);
-int htif_setup_intr(int id, void *func, void *arg);
-int htif_read_ivar(device_t dev, device_t child, int which, uintptr_t *result);
-
-enum htif_device_ivars {
-	HTIF_IVAR_INDEX,
-	HTIF_IVAR_ID,
-};
-
-/*
- * Simplified accessors for HTIF devices
- */
-#define HTIF_ACCESSOR(var, ivar, type)	\
-	__BUS_ACCESSOR(htif, var, HTIF, ivar, type)
-
-HTIF_ACCESSOR(index, INDEX, int);
-HTIF_ACCESSOR(id, ID, char *);
+.globl sbi_hart_id; sbi_hart_id = -2048
+.globl sbi_num_harts; sbi_num_harts = -2032
+.globl sbi_query_memory; sbi_query_memory = -2016
+.globl sbi_console_putchar; sbi_console_putchar = -2000
+.globl sbi_console_getchar; sbi_console_getchar = -1984
+.globl sbi_send_ipi; sbi_send_ipi = -1952
+.globl sbi_clear_ipi; sbi_clear_ipi = -1936
+.globl sbi_timebase; sbi_timebase = -1920
+.globl sbi_shutdown; sbi_shutdown = -1904
+.globl sbi_set_timer; sbi_set_timer = -1888
+.globl sbi_mask_interrupt; sbi_mask_interrupt = -1872
+.globl sbi_unmask_interrupt; sbi_unmask_interrupt = -1856
+.globl sbi_remote_sfence_vm; sbi_remote_sfence_vm = -1840
+.globl sbi_remote_sfence_vm_range; sbi_remote_sfence_vm_range = -1824
+.globl sbi_remote_fence_i; sbi_remote_fence_i = -1808
