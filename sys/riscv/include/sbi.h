@@ -45,7 +45,7 @@ uint64_t sbi_query_memory(uint64_t id, memory_block_info *p);
 uint64_t sbi_hart_id(void);
 uint64_t sbi_num_harts(void);
 uint64_t sbi_timebase(void);
-void sbi_set_timer(uint64_t long stime_value);
+void sbi_set_timer(uint64_t stime_value);
 void sbi_send_ipi(uint64_t hart_id);
 uint64_t sbi_clear_ipi(void);
 void sbi_shutdown(void);
