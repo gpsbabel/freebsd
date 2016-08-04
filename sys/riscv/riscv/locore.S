@@ -43,8 +43,14 @@
 #include <machine/riscvreg.h>
 #include <machine/pte.h>
 
+//no mdroot
 //#define	PHYSMEM_START	0x80800000
-#define	PHYSMEM_START	0x81000000
+
+//mdroot 8mb
+//#define	PHYSMEM_START	0x81000000
+
+//mdroot 32mb
+#define	PHYSMEM_START	0x82800000
 
 	.globl	kernbase
 	.set	kernbase, KERNBASE
@@ -58,28 +64,14 @@
 _start:
 	/* Setup supervisor trap vector */
 	la	t0, cpu_exception_handler
-	//li	t1, KERNBASE
-	//li	t1, 0xffffffc000000000
-	//li	t1, PHYSMEM_START
-	//add	t0, t0, t1
 	csrw	stvec, t0
-
-	call	sbi_hart_id
-#if 0
-	/* Direct secondary cores to mpentry */
-	csrr	a0, mhartid
-	bnez	a0, mpentry
-
-	/* Build event queue for current core */
-	build_ring
-
-	/* Setup machine-mode stack for CPU 0 */
-	la	t0, hardstack_end
-	csrw	mscratch, t0
-#endif
 
 	li	t0, 0
 	csrw	sscratch, t0
+
+	/* Direct secondary cores to mpentry */
+	call	sbi_hart_id
+	bnez	a0, mpentry
 
 	li	s10, PAGE_SIZE
 	li	s9, (PAGE_SIZE * KSTACK_PAGES)
@@ -227,30 +219,6 @@ _start:
 	srli	s2, s2, PAGE_SHIFT
 	csrw	sptbr, s2
 
-#if 0
-	/* Page tables END */
-
-	/* Enter supervisor mode */
-	li	s0, ((MSTATUS_VM_SV39 << MSTATUS_VM_SHIFT) | \
-		     (MSTATUS_PRV_S << MSTATUS_MPP_SHIFT));
-	csrw	mstatus, s0
-
-	/*
-	 * Enable machine-mode software interrupts
-	 * so we can deliver IPI to this core.
-	 */
-	li	t0, MIE_MSIE
-	csrs	mie, t0
-
-	/* Exit from machine mode */
-	la	t0, .Lmmu_on
-	li	s11, KERNBASE
-	add	t0, t0, s11
-	csrw	mepc, t0
-	mret
-
-.Lmmu_on:
-#endif
 	/* Initialize stack pointer */
 	la	s3, initstack_end
 	mv	sp, s3
@@ -333,7 +301,6 @@ END(mpentry)
  * mpentry(unsigned long)
  *
  * Called by a core when it is being brought online.
- * The data in x0 is passed straight to init_secondary.
  */
 ENTRY(mpentry)
 	/*
@@ -352,44 +319,13 @@ ENTRY(mpentry)
 	beqz	t1, 1b
 
 	/* Set page tables base register */
-	la	t0, pagetable_l1
-	srli	t0, t0, PAGE_SHIFT
-	csrw	sptbr, t0
-
-	/* Configure mstatus */
-	li	s0, ((MSTATUS_VM_SV39 << MSTATUS_VM_SHIFT) | \
-		     (MSTATUS_PRV_S << MSTATUS_MPP_SHIFT));
-	csrw	mstatus, s0
-
-	/* Setup stack for machine mode exceptions */
-	la	t0, hardstack_end
-	li	t1, HW_STACK_SIZE
-	mulw	t1, t1, a0
-	sub	t0, t0, t1
-	csrw	mscratch, t0
-
-	li	t0, 0
-	csrw	sscratch, t0
-
-	/*
-	 * Enable machine-mode software interrupts
-	 * so we can deliver IPI to this core.
-	 */
-	li	t0, MIE_MSIE
-	csrs	mie, t0
-
-	/*
-	 * Exit from machine mode and go to
-	 * the virtual address space.
-	 */
-	la	t0, mp_virtdone
-	li	s11, KERNBASE
-	add	t0, t0, s11
-	csrw	mepc, t0
-	mret
-
-mp_virtdone:
-	/* We are now in virtual address space */
+	la	s2, pagetable_l1
+	li	t0, 0xffffffc000000000
+	sub	s2, s2, t0
+	li	t0, PHYSMEM_START
+	add	s2, s2, t0
+	srli	s2, s2, PAGE_SHIFT
+	csrw	sptbr, s2
 
 	/* Setup stack pointer */
 	la	t0, secondary_stacks

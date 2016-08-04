@@ -607,7 +607,7 @@ proc0_post(void *dummy __unused)
 {
 	struct timespec ts;
 	struct proc *p;
-	struct rusage ru;
+	//struct rusage ru;
 	struct thread *td;
 
 	/*
@@ -618,7 +618,7 @@ proc0_post(void *dummy __unused)
 	FOREACH_PROC_IN_SYSTEM(p) {
 		microuptime(&p->p_stats->p_start);
 		PROC_STATLOCK(p);
-		rufetch(p, &ru);	/* Clears thread stats */
+		//rufetch(p, &ru);	/* Clears thread stats */
 		PROC_STATUNLOCK(p);
 		p->p_rux.rux_runtime = 0;
 		p->p_rux.rux_uticks = 0;

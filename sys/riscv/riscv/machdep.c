@@ -736,12 +736,8 @@ initriscv(struct riscv_bootparams *rvbp)
 	caddr_t kmdp;
 	int i;
 
-	sbi_console_putchar('a');
-
 	/* Set the module data location */
 	lastaddr = fake_preload_metadata(rvbp);
-
-	sbi_console_putchar('b');
 
 	/* Find the kernel address */
 	kmdp = preload_search_by_type("elf kernel");
@@ -784,7 +780,7 @@ initriscv(struct riscv_bootparams *rvbp)
 	/* Bootstrap enough of pmap to enter the kernel proper */
 	kernlen = (lastaddr - KERNBASE);
 	sbi_console_putchar('c');
-	pmap_bootstrap(rvbp->kern_l1pt, 0x81000000, kernlen);
+	pmap_bootstrap(rvbp->kern_l1pt, 0x82800000, kernlen);
 	//pmap_bootstrap(rvbp->kern_l1pt, KERNENTRY, kernlen);
 
 	cninit();
@@ -792,7 +788,7 @@ initriscv(struct riscv_bootparams *rvbp)
 	init_proc0(rvbp->kern_stack);
 
 	/* set page table base register for thread0 */
-	thread0.td_pcb->pcb_l1addr = (rvbp->kern_l1pt - KERNBASE + 0x81000000);
+	thread0.td_pcb->pcb_l1addr = (rvbp->kern_l1pt - KERNBASE + 0x82800000);
 
 	msgbufinit(msgbufp, msgbufsize);
 	mutex_init();
