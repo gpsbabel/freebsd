@@ -68,11 +68,18 @@ __FBSDID("$FreeBSD$");
 #include <machine/vmparam.h>
 #include <machine/sbi.h>
 
-#include "htif.h"
-
 static struct resource_spec htif_spec[] = {
 	{ SYS_RES_IRQ,		0,	RF_ACTIVE | RF_SHAREABLE},
 	{ -1, 0 }
+};
+
+void htif_console_intr(void *arg, uint64_t entry);
+
+/* bus softc */
+struct htif_softc {
+	struct resource		*res[1];
+	void			*ihl[1];
+	device_t		dev;
 };
 
 static int
