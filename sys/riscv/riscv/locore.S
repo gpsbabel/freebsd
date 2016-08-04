@@ -46,51 +46,6 @@
 //#define	PHYSMEM_START	0x80800000
 #define	PHYSMEM_START	0x81000000
 
-#define	HTIF_RING_NENTRIES	(512)
-#define	HTIF_RING_ENTRY_SZ	(24)
-#define	HTIF_RING_SIZE		(HTIF_RING_ENTRY_SZ * HTIF_RING_NENTRIES)
-#define	HW_STACK_SIZE		(96)
-
-/*
- * Event queue:
- *
- * struct htif_ring {
- *     uint64_t data;
- *     uint64_t used;
- *     uint64_t next;
- * } htif_ring[HTIF_RING_NENTRIES];
- * uint64_t htif_ring_cursor;
- * uint64_t htif_ring_last;
- */
-
-.macro build_ring
-	la	t0, htif_ring
-	li	t1, 0
-	sd	t1, 0(t0)	/* zero data */
-	sd	t1, 8(t0)	/* zero used */
-	mv	t2, t0
-	mv	t3, t0
-	li	t5, (HTIF_RING_SIZE)
-	li	t6, 0
-	add	t4, t0, t5
-1:
-	addi	t3, t3, HTIF_RING_ENTRY_SZ	/* pointer to next */
-	beq	t3, t4, 2f			/* finish */
-	sd	t3, 16(t2)			/* store pointer */
-	addi	t2, t2, HTIF_RING_ENTRY_SZ	/* next entry */
-	addi	t6, t6, 1			/* counter */
-	j	1b
-2:
-	addi	t3, t3, -HTIF_RING_ENTRY_SZ
-	sd	t0, 16(t3)			/* last -> first */
-
-	li	t2, (HTIF_RING_SIZE)
-	add	s0, t0, t2
-	sd	t0, 0(s0)	/* cursor */
-	sd	t0, 8(s0)	/* last */
-	/* finish building ring */
-.endm
-
 	.globl	kernbase
 	.set	kernbase, KERNBASE
 
@@ -326,19 +281,6 @@ _start:
 initstack:
 	.space  (PAGE_SIZE * KSTACK_PAGES)
 initstack_end:
-hardstack:
-	.space  (HW_STACK_SIZE * MAXCPU)
-hardstack_end:
-
-	.globl htif_ring
-htif_ring:
-	.space (HTIF_RING_SIZE + 16)
-htif_lock:
-	.space (8)
-tohost:
-	.space (8)
-fromhost:
-	.space (8)
 
 ENTRY(sigcode)
 	mv	a0, sp
