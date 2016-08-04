@@ -32,6 +32,9 @@
  * SUCH DAMAGE.
  */
 
+#include <machine/asm.h>
+__FBSDID("$FreeBSD$");
+
 .globl sbi_hart_id; sbi_hart_id = -2048
 .globl sbi_num_harts; sbi_num_harts = -2032
 .globl sbi_query_memory; sbi_query_memory = -2016
