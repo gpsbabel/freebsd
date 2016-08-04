@@ -67,59 +67,6 @@ static struct resource_spec htif_spec[] = {
 	{ -1, 0 }
 };
 
-struct intr_entry {
-	void (*func) (void *, uint64_t);
-	void *arg;
-};
-
-struct intr_entry intrs[HTIF_NDEV];
-
-uint64_t
-htif_command(uint64_t arg)
-{
-
-	return (0);
-}
-
-int
-htif_setup_intr(int id, void *func, void *arg)
-{
-
-	if (id >= HTIF_NDEV)
-		return (-1);
-
-	intrs[id].func = func;
-	intrs[id].arg = arg;
-
-	return (0);
-}
-
-static void
-htif_handle_entry(struct htif_softc *sc)
-{
-	uint64_t entry;
-	uint8_t devcmd;
-	uint8_t devid;
-
-	entry = 0; //machine_command(ECALL_HTIF_GET_ENTRY, 0);
-	while (entry) {
-		devid = HTIF_DEV_ID(entry);
-		devcmd = HTIF_DEV_CMD(entry);
-
-		if (devcmd == HTIF_CMD_IDENTIFY) {
-			/* Enumeration interrupt */
-			if (devid == sc->identify_id)
-				sc->identify_done = 1;
-		} else {
-			/* Device interrupt */
-			if (intrs[devid].func != NULL)
-				intrs[devid].func(intrs[devid].arg, entry);
-		}
-
-		entry = 0; //machine_command(ECALL_HTIF_GET_ENTRY, 0);
-	}
-}
-
 static int
 htif_intr(void *arg)
 {
@@ -127,97 +74,10 @@ htif_intr(void *arg)
 
 	sc = arg;
 
-	//printf("!");
 	htif_console_intr(NULL, 0);
 	csr_clear(sip, SIP_SSIP);
 
-	if (0 == 1) {
-		htif_handle_entry(sc);
-	}	
-
 	return (FILTER_HANDLED);
-}
-
-static int
-htif_add_device(struct htif_softc *sc, int i, char *id, char *name)
-{
-	struct htif_dev_ivars *di;
-
-	di = malloc(sizeof(struct htif_dev_ivars), M_DEVBUF, M_WAITOK | M_ZERO);
-	di->sc = sc;
-	di->index = i;
-	di->id = malloc(HTIF_ID_LEN, M_DEVBUF, M_WAITOK | M_ZERO);
-	memcpy(di->id, id, HTIF_ID_LEN);
-
-	di->dev = device_add_child(sc->dev, name, -1);
-	device_set_ivars(di->dev, di);
-
-	return (0);
-}
-
-static int
-htif_enumerate(struct htif_softc *sc)
-{
-	char id[HTIF_ID_LEN] __aligned(HTIF_ALIGN);
-	uint64_t paddr;
-	uint64_t data;
-	uint64_t cmd;
-	int len;
-	int i;
-
-	device_printf(sc->dev, "Enumerating devices\n");
-
-	for (i = 0; i < HTIF_NDEV; i++) {
-		paddr = pmap_kextract((vm_offset_t)&id);
-		data = (paddr << IDENTIFY_PADDR_SHIFT);
-		data |= IDENTIFY_IDENT;
-
-		sc->identify_id = i;
-		sc->identify_done = 0;
-
-		cmd = i;
-		cmd <<= HTIF_DEV_ID_SHIFT;
-		cmd |= (HTIF_CMD_IDENTIFY << HTIF_CMD_SHIFT);
-		cmd |= data;
-
-		htif_command(cmd);
-
-		len = strnlen(id, sizeof(id));
-		if (len <= 0)
-			break;
-
-		if (bootverbose)
-			printf(" %d %s\n", i, id);
-
-		if (strncmp(id, "disk", 4) == 0)
-			htif_add_device(sc, i, id, "htif_blk");
-		else if (strncmp(id, "bcd", 3) == 0)
-			htif_add_device(sc, i, id, "htif_console");
-		else if (strncmp(id, "syscall_proxy", 13) == 0)
-			htif_add_device(sc, i, id, "htif_syscall_proxy");
-	}
-
-	return (bus_generic_attach(sc->dev));
-}
-
-int
-htif_read_ivar(device_t dev, device_t child, int which, uintptr_t *result)
-{
-	struct htif_dev_ivars *ivars;
-
-	ivars = device_get_ivars(child);
-
-	switch (which) {
-	case HTIF_IVAR_INDEX:
-                *result = ivars->index;
-		break;
-	case HTIF_IVAR_ID:
-		*result = (uintptr_t)ivars->id;
-	default:
-		return (EINVAL);
-	}
-
-	return (0);
 }
 
 static int
@@ -259,17 +119,15 @@ htif_attach(device_t dev)
 	csr_set(sie, SIE_SSIE);
 
 	bus_generic_attach(sc->dev);
+
 	sbi_console_getchar();
 
-	return (htif_enumerate(sc));
+	return (0);
 }
 
 static device_method_t htif_methods[] = {
 	DEVMETHOD(device_probe,		htif_probe),
 	DEVMETHOD(device_attach,	htif_attach),
-
-	/* Bus interface */
-	DEVMETHOD(bus_read_ivar,	htif_read_ivar),
 
 	DEVMETHOD_END
 };
@@ -282,5 +140,4 @@ static driver_t htif_driver = {
 
 static devclass_t htif_devclass;
 
-DRIVER_MODULE(htif, simplebus, htif_driver,
-    htif_devclass, 0, 0);
+DRIVER_MODULE(htif, simplebus, htif_driver, htif_devclass, 0, 0);

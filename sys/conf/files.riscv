@@ -20,7 +20,6 @@ libkern/flsll.c			standard
 libkern/memmove.c		standard
 libkern/memset.c		standard
 riscv/htif/htif.c		optional	htif
-riscv/htif/htif_block.c		optional	htif
 riscv/htif/htif_console.c	optional	htif
 riscv/riscv/autoconf.c		standard
 riscv/riscv/bcopy.c		standard

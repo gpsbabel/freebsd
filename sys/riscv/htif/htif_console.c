@@ -103,15 +103,7 @@ struct queue_entry *entry_served;
 static void
 riscv_putc(int c)
 {
-#if 0
-	uint64_t cmd;
 
-	cmd = (HTIF_CMD_WRITE << HTIF_CMD_SHIFT);
-	cmd |= (CONSOLE_DEFAULT_ID << HTIF_DEV_ID_SHIFT);
-	cmd |= c;
-
-	machine_command(ECALL_HTIF_CMD, cmd);
-#endif
 	sbi_console_putchar(c);
 }
 
@@ -161,8 +153,6 @@ static void
 riscv_timeout(void *v)
 {
 	int c;
-
-	//printf(",");
 
 	tty_lock(tp);
 	while ((c = riscv_cngetc(NULL)) != -1)
@@ -306,21 +296,13 @@ struct htif_console_softc {
 void
 htif_console_intr(void *arg, uint64_t entry)
 {
-	//struct htif_console_softc *sc;
-	//uint8_t devcmd;
-	//uint64_t data;
 	int ch;
-	//sc = arg;
 
 	ch = sbi_console_getchar();
 	if (ch > 0 && ch < 0xff) {
-		//devcmd = HTIF_DEV_CMD(entry);
-		//data = HTIF_DEV_DATA(entry);
-		//if (devcmd == 0) {
 		entry_last->data = ch;
 		entry_last->used = 1;
 		entry_last = entry_last->next;
-		//}
 	}
 }
 
@@ -343,7 +325,7 @@ htif_console_attach(device_t dev)
 	if (sc->index < 0)
 		return (EINVAL);
 
-	htif_setup_intr(sc->index, htif_console_intr, sc);
+	//htif_setup_intr(sc->index, htif_console_intr, sc);
 
 	return (0);
 }
