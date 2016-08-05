@@ -45,12 +45,10 @@
 
 //no mdroot
 //#define	PHYSMEM_START	0x80800000
-
 //mdroot 8mb
 //#define	PHYSMEM_START	0x81000000
-
 //mdroot 32mb
-#define	PHYSMEM_START	0x82800000
+//#define	PHYSMEM_START	0x82800000
 
 	.globl	kernbase
 	.set	kernbase, KERNBASE
@@ -66,25 +64,33 @@ _start:
 	la	t0, cpu_exception_handler
 	csrw	stvec, t0
 
+	/* Ensure sscratch is zero */
 	li	t0, 0
 	csrw	sscratch, t0
+
+	/* Load physical memory information */
+	li	a0, 0
+	la	a1, memory_info
+	call	sbi_query_memory
+
+	/* Store base to s6 */
+	la	s6, memory_info
+	ld	s6, 0(s6)	/* s6 = physmem base */
 
 	/* Direct secondary cores to mpentry */
 	call	sbi_hart_id
 	bnez	a0, mpentry
 
-	li	s10, PAGE_SIZE
-	li	s9, (PAGE_SIZE * KSTACK_PAGES)
-
-	/* Page tables */
+	/*
+	 * Page tables
+	 */
 
 	/* Create an L1 page for early devmap */
 	la	s1, pagetable_l1
 	la	s2, pagetable_l2_devmap	/* Link to next level PN */
-	li	t0, 0xffffffc000000000
+	li	t0, KERNBASE
 	sub	s2, s2, t0
-	li	t0, PHYSMEM_START
-	add	s2, s2, t0
+	add	s2, s2, s6
 	srli	s2, s2, PAGE_SHIFT
 
 	li	a5, (VM_MAX_KERNEL_ADDRESS - L2_SIZE)
@@ -103,91 +109,71 @@ _start:
 	/* Create an L1 page for SBI */
 	la	s1, pagetable_l1
 	la	s2, pagetable_l2_sbi	/* Link to next level PN */
-	li	t0, 0xffffffc000000000
+	li	t0, KERNBASE
 	sub	s2, s2, t0
-	li	t0, PHYSMEM_START
-	add	s2, s2, t0
+	add	s2, s2, s6
 	srli	s2, s2, PAGE_SHIFT
-
-	//li	a5, (0xffffffffffffffff)
-	//srli	a5, a5, L1_SHIFT	/* >> L1_SHIFT */
-	//andi	a5, a5, 0x1ff		/* & 0x1ff */
 	li	a5, 511
 	li	t4, PTE_V
 	slli	t5, s2, PTE_PPN0_S	/* (s2 << PTE_PPN0_S) */
 	or	t6, t4, t5
 
-	/* Store single level1 PTE entry to position */
+	/* Store SBI L1 PTE entry to position */
 	li	a6, PTE_SIZE
 	mulw	a5, a5, a6
 	add	t0, s1, a5
 	sd	t6, (t0)
-	/* END SBI page creation */
 
 	/* Create an L2 page for SBI */
 	la	s1, pagetable_l2_sbi
 	la	s2, pagetable_l3_sbi	/* Link to next level PN */
-	li	t0, 0xffffffc000000000
+	li	t0, KERNBASE
 	sub	s2, s2, t0
-	li	t0, PHYSMEM_START
-	add	s2, s2, t0
+	add	s2, s2, s6
 	srli	s2, s2, PAGE_SHIFT
-
-	//li	a5, (0xffffffffffffffff)
-	//srli	a5, a5, L1_SHIFT	/* >> L1_SHIFT */
-	//andi	a5, a5, 0x1ff		/* & 0x1ff */
 	li	a5, 511
 	li	t4, PTE_V
 	slli	t5, s2, PTE_PPN0_S	/* (s2 << PTE_PPN0_S) */
 	or	t6, t4, t5
 
-	/* Store single level1 PTE entry to position */
+	/* Store SBI L2 PTE entry to position */
 	li	a6, PTE_SIZE
 	mulw	a5, a5, a6
 	add	t0, s1, a5
 	sd	t6, (t0)
-	/* END SBI page creation */
 
 	/* Create an L3 page for SBI */
 	la	s1, pagetable_l3_sbi
 	li	s2, 0x80009000
 	srli	s2, s2, PAGE_SHIFT
-
-	//li	a5, (0xffffffffffffffff)
-	//srli	a5, a5, L1_SHIFT	/* >> L1_SHIFT */
-	//andi	a5, a5, 0x1ff		/* & 0x1ff */
 	li	a5, 511
 	li	t4, PTE_V | PTE_RX | PTE_W
 	slli	t5, s2, PTE_PPN0_S	/* (s2 << PTE_PPN0_S) */
 	or	t6, t4, t5
 
-	/* Store single level1 PTE entry to position */
+	/* Store SBI L3 PTE entry to position */
 	li	a6, PTE_SIZE
 	mulw	a5, a5, a6
 	add	t0, s1, a5
 	sd	t6, (t0)
 	/* END SBI page creation */
 
-
-
-
-	/* Add single Level 1 entry for kernel */
+	/* Add L1 entry for kernel */
 	la	s1, pagetable_l1
 	la	s2, pagetable_l2	/* Link to next level PN */
-	li	t0, 0xffffffc000000000
+	li	t0, KERNBASE
 	sub	s2, s2, t0
-	li	t0, PHYSMEM_START
-	add	s2, s2, t0
+	add	s2, s2, s6
 	srli	s2, s2, PAGE_SHIFT
 
-	li	a5, (KERNBASE + KERNENTRY)
+	li	a5, KERNBASE
 	srli	a5, a5, L1_SHIFT	/* >> L1_SHIFT */
 	andi	a5, a5, 0x1ff		/* & 0x1ff */
 	li	t4, PTE_V
 	slli	t5, s2, PTE_PPN0_S	/* (s2 << PTE_PPN0_S) */
 	or	t6, t4, t5
 
-	/* Store single level1 PTE entry to position */
+	/* Store L1 PTE entry to position */
 	li	a6, PTE_SIZE
 	mulw	a5, a5, a6
 	add	t0, s1, a5
@@ -195,8 +181,7 @@ _start:
 
 	/* Level 2 superpages (512 x 2MiB) */
 	la	s1, pagetable_l2
-	li	t4, PHYSMEM_START
-	srli	t4, t4, 21		/* Div by 2 MiB */
+	srli	t4, s6, 21		/* Div physmem base by 2 MiB */
 	li	t2, 512			/* Build 512 entries */
 	add	t3, t4, t2
 	li	t5, 0
@@ -212,10 +197,9 @@ _start:
 
 	/* Set page tables base register */
 	la	s2, pagetable_l1
-	li	t0, 0xffffffc000000000
+	li	t0, KERNBASE
 	sub	s2, s2, t0
-	li	t0, PHYSMEM_START
-	add	s2, s2, t0
+	add	s2, s2, s6
 	srli	s2, s2, PAGE_SHIFT
 	csrw	sptbr, s2
 
@@ -286,6 +270,10 @@ pagetable_l2_sbi:
 pagetable_l3_sbi:
 	.space	PAGE_SIZE
 
+	.globl memory_info
+memory_info:
+	.space	(24)
+
 	.globl init_pt_va
 init_pt_va:
 	.quad pagetable_l2	/* XXX: Keep page tables VA */
@@ -320,10 +308,9 @@ ENTRY(mpentry)
 
 	/* Set page tables base register */
 	la	s2, pagetable_l1
-	li	t0, 0xffffffc000000000
+	li	t0, KERNBASE
 	sub	s2, s2, t0
-	li	t0, PHYSMEM_START
-	add	s2, s2, t0
+	add	s2, s2, s6
 	srli	s2, s2, PAGE_SHIFT
 	csrw	sptbr, s2
 
