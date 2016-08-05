@@ -734,9 +734,6 @@ initriscv(struct riscv_bootparams *rvbp)
 	vm_size_t kernlen;
 	caddr_t kmdp;
 
-	printf("info.size %ld\n", memory_info.size);
-	printf("info.base %016lx\n", memory_info.base);
-
 	/* Set the module data location */
 	lastaddr = fake_preload_metadata(rvbp);
 
