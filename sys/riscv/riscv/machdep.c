@@ -730,12 +730,9 @@ fake_preload_metadata(struct riscv_bootparams *rvbp __unused)
 void
 initriscv(struct riscv_bootparams *rvbp)
 {
-	struct mem_region mem_regions[FDT_MEM_REGIONS];
 	vm_offset_t lastaddr;
-	int mem_regions_sz;
 	vm_size_t kernlen;
 	caddr_t kmdp;
-	int i;
 
 	printf("info.size %ld\n", memory_info.size);
 	printf("info.base %016lx\n", memory_info.base);
@@ -760,12 +757,20 @@ initriscv(struct riscv_bootparams *rvbp)
 	/* Load the physical memory ranges */
 	physmap_idx = 0;
 
+#if 0
+	struct mem_region mem_regions[FDT_MEM_REGIONS];
+	int mem_regions_sz;
+	int i;
 	/* Grab physical memory regions information from device tree. */
 	if (fdt_get_mem_regions(mem_regions, &mem_regions_sz, NULL) != 0)
 		panic("Cannot get physical memory regions");
 	for (i = 0; i < mem_regions_sz; i++)
 		add_physmap_entry(mem_regions[i].mr_start,
 		    mem_regions[i].mr_size, physmap, &physmap_idx);
+#endif
+
+	add_physmap_entry(memory_info.base, memory_info.size,
+	    physmap, &physmap_idx);
 
 	/* Set the pcpu data, this is needed by pmap_bootstrap */
 	pcpup = &__pcpu[0];
