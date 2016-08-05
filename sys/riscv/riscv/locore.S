@@ -43,13 +43,6 @@
 #include <machine/riscvreg.h>
 #include <machine/pte.h>
 
-//no mdroot
-//#define	PHYSMEM_START	0x80800000
-//mdroot 8mb
-//#define	PHYSMEM_START	0x81000000
-//mdroot 32mb
-//#define	PHYSMEM_START	0x82800000
-
 	.globl	kernbase
 	.set	kernbase, KERNBASE
 
