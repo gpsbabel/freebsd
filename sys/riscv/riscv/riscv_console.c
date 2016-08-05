@@ -68,94 +68,17 @@ __FBSDID("$FreeBSD$");
 #include <machine/vmparam.h>
 #include <machine/sbi.h>
 
-static struct resource_spec htif_spec[] = {
+static struct resource_spec rcons_spec[] = {
 	{ SYS_RES_IRQ,		0,	RF_ACTIVE | RF_SHAREABLE},
 	{ -1, 0 }
 };
 
-void htif_console_intr(void *arg, uint64_t entry);
-
 /* bus softc */
-struct htif_softc {
+struct rcons_softc {
 	struct resource		*res[1];
 	void			*ihl[1];
 	device_t		dev;
 };
-
-static int
-htif_intr(void *arg)
-{
-	struct htif_softc *sc;
-
-	sc = arg;
-
-	htif_console_intr(NULL, 0);
-	csr_clear(sip, SIP_SSIP);
-
-	return (FILTER_HANDLED);
-}
-
-static int
-htif_probe(device_t dev)
-{
-
-	if (!ofw_bus_status_okay(dev))
-		return (ENXIO);
-
-	if (!ofw_bus_is_compatible(dev, "riscv,htif"))
-		return (ENXIO);
-
-	device_set_desc(dev, "HTIF bus device");
-	return (BUS_PROBE_DEFAULT);
-}
-
-static int
-htif_attach(device_t dev)
-{
-	struct htif_softc *sc;
-	int error;
-
-	sc = device_get_softc(dev);
-	sc->dev = dev;
-
-	if (bus_alloc_resources(dev, htif_spec, sc->res)) {
-		device_printf(dev, "could not allocate resources\n");
-		return (ENXIO);
-	}
-
-	/* Setup IRQs handler */
-	error = bus_setup_intr(dev, sc->res[0], INTR_TYPE_CLK,
-	    htif_intr, NULL, sc, &sc->ihl[0]);
-	if (error) {
-		device_printf(dev, "Unable to alloc int resource.\n");
-		return (ENXIO);
-	}
-
-	csr_set(sie, SIE_SSIE);
-
-	bus_generic_attach(sc->dev);
-
-	sbi_console_getchar();
-
-	return (0);
-}
-
-static device_method_t htif_methods[] = {
-	DEVMETHOD(device_probe,		htif_probe),
-	DEVMETHOD(device_attach,	htif_attach),
-
-	DEVMETHOD_END
-};
-
-static driver_t htif_driver = {
-	"htif",
-	htif_methods,
-	sizeof(struct htif_softc)
-};
-
-static devclass_t htif_devclass;
-
-DRIVER_MODULE(htif, simplebus, htif_driver, htif_devclass, 0, 0);
 
 /* CN Console interface */
 
@@ -356,21 +279,10 @@ riscv_cnputc(struct consdev *cp, int c)
 	riscv_putc(c);
 }
 
-/*
- * Bus interface.
- */
+/* Bus interface */
 
-struct htif_console_softc {
-	device_t	dev;
-	int		running;
-	int		intr_chan;
-	int		cmd_done;
-	int		curtag;
-	int		index;
-};
-
-void
-htif_console_intr(void *arg, uint64_t entry)
+static int
+rcons_intr(void *arg)
 {
 	int c;
 
@@ -380,4 +292,70 @@ htif_console_intr(void *arg, uint64_t entry)
 		entry_last->used = 1;
 		entry_last = entry_last->next;
 	}
+
+	csr_clear(sip, SIP_SSIP);
+
+	return (FILTER_HANDLED);
 }
+
+static int
+rcons_probe(device_t dev)
+{
+
+	if (!ofw_bus_status_okay(dev))
+		return (ENXIO);
+
+	if (!ofw_bus_is_compatible(dev, "riscv,rcons"))
+		return (ENXIO);
+
+	device_set_desc(dev, "RISC-V console");
+	return (BUS_PROBE_DEFAULT);
+}
+
+static int
+rcons_attach(device_t dev)
+{
+	struct rcons_softc *sc;
+	int error;
+
+	sc = device_get_softc(dev);
+	sc->dev = dev;
+
+	if (bus_alloc_resources(dev, rcons_spec, sc->res)) {
+		device_printf(dev, "could not allocate resources\n");
+		return (ENXIO);
+	}
+
+	/* Setup IRQs handler */
+	error = bus_setup_intr(dev, sc->res[0], INTR_TYPE_CLK,
+	    rcons_intr, NULL, sc, &sc->ihl[0]);
+	if (error) {
+		device_printf(dev, "Unable to alloc int resource.\n");
+		return (ENXIO);
+	}
+
+	csr_set(sie, SIE_SSIE);
+
+	bus_generic_attach(sc->dev);
+
+	sbi_console_getchar();
+
+	return (0);
+}
+
+static device_method_t rcons_methods[] = {
+	DEVMETHOD(device_probe,		rcons_probe),
+	DEVMETHOD(device_attach,	rcons_attach),
+
+	DEVMETHOD_END
+};
+
+static driver_t rcons_driver = {
+	"rcons",
+	rcons_methods,
+	sizeof(struct rcons_softc)
+};
+
+static devclass_t rcons_devclass;
+
+DRIVER_MODULE(rcons, simplebus, rcons_driver, rcons_devclass, 0, 0);
