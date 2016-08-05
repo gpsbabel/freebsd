@@ -312,50 +312,25 @@ riscv_cnungrab(struct consdev *cp)
 static int
 riscv_cngetc(struct consdev *cp)
 {
-#if 0
-#if defined(KDB)
-	uint64_t devcmd;
-	uint64_t entry;
-	uint64_t devid;
-#endif
-	uint64_t cmd;
-#endif
 	uint8_t data;
 	int ch;
 
-	//printf(";");
-	//if (ch > 0 && ch < 0xff) {
-	//	return (ch);
-	//}
-
-#if 0
-	cmd = (HTIF_CMD_READ << HTIF_CMD_SHIFT);
-	cmd |= (CONSOLE_DEFAULT_ID << HTIF_DEV_ID_SHIFT);
-
-	machine_command(ECALL_HTIF_CMD_REQ, cmd);
-
 #if defined(KDB)
+	/*
+	 * RISCVTODO: BBL polls for console data on timer interrupt,
+	 * but interrupts are turned off in KDB.
+	 * So we currently do not have console in KDB.
+	 */
 	if (kdb_active) {
+		ch = sbi_console_getchar();
+		while (ch) {
+			entry_last->data = ch;
+			entry_last->used = 1;
+			entry_last = entry_last->next;
 
-		entry = machine_command(ECALL_HTIF_CMD_RESP, 0);
-		while (entry) {
-			devid = HTIF_DEV_ID(entry);
-			devcmd = HTIF_DEV_CMD(entry);
-			data = HTIF_DEV_DATA(entry);
-
-			if (devid == CONSOLE_DEFAULT_ID && devcmd == 0) {
-				entry_last->data = data;
-				entry_last->used = 1;
-				entry_last = entry_last->next;
-			} else {
-				printf("Lost interrupt: devid %d\n",
-				    devid);
-			}
-
-			entry = machine_command(ECALL_HTIF_CMD_RESP, 0);
+			ch = sbi_console_getchar();
 		}
 	}
-#endif
 #endif
 
 	if (entry_served->used == 1) {
