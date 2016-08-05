@@ -108,7 +108,6 @@ static long
 get_counts(struct riscv_tmr_softc *sc)
 {
 
-	//printf("%d\n", READ8(sc, TIMER_COUNTS));
 	return (READ8(sc, TIMER_COUNTS));
 }
 
@@ -129,7 +128,6 @@ riscv_tmr_start(struct eventtimer *et, sbintime_t first, sbintime_t period)
 	uint64_t counts;
 	int cpu;
 
-	//printf(".");
 	sc = (struct riscv_tmr_softc *)et->et_priv;
 
 	if (first != 0) {
@@ -138,9 +136,7 @@ riscv_tmr_start(struct eventtimer *et, sbintime_t first, sbintime_t period)
 		cpu = PCPU_GET(cpuid);
 		WRITE8(sc, TIMER_MTIMECMP(cpu), counts);
 		csr_set(sie, SIE_STIE);
-
 		sbi_set_timer(counts);
-		//machine_command(ECALL_MTIMECMP, counts);
 
 		return (0);
 	}
@@ -167,8 +163,6 @@ riscv_tmr_intr(void *arg)
 	struct riscv_tmr_softc *sc;
 
 	sc = (struct riscv_tmr_softc *)arg;
-
-	//printf(",\n");
 
 	csr_clear(sip, SIP_STIP);
 
