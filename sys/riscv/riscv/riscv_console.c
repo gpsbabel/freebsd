@@ -111,8 +111,6 @@ CONSOLE_DRIVER(riscv);
 
 #define	MAX_BURST_LEN		1
 #define	QUEUE_SIZE		256
-#define	CONSOLE_DEFAULT_ID	1ul
-#define	SPIN_IN_MACHINE_MODE	1
 
 struct queue_entry {
 	uint64_t data;
