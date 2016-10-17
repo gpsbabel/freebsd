@@ -82,7 +82,7 @@ __DEFAULT_YES_OPTIONS = \
     DYNAMICROOT \
     ED_CRYPTO \
     EE \
-    ELFCOPY_AS_OBJCOPY \
+    EFI \
     ELFTOOLCHAIN_BOOTSTRAP \
     EXAMPLES \
     FDT \
@@ -261,8 +261,11 @@ BROKEN_OPTIONS+=LLDB
 .if ${__T} != "armv6"
 BROKEN_OPTIONS+=LIBSOFT
 .endif
-.if ${__T} == "mips" || ${__T} == "mips64"
+.if ${__T:Mmips*}
 BROKEN_OPTIONS+=SSP
+.endif
+.if ${__T:Mmips*} || ${__T:Mpowerpc*} || ${__T:Msparc64} || ${__T:Mriscv*}
+BROKEN_OPTIONS+=EFI
 .endif
 
 .include <bsd.mkopt.mk>
