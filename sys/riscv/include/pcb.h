@@ -49,6 +49,8 @@ struct pcb {
 	uint64_t	pcb_t[7];
 	uint64_t	pcb_s[12];
 	uint64_t	pcb_a[8];
+	uint64_t	pcb_f[32];
+	uint64_t	pcb_fcsr;
 	uint64_t	pcb_sepc;
 	vm_offset_t	pcb_l1addr;	/* L1 page tables base address */
 	vm_offset_t	pcb_onfault;

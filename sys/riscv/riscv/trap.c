@@ -358,6 +358,7 @@ do_trap_user(struct trapframe *frame)
 		svc_handler(frame);
 		break;
 	case EXCP_ILLEGAL_INSTRUCTION:
+		printf("ill 0x%x\n", frame->tf_sepc);
 		call_trapsignal(td, SIGILL, ILL_ILLTRP, (void *)frame->tf_sepc);
 		userret(td, frame);
 		break;

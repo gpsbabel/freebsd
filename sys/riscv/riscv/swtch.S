@@ -42,6 +42,8 @@
 
 __FBSDID("$FreeBSD$");
 
+#define	SR_FS	(0x1 << 13)
+
 /*
  * void cpu_throw(struct thread *old, struct thread *new)
  */
@@ -123,6 +125,45 @@ ENTRY(cpu_switch)
 	sd	s10, (PCB_S + 10 * 8)(x13)
 	sd	s11, (PCB_S + 11 * 8)(x13)
 
+	li	t1, SR_FS
+	csrs	sstatus, t1
+	frcsr	t0
+	/* f[0-31] */
+	fsd	f0, (PCB_F + 0 * 8)(x13)
+	fsd	f1, (PCB_F + 1 * 8)(x13)
+	fsd	f2, (PCB_F + 2 * 8)(x13)
+	fsd	f3, (PCB_F + 3 * 8)(x13)
+	fsd	f4, (PCB_F + 4 * 8)(x13)
+	fsd	f5, (PCB_F + 5 * 8)(x13)
+	fsd	f6, (PCB_F + 6 * 8)(x13)
+	fsd	f7, (PCB_F + 7 * 8)(x13)
+	fsd	f8, (PCB_F + 8 * 8)(x13)
+	fsd	f9, (PCB_F + 9 * 8)(x13)
+	fsd	f10, (PCB_F + 10 * 8)(x13)
+	fsd	f11, (PCB_F + 11 * 8)(x13)
+	fsd	f12, (PCB_F + 12 * 8)(x13)
+	fsd	f13, (PCB_F + 13 * 8)(x13)
+	fsd	f14, (PCB_F + 14 * 8)(x13)
+	fsd	f15, (PCB_F + 15 * 8)(x13)
+	fsd	f16, (PCB_F + 16 * 8)(x13)
+	fsd	f17, (PCB_F + 17 * 8)(x13)
+	fsd	f18, (PCB_F + 18 * 8)(x13)
+	fsd	f19, (PCB_F + 19 * 8)(x13)
+	fsd	f20, (PCB_F + 20 * 8)(x13)
+	fsd	f21, (PCB_F + 21 * 8)(x13)
+	fsd	f22, (PCB_F + 22 * 8)(x13)
+	fsd	f23, (PCB_F + 23 * 8)(x13)
+	fsd	f24, (PCB_F + 24 * 8)(x13)
+	fsd	f25, (PCB_F + 25 * 8)(x13)
+	fsd	f26, (PCB_F + 26 * 8)(x13)
+	fsd	f27, (PCB_F + 27 * 8)(x13)
+	fsd	f28, (PCB_F + 28 * 8)(x13)
+	fsd	f29, (PCB_F + 29 * 8)(x13)
+	fsd	f30, (PCB_F + 30 * 8)(x13)
+	fsd	f31, (PCB_F + 31 * 8)(x13)
+	sd	t0, (PCB_FCSR)(x13)
+	//csrc	sstatus, t1
+
 	/*
 	 * Restore the saved context.
 	 */
@@ -171,6 +212,46 @@ ENTRY(cpu_switch)
 	ld	s9, (PCB_S + 9 * 8)(x13)
 	ld	s10, (PCB_S + 10 * 8)(x13)
 	ld	s11, (PCB_S + 11 * 8)(x13)
+
+	/* f[0-31] */
+	li	t1, SR_FS
+	ld	t0, (PCB_FCSR)(x13)
+	csrs	sstatus, t1
+	fld	f0, (PCB_F + 0 * 8)(x13)
+	fld	f1, (PCB_F + 1 * 8)(x13)
+	fld	f2, (PCB_F + 2 * 8)(x13)
+	fld	f3, (PCB_F + 3 * 8)(x13)
+	fld	f4, (PCB_F + 4 * 8)(x13)
+	fld	f5, (PCB_F + 5 * 8)(x13)
+	fld	f6, (PCB_F + 6 * 8)(x13)
+	fld	f7, (PCB_F + 7 * 8)(x13)
+	fld	f8, (PCB_F + 8 * 8)(x13)
+	fld	f9, (PCB_F + 9 * 8)(x13)
+	fld	f10, (PCB_F + 10 * 8)(x13)
+	fld	f11, (PCB_F + 11 * 8)(x13)
+	fld	f12, (PCB_F + 12 * 8)(x13)
+	fld	f13, (PCB_F + 13 * 8)(x13)
+	fld	f14, (PCB_F + 14 * 8)(x13)
+	fld	f15, (PCB_F + 15 * 8)(x13)
+	fld	f16, (PCB_F + 16 * 8)(x13)
+	fld	f17, (PCB_F + 17 * 8)(x13)
+	fld	f18, (PCB_F + 18 * 8)(x13)
+	fld	f19, (PCB_F + 19 * 8)(x13)
+	fld	f20, (PCB_F + 20 * 8)(x13)
+	fld	f21, (PCB_F + 21 * 8)(x13)
+	fld	f22, (PCB_F + 22 * 8)(x13)
+	fld	f23, (PCB_F + 23 * 8)(x13)
+	fld	f24, (PCB_F + 24 * 8)(x13)
+	fld	f25, (PCB_F + 25 * 8)(x13)
+	fld	f26, (PCB_F + 26 * 8)(x13)
+	fld	f27, (PCB_F + 27 * 8)(x13)
+	fld	f28, (PCB_F + 28 * 8)(x13)
+	fld	f29, (PCB_F + 29 * 8)(x13)
+	fld	f30, (PCB_F + 30 * 8)(x13)
+	fld	f31, (PCB_F + 31 * 8)(x13)
+	fscsr	t0
+	//csrc	sstatus, t1
+
 	ret
 .Lcpu_switch_panic_str:
 	.asciz "cpu_switch: %p\0"
