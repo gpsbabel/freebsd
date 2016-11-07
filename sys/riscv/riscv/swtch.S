@@ -42,8 +42,6 @@
 
 __FBSDID("$FreeBSD$");
 
-#define	SR_FS	(0x1 << 13)
-
 /*
  * void cpu_throw(struct thread *old, struct thread *new)
  */
@@ -125,10 +123,14 @@ ENTRY(cpu_switch)
 	sd	s10, (PCB_S + 10 * 8)(x13)
 	sd	s11, (PCB_S + 11 * 8)(x13)
 
-	li	t1, SR_FS
-	csrs	sstatus, t1
+#ifdef VFP
+	li	t0, SSTATUS_FS_MASK
+	csrr	t1, sstatus
+	and	t1, t1, t0
+	beqz	t1, 1f
+
 	frcsr	t0
-	/* f[0-31] */
+	sd	t0, (PCB_FCSR)(x13)
 	fsd	f0, (PCB_F + 0 * 8)(x13)
 	fsd	f1, (PCB_F + 1 * 8)(x13)
 	fsd	f2, (PCB_F + 2 * 8)(x13)
@@ -161,8 +163,8 @@ ENTRY(cpu_switch)
 	fsd	f29, (PCB_F + 29 * 8)(x13)
 	fsd	f30, (PCB_F + 30 * 8)(x13)
 	fsd	f31, (PCB_F + 31 * 8)(x13)
-	sd	t0, (PCB_FCSR)(x13)
-	//csrc	sstatus, t1
+1:
+#endif
 
 	/*
 	 * Restore the saved context.
@@ -213,10 +215,17 @@ ENTRY(cpu_switch)
 	ld	s10, (PCB_S + 10 * 8)(x13)
 	ld	s11, (PCB_S + 11 * 8)(x13)
 
-	/* f[0-31] */
-	li	t1, SR_FS
+	//ld	t0, (PCB_SSTATUS)(x13)
+	//csrw	sstatus, t0
+
+#ifdef VFP
+	li	t0, SSTATUS_FS_MASK
+	csrr	t1, sstatus
+	and	t1, t1, t0
+	beqz	t1, 1f
+
 	ld	t0, (PCB_FCSR)(x13)
-	csrs	sstatus, t1
+	fscsr	t0
 	fld	f0, (PCB_F + 0 * 8)(x13)
 	fld	f1, (PCB_F + 1 * 8)(x13)
 	fld	f2, (PCB_F + 2 * 8)(x13)
@@ -249,8 +258,8 @@ ENTRY(cpu_switch)
 	fld	f29, (PCB_F + 29 * 8)(x13)
 	fld	f30, (PCB_F + 30 * 8)(x13)
 	fld	f31, (PCB_F + 31 * 8)(x13)
-	fscsr	t0
-	//csrc	sstatus, t1
+1:
+#endif
 
 	ret
 .Lcpu_switch_panic_str:
@@ -352,7 +361,46 @@ ENTRY(savectx)
 
 	/* Store the VFP registers */
 #ifdef VFP
-	/* TODO */
+	li	t0, SSTATUS_FS_MASK
+	csrr	t1, sstatus
+	and	t1, t1, t0
+	beqz	t1, 1f
+
+	frcsr	t0
+	sd	t0, (PCB_FCSR)(a0)
+	fsd	f0, (PCB_F + 0 * 8)(a0)
+	fsd	f1, (PCB_F + 1 * 8)(a0)
+	fsd	f2, (PCB_F + 2 * 8)(a0)
+	fsd	f3, (PCB_F + 3 * 8)(a0)
+	fsd	f4, (PCB_F + 4 * 8)(a0)
+	fsd	f5, (PCB_F + 5 * 8)(a0)
+	fsd	f6, (PCB_F + 6 * 8)(a0)
+	fsd	f7, (PCB_F + 7 * 8)(a0)
+	fsd	f8, (PCB_F + 8 * 8)(a0)
+	fsd	f9, (PCB_F + 9 * 8)(a0)
+	fsd	f10, (PCB_F + 10 * 8)(a0)
+	fsd	f11, (PCB_F + 11 * 8)(a0)
+	fsd	f12, (PCB_F + 12 * 8)(a0)
+	fsd	f13, (PCB_F + 13 * 8)(a0)
+	fsd	f14, (PCB_F + 14 * 8)(a0)
+	fsd	f15, (PCB_F + 15 * 8)(a0)
+	fsd	f16, (PCB_F + 16 * 8)(a0)
+	fsd	f17, (PCB_F + 17 * 8)(a0)
+	fsd	f18, (PCB_F + 18 * 8)(a0)
+	fsd	f19, (PCB_F + 19 * 8)(a0)
+	fsd	f20, (PCB_F + 20 * 8)(a0)
+	fsd	f21, (PCB_F + 21 * 8)(a0)
+	fsd	f22, (PCB_F + 22 * 8)(a0)
+	fsd	f23, (PCB_F + 23 * 8)(a0)
+	fsd	f24, (PCB_F + 24 * 8)(a0)
+	fsd	f25, (PCB_F + 25 * 8)(a0)
+	fsd	f26, (PCB_F + 26 * 8)(a0)
+	fsd	f27, (PCB_F + 27 * 8)(a0)
+	fsd	f28, (PCB_F + 28 * 8)(a0)
+	fsd	f29, (PCB_F + 29 * 8)(a0)
+	fsd	f30, (PCB_F + 30 * 8)(a0)
+	fsd	f31, (PCB_F + 31 * 8)(a0)
+1:
 #endif
 	ret
 END(savectx)

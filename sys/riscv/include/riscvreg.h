@@ -62,6 +62,9 @@
 #define	SSTATUS_SPP_SHIFT		8
 #define	SSTATUS_FS_MASK			0x3
 #define	SSTATUS_FS_SHIFT		13
+#define	SSTATUS_FS_INITIAL		0x1
+#define	SSTATUS_FS_CLEAN		0x2
+#define	SSTATUS_FS_DIRTY		0x3
 #define	SSTATUS_XS_MASK			0x3
 #define	SSTATUS_XS_SHIFT		15
 #define	SSTATUS_PUM			(1 << 18)

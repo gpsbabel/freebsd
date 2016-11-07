@@ -117,7 +117,7 @@ __FBSDID("$FreeBSD$");
 	ld	t0, (TF_SSTATUS)(sp)
 .if \el == 0
 	/* Ensure user interrupts will be enabled on eret. */
-	li	t1, SSTATUS_SPIE | (1 << 13)
+	li	t1, SSTATUS_SPIE
 	or	t0, t0, t1
 .else
 	/*
