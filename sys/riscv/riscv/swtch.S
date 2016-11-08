@@ -164,15 +164,18 @@ ENTRY(cpu_switch)
 	sd	s11, (PCB_S + 11 * 8)(x13)
 
 #ifdef VFP
-	/* Was FPU in dirty state? */
+	/*
+	 * Was FPU enabled and dirty bit set before
+	 * trap took place?
+	 */
 	ld	t0, TD_FRAME(a0)
 	ld	t1, (TF_SSTATUS)(t0)
 	li	t2, (SSTATUS_FS_MASK << SSTATUS_FS_SHIFT)
 	and	t3, t1, t2
 	li	t2, (SSTATUS_FS_DIRTY << SSTATUS_FS_SHIFT)
-	bne	t3, t2, 1f		/* No */
+	bne	t3, t2, 1f		/* No, skip. */
 
-	/* Mark it clean */
+	/* Yes, mark FPU state clean */
 	li	t2, ~(SSTATUS_FS_MASK << SSTATUS_FS_SHIFT)
 	and	t3, t1, t2
 	li	t2, (SSTATUS_FS_CLEAN << SSTATUS_FS_SHIFT)
@@ -220,7 +223,7 @@ ENTRY(cpu_switch)
 	fsd	f30, (PCB_F + 30 * 8)(x13)
 	fsd	f31, (PCB_F + 31 * 8)(x13)
 
-	/* Disable FPU usage in supervisor mode */
+	/* Disable FPU usage in supervisor mode. */
 	li	t0, (SSTATUS_FS_MASK << SSTATUS_FS_SHIFT)
 	csrc	sstatus, t0
 1:
@@ -276,15 +279,15 @@ ENTRY(cpu_switch)
 	ld	s11, (PCB_S + 11 * 8)(x13)
 
 #ifdef VFP
-	/* Will FPU be enabled? */
+	/* Will FPU be enabled for new thread? */
 	ld	t0, TD_FRAME(a1)
 	ld	t1, (TF_SSTATUS)(t0)
 	li	t2, (SSTATUS_FS_MASK << SSTATUS_FS_SHIFT)
 	and	t3, t1, t2
-	beqz	t3, 1f		/* No, skip */
+	beqz	t3, 1f		/* No, skip. */
 
 	/*
-	 * Enable FPU usage supervisor mode,
+	 * Yes. Enable FPU usage supervisor mode,
 	 * so we can access registers.
 	 */
 	li	t0, (SSTATUS_FS_INITIAL << SSTATUS_FS_SHIFT)
@@ -324,7 +327,7 @@ ENTRY(cpu_switch)
 	fld	f30, (PCB_F + 30 * 8)(x13)
 	fld	f31, (PCB_F + 31 * 8)(x13)
 
-	/* Disable FPU usage in supervisor mode */
+	/* Disable FPU usage in supervisor mode. */
 	li	t0, (SSTATUS_FS_MASK << SSTATUS_FS_SHIFT)
 	csrc	sstatus, t0
 1:
@@ -471,7 +474,7 @@ ENTRY(savectx)
 	fsd	f30, (PCB_F + 30 * 8)(a0)
 	fsd	f31, (PCB_F + 31 * 8)(a0)
 
-	/* Disable FPU usage in supervisor mode */
+	/* Disable FPU usage in supervisor mode. */
 	li	t0, (SSTATUS_FS_MASK << SSTATUS_FS_SHIFT)
 	csrc	sstatus, t0
 #endif
