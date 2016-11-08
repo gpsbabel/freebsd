@@ -42,6 +42,46 @@
 
 __FBSDID("$FreeBSD$");
 
+ENTRY(fprestore)
+#ifdef VFP
+	ld	t0, (PCB_FCSR)(a0)
+	fscsr	t0
+	fld	f0, (PCB_F + 0 * 8)(a0)
+	fld	f1, (PCB_F + 1 * 8)(a0)
+	fld	f2, (PCB_F + 2 * 8)(a0)
+	fld	f3, (PCB_F + 3 * 8)(a0)
+	fld	f4, (PCB_F + 4 * 8)(a0)
+	fld	f5, (PCB_F + 5 * 8)(a0)
+	fld	f6, (PCB_F + 6 * 8)(a0)
+	fld	f7, (PCB_F + 7 * 8)(a0)
+	fld	f8, (PCB_F + 8 * 8)(a0)
+	fld	f9, (PCB_F + 9 * 8)(a0)
+	fld	f10, (PCB_F + 10 * 8)(a0)
+	fld	f11, (PCB_F + 11 * 8)(a0)
+	fld	f12, (PCB_F + 12 * 8)(a0)
+	fld	f13, (PCB_F + 13 * 8)(a0)
+	fld	f14, (PCB_F + 14 * 8)(a0)
+	fld	f15, (PCB_F + 15 * 8)(a0)
+	fld	f16, (PCB_F + 16 * 8)(a0)
+	fld	f17, (PCB_F + 17 * 8)(a0)
+	fld	f18, (PCB_F + 18 * 8)(a0)
+	fld	f19, (PCB_F + 19 * 8)(a0)
+	fld	f20, (PCB_F + 20 * 8)(a0)
+	fld	f21, (PCB_F + 21 * 8)(a0)
+	fld	f22, (PCB_F + 22 * 8)(a0)
+	fld	f23, (PCB_F + 23 * 8)(a0)
+	fld	f24, (PCB_F + 24 * 8)(a0)
+	fld	f25, (PCB_F + 25 * 8)(a0)
+	fld	f26, (PCB_F + 26 * 8)(a0)
+	fld	f27, (PCB_F + 27 * 8)(a0)
+	fld	f28, (PCB_F + 28 * 8)(a0)
+	fld	f29, (PCB_F + 29 * 8)(a0)
+	fld	f30, (PCB_F + 30 * 8)(a0)
+	fld	f31, (PCB_F + 31 * 8)(a0)
+	ret
+#endif
+END(fprestore)
+
 /*
  * void cpu_throw(struct thread *old, struct thread *new)
  */
@@ -124,11 +164,27 @@ ENTRY(cpu_switch)
 	sd	s11, (PCB_S + 11 * 8)(x13)
 
 #ifdef VFP
-	li	t0, SSTATUS_FS_MASK
-	csrr	t1, sstatus
-	and	t1, t1, t0
-	beqz	t1, 1f
+	/* Was FPU in dirty state? */
+	ld	t0, TD_FRAME(a0)
+	ld	t1, (TF_SSTATUS)(t0)
+	li	t2, (SSTATUS_FS_MASK << SSTATUS_FS_SHIFT)
+	and	t3, t1, t2
+	li	t2, (SSTATUS_FS_DIRTY << SSTATUS_FS_SHIFT)
+	bne	t3, t2, 1f		/* No */
 
+	/* Mark it clean */
+	li	t2, ~(SSTATUS_FS_MASK << SSTATUS_FS_SHIFT)
+	and	t3, t1, t2
+	li	t2, (SSTATUS_FS_CLEAN << SSTATUS_FS_SHIFT)
+	or	t3, t3, t2
+	sd	t3, (TF_SSTATUS)(t0)
+
+	/*
+	 * FPU was in dirty state. Enable FPU usage in
+	 * supervisor mode, so we can access registers.
+	 */
+	li	t0, (SSTATUS_FS_INITIAL << SSTATUS_FS_SHIFT)
+	csrs	sstatus, t0
 	frcsr	t0
 	sd	t0, (PCB_FCSR)(x13)
 	fsd	f0, (PCB_F + 0 * 8)(x13)
@@ -163,6 +219,10 @@ ENTRY(cpu_switch)
 	fsd	f29, (PCB_F + 29 * 8)(x13)
 	fsd	f30, (PCB_F + 30 * 8)(x13)
 	fsd	f31, (PCB_F + 31 * 8)(x13)
+
+	/* Disable FPU usage in supervisor mode */
+	li	t0, (SSTATUS_FS_MASK << SSTATUS_FS_SHIFT)
+	csrc	sstatus, t0
 1:
 #endif
 
@@ -215,15 +275,20 @@ ENTRY(cpu_switch)
 	ld	s10, (PCB_S + 10 * 8)(x13)
 	ld	s11, (PCB_S + 11 * 8)(x13)
 
-	//ld	t0, (PCB_SSTATUS)(x13)
-	//csrw	sstatus, t0
-
 #ifdef VFP
-	li	t0, SSTATUS_FS_MASK
-	csrr	t1, sstatus
-	and	t1, t1, t0
-	beqz	t1, 1f
+	/* Will FPU be enabled? */
+	ld	t0, TD_FRAME(a1)
+	ld	t1, (TF_SSTATUS)(t0)
+	li	t2, (SSTATUS_FS_MASK << SSTATUS_FS_SHIFT)
+	and	t3, t1, t2
+	beqz	t3, 1f		/* No, skip */
 
+	/*
+	 * Enable FPU usage supervisor mode,
+	 * so we can access registers.
+	 */
+	li	t0, (SSTATUS_FS_INITIAL << SSTATUS_FS_SHIFT)
+	csrs	sstatus, t0
 	ld	t0, (PCB_FCSR)(x13)
 	fscsr	t0
 	fld	f0, (PCB_F + 0 * 8)(x13)
@@ -258,6 +323,10 @@ ENTRY(cpu_switch)
 	fld	f29, (PCB_F + 29 * 8)(x13)
 	fld	f30, (PCB_F + 30 * 8)(x13)
 	fld	f31, (PCB_F + 31 * 8)(x13)
+
+	/* Disable FPU usage in supervisor mode */
+	li	t0, (SSTATUS_FS_MASK << SSTATUS_FS_SHIFT)
+	csrc	sstatus, t0
 1:
 #endif
 
@@ -361,11 +430,12 @@ ENTRY(savectx)
 
 	/* Store the VFP registers */
 #ifdef VFP
-	li	t0, SSTATUS_FS_MASK
-	csrr	t1, sstatus
-	and	t1, t1, t0
-	beqz	t1, 1f
-
+	/*
+	 * Enable FPU usage in supervisor mode, so we can
+	 * access registers.
+	 */
+	li	t0, (SSTATUS_FS_INITIAL << SSTATUS_FS_SHIFT)
+	csrs	sstatus, t0
 	frcsr	t0
 	sd	t0, (PCB_FCSR)(a0)
 	fsd	f0, (PCB_F + 0 * 8)(a0)
@@ -400,7 +470,10 @@ ENTRY(savectx)
 	fsd	f29, (PCB_F + 29 * 8)(a0)
 	fsd	f30, (PCB_F + 30 * 8)(a0)
 	fsd	f31, (PCB_F + 31 * 8)(a0)
-1:
+
+	/* Disable FPU usage in supervisor mode */
+	li	t0, (SSTATUS_FS_MASK << SSTATUS_FS_SHIFT)
+	csrc	sstatus, t0
 #endif
 	ret
 END(savectx)
