@@ -69,7 +69,7 @@ __flt_rounds(void)
 {
 	uint64_t __fcsr;
 
-	__asm __volatile("csrr %0, fcsr" : "=r" (*(&__fcsr)));
+	__asm __volatile("csrr %0, fcsr" : "=r" (__fcsr));
 
 	switch (__fcsr & _ROUND_MASK) {
 	case FE_TOWARDZERO:
