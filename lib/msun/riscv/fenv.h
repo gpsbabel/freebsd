@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2004-2005 David Schultz <das@FreeBSD.ORG>
+ * Copyright (c) 2004-2005 David Schultz <das@FreeBSD.org>
  * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
  *
@@ -77,39 +77,42 @@ extern const fenv_t	__fe_dfl_env;
 #define	_FPUSW_SHIFT	0
 #define	_ENABLE_MASK	(FE_ALL_EXCEPT << _FPUSW_SHIFT)
 
-#define	__rfs(__fpsr)	__asm __volatile("csrr %0, fcsr" : "=r" (*(__fpsr)))
-#define	__wfs(__fpsr)	__asm __volatile("csrw fcsr, %0" :: "r" (__fpsr))
+#define	__rfs(__fcsr)	__asm __volatile("csrr %0, fcsr" : "=r" (*(__fcsr)))
+#define	__wfs(__fcsr)	__asm __volatile("csrw fcsr, %0" :: "r" (__fcsr))
 
 __fenv_static inline int
 feclearexcept(int __excepts)
 {
-	fexcept_t __fpsr;
+	fexcept_t __fcsr;
 
-	__rfs(&__fpsr);
-	__fpsr &= ~__excepts;
-	__wfs(__fpsr);
+	__rfs(&__fcsr);
+	__fcsr &= ~__excepts;
+	__wfs(__fcsr);
+
 	return (0);
 }
 
 __fenv_static inline int
 fegetexceptflag(fexcept_t *__flagp, int __excepts)
 {
-	fexcept_t __fpsr;
+	fexcept_t __fcsr;
 
-	__rfs(&__fpsr);
-	*__flagp = __fpsr & __excepts;
+	__rfs(&__fcsr);
+	*__flagp = __fcsr & __excepts;
+
 	return (0);
 }
 
 __fenv_static inline int
 fesetexceptflag(const fexcept_t *__flagp, int __excepts)
 {
-	fexcept_t __fpsr;
+	fexcept_t __fcsr;
 
-	__rfs(&__fpsr);
-	__fpsr &= ~__excepts;
-	__fpsr |= *__flagp & __excepts;
-	__wfs(__fpsr);
+	__rfs(&__fcsr);
+	__fcsr &= ~__excepts;
+	__fcsr |= *__flagp & __excepts;
+	__wfs(__fcsr);
+
 	return (0);
 }
 
@@ -119,30 +122,44 @@ feraiseexcept(int __excepts)
 	fexcept_t __ex = __excepts;
 
 	fesetexceptflag(&__ex, __excepts);	/* XXX */
+
 	return (0);
 }
 
 __fenv_static inline int
 fetestexcept(int __excepts)
 {
-	fexcept_t __fpsr;
+	fexcept_t __fcsr;
 
-	__rfs(&__fpsr);
-	return (__fpsr & __excepts);
+	__rfs(&__fcsr);
+
+	return (__fcsr & __excepts);
 }
 
 __fenv_static inline int
 fegetround(void)
 {
+	fexcept_t __fcsr;
 
-	return (-1);
+	__rfs(&__fcsr);
+
+	return (__fcsr & _ROUND_MASK);
 }
 
 __fenv_static inline int
 fesetround(int __round)
 {
+	fexcept_t __fcsr;
 
-	return (-1);
+	if (__round & ~_ROUND_MASK)
+		return (-1);
+
+	__rfs(&__fcsr);
+	__fcsr &= ~_ROUND_MASK;
+	__fcsr |= __round;
+	__wfs(&__fcsr);
+
+	return (0);
 }
 
 __fenv_static inline int
@@ -150,6 +167,7 @@ fegetenv(fenv_t *__envp)
 {
 
 	__rfs(__envp);
+
 	return (0);
 }
 
@@ -162,6 +180,7 @@ feholdexcept(fenv_t *__envp)
 	*__envp = __env;
 	__env &= ~(FE_ALL_EXCEPT | _ENABLE_MASK);
 	__wfs(__env);
+
 	return (0);
 }
 
@@ -170,17 +189,19 @@ fesetenv(const fenv_t *__envp)
 {
 
 	__wfs(*__envp);
+
 	return (0);
 }
 
 __fenv_static inline int
 feupdateenv(const fenv_t *__envp)
 {
-	fexcept_t __fpsr;
+	fexcept_t __fcsr;
 
-	__rfs(&__fpsr);
+	__rfs(&__fcsr);
 	__wfs(*__envp);
-	feraiseexcept(__fpsr & FE_ALL_EXCEPT);
+	feraiseexcept(__fcsr & FE_ALL_EXCEPT);
+
 	return (0);
 }
 
@@ -191,34 +212,37 @@ feupdateenv(const fenv_t *__envp)
 static inline int
 feenableexcept(int __mask)
 {
-	fenv_t __old_fpsr;
-	fenv_t __new_fpsr;
+	fenv_t __old_fcsr;
+	fenv_t __new_fcsr;
 
-	__rfs(&__old_fpsr);
-	__new_fpsr = __old_fpsr | (__mask & FE_ALL_EXCEPT) << _FPUSW_SHIFT;
-	__wfs(__new_fpsr);
-	return ((__old_fpsr >> _FPUSW_SHIFT) & FE_ALL_EXCEPT);
+	__rfs(&__old_fcsr);
+	__new_fcsr = __old_fcsr | (__mask & FE_ALL_EXCEPT) << _FPUSW_SHIFT;
+	__wfs(__new_fcsr);
+
+	return ((__old_fcsr >> _FPUSW_SHIFT) & FE_ALL_EXCEPT);
 }
 
 static inline int
 fedisableexcept(int __mask)
 {
-	fenv_t __old_fpsr;
-	fenv_t __new_fpsr;
+	fenv_t __old_fcsr;
+	fenv_t __new_fcsr;
 
-	__rfs(&__old_fpsr);
-	__new_fpsr = __old_fpsr & ~((__mask & FE_ALL_EXCEPT) << _FPUSW_SHIFT);
-	__wfs(__new_fpsr);
-	return ((__old_fpsr >> _FPUSW_SHIFT) & FE_ALL_EXCEPT);
+	__rfs(&__old_fcsr);
+	__new_fcsr = __old_fcsr & ~((__mask & FE_ALL_EXCEPT) << _FPUSW_SHIFT);
+	__wfs(__new_fcsr);
+
+	return ((__old_fcsr >> _FPUSW_SHIFT) & FE_ALL_EXCEPT);
 }
 
 static inline int
 fegetexcept(void)
 {
-	fenv_t __fpsr;
+	fenv_t __fcsr;
 
-	__rfs(&__fpsr);
-	return ((__fpsr & _ENABLE_MASK) >> _FPUSW_SHIFT);
+	__rfs(&__fcsr);
+
+	return ((__fcsr & _ENABLE_MASK) >> _FPUSW_SHIFT);
 }
 
 #endif /* __BSD_VISIBLE */
