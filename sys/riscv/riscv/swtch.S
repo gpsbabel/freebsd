@@ -164,7 +164,10 @@ ENTRY(cpu_switch)
 	sd	s11, (PCB_S + 11 * 8)(x13)
 
 #ifdef VFP
-	/* Was FPU in dirty state before trap took place? */
+	/*
+	 * Was FPU enabled and was it in dirty state
+	 * before trap took place?
+	 */
 	ld	t0, TD_FRAME(a0)
 	ld	t1, (TF_SSTATUS)(t0)
 	li	t2, (SSTATUS_FS_MASK << SSTATUS_FS_SHIFT)
