@@ -146,7 +146,7 @@ SRCF+=		trunctfdf2
 SRCF+=		trunctfsf2
 .endif
 
-# These are already shipped by libc.a on some architectures
+# These are already shipped by libc.a on some architectures.
 .if ${MACHINE_CPUARCH} != "arm" && ${MACHINE_CPUARCH} != "mips" && \
     ${MACHINE_CPUARCH} != "riscv"
 SRCF+=		adddf3
