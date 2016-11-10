@@ -48,11 +48,19 @@ typedef	__uint64_t	fenv_t;
 typedef	__uint64_t	fexcept_t;
 
 /* Exception flags */
+#ifdef SOFTFLOAT
+#define	FE_INVALID	0x0001
+#define	FE_DIVBYZERO	0x0002
+#define	FE_OVERFLOW	0x0004
+#define	FE_UNDERFLOW	0x0008
+#define	FE_INEXACT	0x0010
+#else
 #define	FE_INVALID	0x0010
 #define	FE_DIVBYZERO	0x0008
 #define	FE_OVERFLOW	0x0004
 #define	FE_UNDERFLOW	0x0002
 #define	FE_INEXACT	0x0001
+#endif
 #define	FE_ALL_EXCEPT	(FE_DIVBYZERO | FE_INEXACT | \
 			 FE_INVALID | FE_OVERFLOW | FE_UNDERFLOW)
 
@@ -73,13 +81,24 @@ __BEGIN_DECLS
 extern const fenv_t	__fe_dfl_env;
 #define	FE_DFL_ENV	(&__fe_dfl_env)
 
-/* We need to be able to map status flag positions to mask flag positions */
-#define	_FPUSW_SHIFT	0
-#define	_ENABLE_MASK	(FE_ALL_EXCEPT << _FPUSW_SHIFT)
-
+#ifndef SOFTFLOAT
 #define	__rfs(__fcsr)	__asm __volatile("csrr %0, fcsr" : "=r" (__fcsr))
 #define	__wfs(__fcsr)	__asm __volatile("csrw fcsr, %0" :: "r" (__fcsr))
+#endif
 
+#ifdef SOFTFLOAT
+int feclearexcept(int __excepts);
+int fegetexceptflag(fexcept_t *__flagp, int __excepts);
+int fesetexceptflag(const fexcept_t *__flagp, int __excepts);
+int feraiseexcept(int __excepts);
+int fetestexcept(int __excepts);
+int fegetround(void);
+int fesetround(int __round);
+int fegetenv(fenv_t *__envp);
+int feholdexcept(fenv_t *__envp);
+int fesetenv(const fenv_t *__envp);
+int feupdateenv(const fenv_t *__envp);
+#else
 __fenv_static inline int
 feclearexcept(int __excepts)
 {
@@ -169,14 +188,10 @@ fegetenv(fenv_t *__envp)
 __fenv_static inline int
 feholdexcept(fenv_t *__envp)
 {
-	fenv_t __env;
 
-	__rfs(__env);
-	*__envp = __env;
-	__env &= ~(FE_ALL_EXCEPT | _ENABLE_MASK);
-	__wfs(__env);
+	/* No exception traps. */
 
-	return (0);
+	return (-1);
 }
 
 __fenv_static inline int
@@ -199,11 +214,17 @@ feupdateenv(const fenv_t *__envp)
 
 	return (0);
 }
+#endif /* !SOFTFLOAT */
 
 #if __BSD_VISIBLE
 
 /* We currently provide no external definitions of the functions below. */
 
+#ifdef SOFTFLOAT
+int feenableexcept(int __mask);
+int fedisableexcept(int __mask);
+int fegetexcept(void);
+#else
 static inline int
 feenableexcept(int __mask)
 {
@@ -230,6 +251,7 @@ fegetexcept(void)
 
 	return (0);
 }
+#endif /* !SOFTFLOAT */
 
 #endif /* __BSD_VISIBLE */
 
