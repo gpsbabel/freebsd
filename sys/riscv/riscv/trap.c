@@ -358,14 +358,18 @@ do_trap_user(struct trapframe *frame)
 		svc_handler(frame);
 		break;
 	case EXCP_ILLEGAL_INSTRUCTION:
-		//printf("ill at 0x%x, sstatus %x\n", frame->tf_sepc, frame->tf_sstatus);
-		if (frame->tf_sstatus & (SSTATUS_FS_MASK << SSTATUS_FS_SHIFT)) {
+#if 0
+		printf("illegal instruction at 0x%x, sstatus %x\n",
+		    frame->tf_sepc, frame->tf_sstatus);
+#endif
+		if ((frame->tf_sstatus & SSTATUS_FS_MASK) != SSTATUS_FS_OFF) {
 			/* Not a FPU trap */
-			call_trapsignal(td, SIGILL, ILL_ILLTRP, (void *)frame->tf_sepc);
+			call_trapsignal(td, SIGILL, ILL_ILLTRP,
+			    (void *)frame->tf_sepc);
 			userret(td, frame);
 		} else {
-			/* Enable FPU */
-			frame->tf_sstatus |= (SSTATUS_FS_INITIAL << SSTATUS_FS_SHIFT);
+			/* May be a FPU trap. Enable FPU and try again. */
+			frame->tf_sstatus |= SSTATUS_FS_INITIAL;
 		}
 		break;
 	case EXCP_BREAKPOINT:

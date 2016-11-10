@@ -170,15 +170,15 @@ ENTRY(cpu_switch)
 	 */
 	ld	t0, TD_FRAME(a0)
 	ld	t1, (TF_SSTATUS)(t0)
-	li	t2, (SSTATUS_FS_MASK << SSTATUS_FS_SHIFT)
+	li	t2, SSTATUS_FS_MASK
 	and	t3, t1, t2
-	li	t2, (SSTATUS_FS_DIRTY << SSTATUS_FS_SHIFT)
+	li	t2, SSTATUS_FS_DIRTY
 	bne	t3, t2, 1f		/* No, skip. */
 
 	/* Yes, mark FPU state clean */
-	li	t2, ~(SSTATUS_FS_MASK << SSTATUS_FS_SHIFT)
+	li	t2, ~SSTATUS_FS_MASK
 	and	t3, t1, t2
-	li	t2, (SSTATUS_FS_CLEAN << SSTATUS_FS_SHIFT)
+	li	t2, SSTATUS_FS_CLEAN
 	or	t3, t3, t2
 	sd	t3, (TF_SSTATUS)(t0)
 
@@ -186,7 +186,7 @@ ENTRY(cpu_switch)
 	 * FPU was in dirty state. Enable FPU usage in
 	 * supervisor mode, so we can access registers.
 	 */
-	li	t0, (SSTATUS_FS_INITIAL << SSTATUS_FS_SHIFT)
+	li	t0, SSTATUS_FS_INITIAL
 	csrs	sstatus, t0
 	frcsr	t0
 	sd	t0, (PCB_FCSR)(x13)
@@ -224,7 +224,7 @@ ENTRY(cpu_switch)
 	fsd	f31, (PCB_F + 31 * 8)(x13)
 
 	/* Disable FPU usage in supervisor mode. */
-	li	t0, (SSTATUS_FS_MASK << SSTATUS_FS_SHIFT)
+	li	t0, SSTATUS_FS_MASK
 	csrc	sstatus, t0
 1:
 #endif
@@ -282,7 +282,7 @@ ENTRY(cpu_switch)
 	/* Will FPU be enabled for new thread? */
 	ld	t0, TD_FRAME(a1)
 	ld	t1, (TF_SSTATUS)(t0)
-	li	t2, (SSTATUS_FS_MASK << SSTATUS_FS_SHIFT)
+	li	t2, SSTATUS_FS_MASK
 	and	t3, t1, t2
 	beqz	t3, 1f		/* No, skip. */
 
@@ -290,7 +290,7 @@ ENTRY(cpu_switch)
 	 * Yes. Enable FPU usage supervisor mode,
 	 * so we can access registers.
 	 */
-	li	t0, (SSTATUS_FS_INITIAL << SSTATUS_FS_SHIFT)
+	li	t0, SSTATUS_FS_INITIAL
 	csrs	sstatus, t0
 	ld	t0, (PCB_FCSR)(x13)
 	fscsr	t0
@@ -328,7 +328,7 @@ ENTRY(cpu_switch)
 	fld	f31, (PCB_F + 31 * 8)(x13)
 
 	/* Disable FPU usage in supervisor mode. */
-	li	t0, (SSTATUS_FS_MASK << SSTATUS_FS_SHIFT)
+	li	t0, SSTATUS_FS_MASK
 	csrc	sstatus, t0
 1:
 #endif
@@ -437,7 +437,7 @@ ENTRY(savectx)
 	 * Enable FPU usage in supervisor mode, so we can
 	 * access registers.
 	 */
-	li	t0, (SSTATUS_FS_INITIAL << SSTATUS_FS_SHIFT)
+	li	t0, SSTATUS_FS_INITIAL
 	csrs	sstatus, t0
 	frcsr	t0
 	sd	t0, (PCB_FCSR)(a0)
@@ -475,7 +475,7 @@ ENTRY(savectx)
 	fsd	f31, (PCB_F + 31 * 8)(a0)
 
 	/* Disable FPU usage in supervisor mode. */
-	li	t0, (SSTATUS_FS_MASK << SSTATUS_FS_SHIFT)
+	li	t0, SSTATUS_FS_MASK
 	csrc	sstatus, t0
 #endif
 	ret
