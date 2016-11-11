@@ -50,7 +50,8 @@ struct reg {
 };
 
 struct fpreg {
-	int dummy;
+	uint64_t	fp_x[32][2];	/* Floating point registers */
+	uint64_t	fp_fcsr;	/* Floating point control reg */
 };
 
 struct dbreg {

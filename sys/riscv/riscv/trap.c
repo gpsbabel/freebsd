@@ -328,9 +328,11 @@ do_trap_user(struct trapframe *frame)
 	uint64_t exception;
 	struct thread *td;
 	uint64_t sstatus;
+	struct pcb *pcb;
 
 	td = curthread;
 	td->td_frame = frame;
+	pcb = td->td_pcb;
 
 	/* Ensure we came from usermode, interrupts disabled */
 	__asm __volatile("csrr %0, sstatus" : "=&r" (sstatus));
@@ -362,14 +364,19 @@ do_trap_user(struct trapframe *frame)
 		printf("illegal instruction at 0x%x, sstatus %x\n",
 		    frame->tf_sepc, frame->tf_sstatus);
 #endif
-		if ((frame->tf_sstatus & SSTATUS_FS_MASK) != SSTATUS_FS_OFF) {
+		if ((pcb->pcb_fpflags & PCB_FP_STARTED) != 0) {
 			/* Not a FPU trap */
 			call_trapsignal(td, SIGILL, ILL_ILLTRP,
 			    (void *)frame->tf_sepc);
 			userret(td, frame);
 		} else {
-			/* May be a FPU trap. Enable FPU and try again. */
+			/*
+			 * May be a FPU trap. Try to enable FPU
+			 * and try again.
+			 */
 			frame->tf_sstatus |= SSTATUS_FS_INITIAL;
+			pcb->pcb_fpflags |= PCB_FP_STARTED;
+			PCPU_SET(fpcurthread, td);
 		}
 		break;
 	case EXCP_BREAKPOINT:
