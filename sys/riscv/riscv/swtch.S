@@ -42,56 +42,116 @@
 
 __FBSDID("$FreeBSD$");
 
-ENTRY(fprestore)
-#ifdef VFP
+#ifdef FPU
+.macro fpu_state_save_macro p
 	/*
 	 * Enable FPU usage supervisor mode,
 	 * so we can access registers.
 	 */
 	li	t0, SSTATUS_FS_INITIAL
 	csrs	sstatus, t0
-	ld	t0, (PCB_FCSR)(a0)
-	fscsr	t0
-	fld	f0, (PCB_X + 0 * 8)(a0)
-	fld	f1, (PCB_X + 1 * 8)(a0)
-	fld	f2, (PCB_X + 2 * 8)(a0)
-	fld	f3, (PCB_X + 3 * 8)(a0)
-	fld	f4, (PCB_X + 4 * 8)(a0)
-	fld	f5, (PCB_X + 5 * 8)(a0)
-	fld	f6, (PCB_X + 6 * 8)(a0)
-	fld	f7, (PCB_X + 7 * 8)(a0)
-	fld	f8, (PCB_X + 8 * 8)(a0)
-	fld	f9, (PCB_X + 9 * 8)(a0)
-	fld	f10, (PCB_X + 10 * 8)(a0)
-	fld	f11, (PCB_X + 11 * 8)(a0)
-	fld	f12, (PCB_X + 12 * 8)(a0)
-	fld	f13, (PCB_X + 13 * 8)(a0)
-	fld	f14, (PCB_X + 14 * 8)(a0)
-	fld	f15, (PCB_X + 15 * 8)(a0)
-	fld	f16, (PCB_X + 16 * 8)(a0)
-	fld	f17, (PCB_X + 17 * 8)(a0)
-	fld	f18, (PCB_X + 18 * 8)(a0)
-	fld	f19, (PCB_X + 19 * 8)(a0)
-	fld	f20, (PCB_X + 20 * 8)(a0)
-	fld	f21, (PCB_X + 21 * 8)(a0)
-	fld	f22, (PCB_X + 22 * 8)(a0)
-	fld	f23, (PCB_X + 23 * 8)(a0)
-	fld	f24, (PCB_X + 24 * 8)(a0)
-	fld	f25, (PCB_X + 25 * 8)(a0)
-	fld	f26, (PCB_X + 26 * 8)(a0)
-	fld	f27, (PCB_X + 27 * 8)(a0)
-	fld	f28, (PCB_X + 28 * 8)(a0)
-	fld	f29, (PCB_X + 29 * 8)(a0)
-	fld	f30, (PCB_X + 30 * 8)(a0)
-	fld	f31, (PCB_X + 31 * 8)(a0)
+
+	/* Store registers */
+	frcsr	t0
+	sd	t0, (PCB_FCSR)(\p)
+	fsd	f0, (PCB_X + 0 * 16)(\p)
+	fsd	f1, (PCB_X + 1 * 16)(\p)
+	fsd	f2, (PCB_X + 2 * 16)(\p)
+	fsd	f3, (PCB_X + 3 * 16)(\p)
+	fsd	f4, (PCB_X + 4 * 16)(\p)
+	fsd	f5, (PCB_X + 5 * 16)(\p)
+	fsd	f6, (PCB_X + 6 * 16)(\p)
+	fsd	f7, (PCB_X + 7 * 16)(\p)
+	fsd	f8, (PCB_X + 8 * 16)(\p)
+	fsd	f9, (PCB_X + 9 * 16)(\p)
+	fsd	f10, (PCB_X + 10 * 16)(\p)
+	fsd	f11, (PCB_X + 11 * 16)(\p)
+	fsd	f12, (PCB_X + 12 * 16)(\p)
+	fsd	f13, (PCB_X + 13 * 16)(\p)
+	fsd	f14, (PCB_X + 14 * 16)(\p)
+	fsd	f15, (PCB_X + 15 * 16)(\p)
+	fsd	f16, (PCB_X + 16 * 16)(\p)
+	fsd	f17, (PCB_X + 17 * 16)(\p)
+	fsd	f18, (PCB_X + 18 * 16)(\p)
+	fsd	f19, (PCB_X + 19 * 16)(\p)
+	fsd	f20, (PCB_X + 20 * 16)(\p)
+	fsd	f21, (PCB_X + 21 * 16)(\p)
+	fsd	f22, (PCB_X + 22 * 16)(\p)
+	fsd	f23, (PCB_X + 23 * 16)(\p)
+	fsd	f24, (PCB_X + 24 * 16)(\p)
+	fsd	f25, (PCB_X + 25 * 16)(\p)
+	fsd	f26, (PCB_X + 26 * 16)(\p)
+	fsd	f27, (PCB_X + 27 * 16)(\p)
+	fsd	f28, (PCB_X + 28 * 16)(\p)
+	fsd	f29, (PCB_X + 29 * 16)(\p)
+	fsd	f30, (PCB_X + 30 * 16)(\p)
+	fsd	f31, (PCB_X + 31 * 16)(\p)
 
 	/* Disable FPU usage in supervisor mode. */
 	li	t0, SSTATUS_FS_MASK
 	csrc	sstatus, t0
+.endm
 
+.macro fpu_state_load_macro p
+	/*
+	 * Enable FPU usage supervisor mode,
+	 * so we can access registers.
+	 */
+	li	t0, SSTATUS_FS_INITIAL
+	csrs	sstatus, t0
+
+	/* Restore registers */
+	ld	t0, (PCB_FCSR)(\p)
+	fscsr	t0
+	fld	f0, (PCB_X + 0 * 16)(\p)
+	fld	f1, (PCB_X + 1 * 16)(\p)
+	fld	f2, (PCB_X + 2 * 16)(\p)
+	fld	f3, (PCB_X + 3 * 16)(\p)
+	fld	f4, (PCB_X + 4 * 16)(\p)
+	fld	f5, (PCB_X + 5 * 16)(\p)
+	fld	f6, (PCB_X + 6 * 16)(\p)
+	fld	f7, (PCB_X + 7 * 16)(\p)
+	fld	f8, (PCB_X + 8 * 16)(\p)
+	fld	f9, (PCB_X + 9 * 16)(\p)
+	fld	f10, (PCB_X + 10 * 16)(\p)
+	fld	f11, (PCB_X + 11 * 16)(\p)
+	fld	f12, (PCB_X + 12 * 16)(\p)
+	fld	f13, (PCB_X + 13 * 16)(\p)
+	fld	f14, (PCB_X + 14 * 16)(\p)
+	fld	f15, (PCB_X + 15 * 16)(\p)
+	fld	f16, (PCB_X + 16 * 16)(\p)
+	fld	f17, (PCB_X + 17 * 16)(\p)
+	fld	f18, (PCB_X + 18 * 16)(\p)
+	fld	f19, (PCB_X + 19 * 16)(\p)
+	fld	f20, (PCB_X + 20 * 16)(\p)
+	fld	f21, (PCB_X + 21 * 16)(\p)
+	fld	f22, (PCB_X + 22 * 16)(\p)
+	fld	f23, (PCB_X + 23 * 16)(\p)
+	fld	f24, (PCB_X + 24 * 16)(\p)
+	fld	f25, (PCB_X + 25 * 16)(\p)
+	fld	f26, (PCB_X + 26 * 16)(\p)
+	fld	f27, (PCB_X + 27 * 16)(\p)
+	fld	f28, (PCB_X + 28 * 16)(\p)
+	fld	f29, (PCB_X + 29 * 16)(\p)
+	fld	f30, (PCB_X + 30 * 16)(\p)
+	fld	f31, (PCB_X + 31 * 16)(\p)
+
+	/* Disable FPU usage in supervisor mode. */
+	li	t0, SSTATUS_FS_MASK
+	csrc	sstatus, t0
+.endm
+
+/*
+ * void
+ * fpu_state_save(struct thread *td)
+ */
+ENTRY(fpu_state_save)
+	/* Get pointer to PCB */
+	ld	a0, TD_PCB(a0)
+	fpu_state_save_macro a0
 	ret
-#endif
-END(fprestore)
+END(fpu_state_save)
+#endif /* FPU */
 
 /*
  * void cpu_throw(struct thread *old, struct thread *new)
@@ -174,7 +234,7 @@ ENTRY(cpu_switch)
 	sd	s10, (PCB_S + 10 * 8)(x13)
 	sd	s11, (PCB_S + 11 * 8)(x13)
 
-#ifdef VFP
+#ifdef FPU
 	/*
 	 * Was FPU enabled and was it in dirty state
 	 * before trap took place?
@@ -186,57 +246,14 @@ ENTRY(cpu_switch)
 	li	t2, SSTATUS_FS_DIRTY
 	bne	t3, t2, 1f		/* No, skip. */
 
-	/* Yes, mark FPU state clean */
+	/* Yes, mark FPU state clean and save registers */
 	li	t2, ~SSTATUS_FS_MASK
 	and	t3, t1, t2
 	li	t2, SSTATUS_FS_CLEAN
 	or	t3, t3, t2
 	sd	t3, (TF_SSTATUS)(t0)
 
-	/*
-	 * FPU was in dirty state. Enable FPU usage in
-	 * supervisor mode, so we can access registers.
-	 */
-	li	t0, SSTATUS_FS_INITIAL
-	csrs	sstatus, t0
-	frcsr	t0
-	sd	t0, (PCB_FCSR)(x13)
-	fsd	f0, (PCB_X + 0 * 8)(x13)
-	fsd	f1, (PCB_X + 1 * 8)(x13)
-	fsd	f2, (PCB_X + 2 * 8)(x13)
-	fsd	f3, (PCB_X + 3 * 8)(x13)
-	fsd	f4, (PCB_X + 4 * 8)(x13)
-	fsd	f5, (PCB_X + 5 * 8)(x13)
-	fsd	f6, (PCB_X + 6 * 8)(x13)
-	fsd	f7, (PCB_X + 7 * 8)(x13)
-	fsd	f8, (PCB_X + 8 * 8)(x13)
-	fsd	f9, (PCB_X + 9 * 8)(x13)
-	fsd	f10, (PCB_X + 10 * 8)(x13)
-	fsd	f11, (PCB_X + 11 * 8)(x13)
-	fsd	f12, (PCB_X + 12 * 8)(x13)
-	fsd	f13, (PCB_X + 13 * 8)(x13)
-	fsd	f14, (PCB_X + 14 * 8)(x13)
-	fsd	f15, (PCB_X + 15 * 8)(x13)
-	fsd	f16, (PCB_X + 16 * 8)(x13)
-	fsd	f17, (PCB_X + 17 * 8)(x13)
-	fsd	f18, (PCB_X + 18 * 8)(x13)
-	fsd	f19, (PCB_X + 19 * 8)(x13)
-	fsd	f20, (PCB_X + 20 * 8)(x13)
-	fsd	f21, (PCB_X + 21 * 8)(x13)
-	fsd	f22, (PCB_X + 22 * 8)(x13)
-	fsd	f23, (PCB_X + 23 * 8)(x13)
-	fsd	f24, (PCB_X + 24 * 8)(x13)
-	fsd	f25, (PCB_X + 25 * 8)(x13)
-	fsd	f26, (PCB_X + 26 * 8)(x13)
-	fsd	f27, (PCB_X + 27 * 8)(x13)
-	fsd	f28, (PCB_X + 28 * 8)(x13)
-	fsd	f29, (PCB_X + 29 * 8)(x13)
-	fsd	f30, (PCB_X + 30 * 8)(x13)
-	fsd	f31, (PCB_X + 31 * 8)(x13)
-
-	/* Disable FPU usage in supervisor mode. */
-	li	t0, SSTATUS_FS_MASK
-	csrc	sstatus, t0
+	fpu_state_save_macro x13
 1:
 #endif
 
@@ -289,7 +306,7 @@ ENTRY(cpu_switch)
 	ld	s10, (PCB_S + 10 * 8)(x13)
 	ld	s11, (PCB_S + 11 * 8)(x13)
 
-#ifdef VFP
+#ifdef FPU
 	/* Will FPU be enabled for new thread? */
 	ld	t0, TD_FRAME(a1)
 	ld	t1, (TF_SSTATUS)(t0)
@@ -297,50 +314,8 @@ ENTRY(cpu_switch)
 	and	t3, t1, t2
 	beqz	t3, 1f		/* No, skip. */
 
-	/*
-	 * Yes. Enable FPU usage supervisor mode,
-	 * so we can access registers.
-	 */
-	li	t0, SSTATUS_FS_INITIAL
-	csrs	sstatus, t0
-	ld	t0, (PCB_FCSR)(x13)
-	fscsr	t0
-	fld	f0, (PCB_X + 0 * 8)(x13)
-	fld	f1, (PCB_X + 1 * 8)(x13)
-	fld	f2, (PCB_X + 2 * 8)(x13)
-	fld	f3, (PCB_X + 3 * 8)(x13)
-	fld	f4, (PCB_X + 4 * 8)(x13)
-	fld	f5, (PCB_X + 5 * 8)(x13)
-	fld	f6, (PCB_X + 6 * 8)(x13)
-	fld	f7, (PCB_X + 7 * 8)(x13)
-	fld	f8, (PCB_X + 8 * 8)(x13)
-	fld	f9, (PCB_X + 9 * 8)(x13)
-	fld	f10, (PCB_X + 10 * 8)(x13)
-	fld	f11, (PCB_X + 11 * 8)(x13)
-	fld	f12, (PCB_X + 12 * 8)(x13)
-	fld	f13, (PCB_X + 13 * 8)(x13)
-	fld	f14, (PCB_X + 14 * 8)(x13)
-	fld	f15, (PCB_X + 15 * 8)(x13)
-	fld	f16, (PCB_X + 16 * 8)(x13)
-	fld	f17, (PCB_X + 17 * 8)(x13)
-	fld	f18, (PCB_X + 18 * 8)(x13)
-	fld	f19, (PCB_X + 19 * 8)(x13)
-	fld	f20, (PCB_X + 20 * 8)(x13)
-	fld	f21, (PCB_X + 21 * 8)(x13)
-	fld	f22, (PCB_X + 22 * 8)(x13)
-	fld	f23, (PCB_X + 23 * 8)(x13)
-	fld	f24, (PCB_X + 24 * 8)(x13)
-	fld	f25, (PCB_X + 25 * 8)(x13)
-	fld	f26, (PCB_X + 26 * 8)(x13)
-	fld	f27, (PCB_X + 27 * 8)(x13)
-	fld	f28, (PCB_X + 28 * 8)(x13)
-	fld	f29, (PCB_X + 29 * 8)(x13)
-	fld	f30, (PCB_X + 30 * 8)(x13)
-	fld	f31, (PCB_X + 31 * 8)(x13)
-
-	/* Disable FPU usage in supervisor mode. */
-	li	t0, SSTATUS_FS_MASK
-	csrc	sstatus, t0
+	/* Restore registers. */
+	fpu_state_load_macro x13
 1:
 #endif
 
@@ -442,52 +417,8 @@ ENTRY(savectx)
 	sd	s10, (PCB_S + 10 * 8)(a0)
 	sd	s11, (PCB_S + 11 * 8)(a0)
 
-	/* Store the VFP registers */
-#ifdef VFP
-	/*
-	 * Enable FPU usage in supervisor mode, so we can
-	 * access registers.
-	 */
-	li	t0, SSTATUS_FS_INITIAL
-	csrs	sstatus, t0
-	frcsr	t0
-	sd	t0, (PCB_FCSR)(a0)
-	fsd	f0, (PCB_X + 0 * 8)(a0)
-	fsd	f1, (PCB_X + 1 * 8)(a0)
-	fsd	f2, (PCB_X + 2 * 8)(a0)
-	fsd	f3, (PCB_X + 3 * 8)(a0)
-	fsd	f4, (PCB_X + 4 * 8)(a0)
-	fsd	f5, (PCB_X + 5 * 8)(a0)
-	fsd	f6, (PCB_X + 6 * 8)(a0)
-	fsd	f7, (PCB_X + 7 * 8)(a0)
-	fsd	f8, (PCB_X + 8 * 8)(a0)
-	fsd	f9, (PCB_X + 9 * 8)(a0)
-	fsd	f10, (PCB_X + 10 * 8)(a0)
-	fsd	f11, (PCB_X + 11 * 8)(a0)
-	fsd	f12, (PCB_X + 12 * 8)(a0)
-	fsd	f13, (PCB_X + 13 * 8)(a0)
-	fsd	f14, (PCB_X + 14 * 8)(a0)
-	fsd	f15, (PCB_X + 15 * 8)(a0)
-	fsd	f16, (PCB_X + 16 * 8)(a0)
-	fsd	f17, (PCB_X + 17 * 8)(a0)
-	fsd	f18, (PCB_X + 18 * 8)(a0)
-	fsd	f19, (PCB_X + 19 * 8)(a0)
-	fsd	f20, (PCB_X + 20 * 8)(a0)
-	fsd	f21, (PCB_X + 21 * 8)(a0)
-	fsd	f22, (PCB_X + 22 * 8)(a0)
-	fsd	f23, (PCB_X + 23 * 8)(a0)
-	fsd	f24, (PCB_X + 24 * 8)(a0)
-	fsd	f25, (PCB_X + 25 * 8)(a0)
-	fsd	f26, (PCB_X + 26 * 8)(a0)
-	fsd	f27, (PCB_X + 27 * 8)(a0)
-	fsd	f28, (PCB_X + 28 * 8)(a0)
-	fsd	f29, (PCB_X + 29 * 8)(a0)
-	fsd	f30, (PCB_X + 30 * 8)(a0)
-	fsd	f31, (PCB_X + 31 * 8)(a0)
-
-	/* Disable FPU usage in supervisor mode. */
-	li	t0, SSTATUS_FS_MASK
-	csrc	sstatus, t0
+#ifdef FPU
+	fpu_state_save_macro a0
 #endif
 	ret
 END(savectx)
