@@ -372,7 +372,7 @@ do_trap_user(struct trapframe *frame)
 		} else {
 			/*
 			 * May be a FPU trap. Try to enable FPU
-			 * and try again.
+			 * for this thread and try again.
 			 */
 			frame->tf_sstatus |= SSTATUS_FS_INITIAL;
 			pcb->pcb_fpflags |= PCB_FP_STARTED;
