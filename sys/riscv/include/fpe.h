@@ -30,9 +30,9 @@
  * $FreeBSD$
  */
 
-#ifndef	_MACHINE_FPU_H_
-#define	_MACHINE_FPU_H_
+#ifndef	_MACHINE_FPE_H_
+#define	_MACHINE_FPE_H_
 
-void fpu_state_save(struct thread *td);
+void fpe_state_save(struct thread *td);
 
-#endif /* !_MACHINE_FPU_H_ */
+#endif /* !_MACHINE_FPE_H_ */

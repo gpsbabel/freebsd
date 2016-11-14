@@ -84,8 +84,8 @@ __FBSDID("$FreeBSD$");
 
 #include <machine/asm.h>
 
-#ifdef FPU
-#include <machine/fpu.h>
+#ifdef FPE
+#include <machine/fpe.h>
 #endif
 
 #ifdef FDT
@@ -203,23 +203,23 @@ set_regs(struct thread *td, struct reg *regs)
 int
 fill_fpregs(struct thread *td, struct fpreg *regs)
 {
-#ifdef FPU
+#ifdef FPE
 	struct pcb *pcb;
 
 	pcb = td->td_pcb;
 	if ((pcb->pcb_fpflags & PCB_FP_STARTED) != 0) {
 		/*
-		 * If we have just been running FPU instructions we will
+		 * If we have just been running FPE instructions we will
 		 * need to save the state to memcpy it below.
 		 */
 		//vfp_save_state(td, pcb);
-		fpu_state_save(td);
+		fpe_state_save(td);
 
-		//KASSERT(pcb->pcb_fpusaved == &pcb->pcb_fpustate,
-		//    ("Called fill_fpregs while the kernel is using the FPU"));
-		//memcpy(regs->fp_q, pcb->pcb_fpustate.vfp_regs,
+		//KASSERT(pcb->pcb_fpesaved == &pcb->pcb_fpestate,
+		//    ("Called fill_fpregs while the kernel is using the FPE"));
+		//memcpy(regs->fp_q, pcb->pcb_fpestate.vfp_regs,
 		//    sizeof(regs->fp_q));
-		//regs->fp_sr = pcb->pcb_fpustate.vfp_fpsr;
+		//regs->fp_sr = pcb->pcb_fpestate.vfp_fpsr;
 
 		memcpy(regs->fp_x, pcb->pcb_x, sizeof(regs->fp_x));
 		regs->fp_fcsr = pcb->pcb_fcsr;
@@ -233,15 +233,15 @@ fill_fpregs(struct thread *td, struct fpreg *regs)
 int
 set_fpregs(struct thread *td, struct fpreg *regs)
 {
-#ifdef FPU
+#ifdef FPE
 	struct pcb *pcb;
 
 	pcb = td->td_pcb;
-	//KASSERT(pcb->pcb_fpusaved == &pcb->pcb_fpustate,
-	//    ("Called set_fpregs while the kernel is using the FPU"));
-	//memcpy(pcb->pcb_fpustate.vfp_regs, regs->fp_q, sizeof(regs->fp_q));
-	//pcb->pcb_fpustate.vfp_fpcr = regs->fp_cr;
-	//pcb->pcb_fpustate.vfp_fpsr = regs->fp_sr;
+	//KASSERT(pcb->pcb_fpesaved == &pcb->pcb_fpestate,
+	//    ("Called set_fpregs while the kernel is using the FPE"));
+	//memcpy(pcb->pcb_fpestate.vfp_regs, regs->fp_q, sizeof(regs->fp_q));
+	//pcb->pcb_fpestate.vfp_fpcr = regs->fp_cr;
+	//pcb->pcb_fpestate.vfp_fpsr = regs->fp_sr;
 
 	memcpy(pcb->pcb_x, regs->fp_x, sizeof(regs->fp_x));
 	pcb->pcb_fcsr = regs->fp_fcsr;
@@ -373,7 +373,7 @@ set_mcontext(struct thread *td, mcontext_t *mcp)
 static void
 get_fpcontext(struct thread *td, mcontext_t *mcp)
 {
-#ifdef FPU
+#ifdef FPE
 	struct pcb *curpcb;
 
 	critical_enter();
@@ -382,21 +382,21 @@ get_fpcontext(struct thread *td, mcontext_t *mcp)
 
 	if ((curpcb->pcb_fpflags & PCB_FP_STARTED) != 0) {
 		/*
-		 * If we have just been running FPU instructions we will
+		 * If we have just been running FPE instructions we will
 		 * need to save the state to memcpy it below.
 		 */
 		//vfp_save_state(td, curpcb);
-		fpu_state_save(td);
+		fpe_state_save(td);
 
 #if 0
-		KASSERT(curpcb->pcb_fpusaved == &curpcb->pcb_fpustate,
-		    ("Called get_fpcontext while the kernel is using the FPU"));
+		KASSERT(curpcb->pcb_fpesaved == &curpcb->pcb_fpestate,
+		    ("Called get_fpcontext while the kernel is using the FPE"));
 		KASSERT((curpcb->pcb_fpflags & ~PCB_FP_USERMASK) == 0,
-		    ("Non-userspace FPU flags set in get_fpcontext"));
-		memcpy(mcp->mc_fpregs.fp_q, curpcb->pcb_fpustate.vfp_regs,
+		    ("Non-userspace FPE flags set in get_fpcontext"));
+		memcpy(mcp->mc_fpregs.fp_q, curpcb->pcb_fpestate.vfp_regs,
 		    sizeof(mcp->mc_fpregs));
-		mcp->mc_fpregs.fp_cr = curpcb->pcb_fpustate.vfp_fpcr;
-		mcp->mc_fpregs.fp_sr = curpcb->pcb_fpustate.vfp_fpsr;
+		mcp->mc_fpregs.fp_cr = curpcb->pcb_fpestate.vfp_fpcr;
+		mcp->mc_fpregs.fp_sr = curpcb->pcb_fpestate.vfp_fpsr;
 		mcp->mc_fpregs.fp_flags = curpcb->pcb_fpflags;
 		mcp->mc_flags |= _MC_FP_VALID;
 #endif
@@ -414,7 +414,7 @@ get_fpcontext(struct thread *td, mcontext_t *mcp)
 static void
 set_fpcontext(struct thread *td, mcontext_t *mcp)
 {
-#ifdef FPU
+#ifdef FPE
 	struct pcb *curpcb;
 
 	critical_enter();
@@ -429,12 +429,12 @@ set_fpcontext(struct thread *td, mcontext_t *mcp)
 		//vfp_discard(td);
 
 #if 0
-		KASSERT(curpcb->pcb_fpusaved == &curpcb->pcb_fpustate,
-		    ("Called set_fpcontext while the kernel is using the FPU"));
-		memcpy(curpcb->pcb_fpustate.vfp_regs, mcp->mc_fpregs.fp_q,
+		KASSERT(curpcb->pcb_fpesaved == &curpcb->pcb_fpestate,
+		    ("Called set_fpcontext while the kernel is using the FPE"));
+		memcpy(curpcb->pcb_fpestate.vfp_regs, mcp->mc_fpregs.fp_q,
 		    sizeof(mcp->mc_fpregs));
-		curpcb->pcb_fpustate.vfp_fpcr = mcp->mc_fpregs.fp_cr;
-		curpcb->pcb_fpustate.vfp_fpsr = mcp->mc_fpregs.fp_sr;
+		curpcb->pcb_fpestate.vfp_fpcr = mcp->mc_fpregs.fp_cr;
+		curpcb->pcb_fpestate.vfp_fpsr = mcp->mc_fpregs.fp_sr;
 		curpcb->pcb_fpflags = mcp->mc_fpregs.fp_flags & PCB_FP_USERMASK;
 #endif
 		memcpy(curpcb->pcb_x, mcp->mc_fpregs.fp_x,

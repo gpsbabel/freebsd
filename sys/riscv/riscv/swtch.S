@@ -42,10 +42,10 @@
 
 __FBSDID("$FreeBSD$");
 
-#ifdef FPU
-.macro __fpu_state_save p
+#ifdef FPE
+.macro __fpe_state_save p
 	/*
-	 * Enable FPU usage supervisor mode,
+	 * Enable FPE usage supervisor mode,
 	 * so we can access registers.
 	 */
 	li	t0, SSTATUS_FS_INITIAL
@@ -87,14 +87,14 @@ __FBSDID("$FreeBSD$");
 	fsd	f30, (PCB_X + 30 * 16)(\p)
 	fsd	f31, (PCB_X + 31 * 16)(\p)
 
-	/* Disable FPU usage in supervisor mode. */
+	/* Disable FPE usage in supervisor mode. */
 	li	t0, SSTATUS_FS_MASK
 	csrc	sstatus, t0
 .endm
 
-.macro __fpu_state_load p
+.macro __fpe_state_load p
 	/*
-	 * Enable FPU usage supervisor mode,
+	 * Enable FPE usage supervisor mode,
 	 * so we can access registers.
 	 */
 	li	t0, SSTATUS_FS_INITIAL
@@ -136,22 +136,22 @@ __FBSDID("$FreeBSD$");
 	fld	f30, (PCB_X + 30 * 16)(\p)
 	fld	f31, (PCB_X + 31 * 16)(\p)
 
-	/* Disable FPU usage in supervisor mode. */
+	/* Disable FPE usage in supervisor mode. */
 	li	t0, SSTATUS_FS_MASK
 	csrc	sstatus, t0
 .endm
 
 /*
  * void
- * fpu_state_save(struct thread *td)
+ * fpe_state_save(struct thread *td)
  */
-ENTRY(fpu_state_save)
+ENTRY(fpe_state_save)
 	/* Get pointer to PCB */
 	ld	a0, TD_PCB(a0)
-	__fpu_state_save a0
+	__fpe_state_save a0
 	ret
-END(fpu_state_save)
-#endif /* FPU */
+END(fpe_state_save)
+#endif /* FPE */
 
 /*
  * void cpu_throw(struct thread *old, struct thread *new)
@@ -192,8 +192,8 @@ ENTRY(cpu_throw)
 	ld	s10, (PCB_S + 10 * 8)(x13)
 	ld	s11, (PCB_S + 11 * 8)(x13)
 
-#ifdef FPU
-	/* Is FPU enabled for new thread? */
+#ifdef FPE
+	/* Is FPE enabled for new thread? */
 	ld	t0, TD_FRAME(a1)
 	ld	t1, (TF_SSTATUS)(t0)
 	li	t2, SSTATUS_FS_MASK
@@ -201,7 +201,7 @@ ENTRY(cpu_throw)
 	beqz	t3, 1f		/* No, skip. */
 
 	/* Restore registers. */
-	__fpu_state_load x13
+	__fpe_state_load x13
 1:
 #endif
 
@@ -246,9 +246,9 @@ ENTRY(cpu_switch)
 	sd	s10, (PCB_S + 10 * 8)(x13)
 	sd	s11, (PCB_S + 11 * 8)(x13)
 
-#ifdef FPU
+#ifdef FPE
 	/*
-	 * Was FPU enabled and was it in dirty state
+	 * Was FPE enabled and was it in dirty state
 	 * before trap took place?
 	 */
 	ld	t0, TD_FRAME(a0)
@@ -258,14 +258,14 @@ ENTRY(cpu_switch)
 	li	t2, SSTATUS_FS_DIRTY
 	bne	t3, t2, 1f		/* No, skip. */
 
-	/* Yes, mark FPU state clean and save registers. */
+	/* Yes, mark FPE state clean and save registers. */
 	li	t2, ~SSTATUS_FS_MASK
 	and	t3, t1, t2
 	li	t2, SSTATUS_FS_CLEAN
 	or	t3, t3, t2
 	sd	t3, (TF_SSTATUS)(t0)
 
-	__fpu_state_save x13
+	__fpe_state_save x13
 1:
 #endif
 
@@ -318,8 +318,8 @@ ENTRY(cpu_switch)
 	ld	s10, (PCB_S + 10 * 8)(x13)
 	ld	s11, (PCB_S + 11 * 8)(x13)
 
-#ifdef FPU
-	/* Is FPU enabled for new thread? */
+#ifdef FPE
+	/* Is FPE enabled for new thread? */
 	ld	t0, TD_FRAME(a1)
 	ld	t1, (TF_SSTATUS)(t0)
 	li	t2, SSTATUS_FS_MASK
@@ -327,7 +327,7 @@ ENTRY(cpu_switch)
 	beqz	t3, 1f		/* No, skip. */
 
 	/* Restore registers. */
-	__fpu_state_load x13
+	__fpe_state_load x13
 1:
 #endif
 
@@ -429,8 +429,8 @@ ENTRY(savectx)
 	sd	s10, (PCB_S + 10 * 8)(a0)
 	sd	s11, (PCB_S + 11 * 8)(a0)
 
-#ifdef FPU
-	__fpu_state_save a0
+#ifdef FPE
+	__fpe_state_save a0
 #endif
 	ret
 END(savectx)
