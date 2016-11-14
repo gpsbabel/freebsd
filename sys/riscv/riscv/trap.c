@@ -371,12 +371,11 @@ do_trap_user(struct trapframe *frame)
 			userret(td, frame);
 		} else {
 			/*
-			 * May be a FPU trap. Try to enable FPU
+			 * May be a FPU trap. Enable FPU
 			 * for this thread and try again.
 			 */
 			frame->tf_sstatus |= SSTATUS_FS_INITIAL;
 			pcb->pcb_fpflags |= PCB_FP_STARTED;
-			PCPU_SET(fpcurthread, td);
 		}
 		break;
 	case EXCP_BREAKPOINT:
