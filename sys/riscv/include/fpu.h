@@ -33,14 +33,6 @@
 #ifndef	_MACHINE_FPU_H_
 #define	_MACHINE_FPU_H_
 
-#ifndef LOCORE
-struct vfpstate {
-	__uint128_t	vfp_regs[32];
-	uint32_t	vfp_fpcr;
-	uint32_t	vfp_fpsr;
-};
-#endif
-
 void fpu_state_save(struct thread *td);
 
 #endif /* !_MACHINE_FPU_H_ */
