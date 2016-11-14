@@ -43,7 +43,7 @@
 __FBSDID("$FreeBSD$");
 
 #ifdef FPU
-.macro fpu_state_save_macro p
+.macro __fpu_state_save p
 	/*
 	 * Enable FPU usage supervisor mode,
 	 * so we can access registers.
@@ -92,7 +92,7 @@ __FBSDID("$FreeBSD$");
 	csrc	sstatus, t0
 .endm
 
-.macro fpu_state_load_macro p
+.macro __fpu_state_load p
 	/*
 	 * Enable FPU usage supervisor mode,
 	 * so we can access registers.
@@ -148,7 +148,7 @@ __FBSDID("$FreeBSD$");
 ENTRY(fpu_state_save)
 	/* Get pointer to PCB */
 	ld	a0, TD_PCB(a0)
-	fpu_state_save_macro a0
+	__fpu_state_save a0
 	ret
 END(fpu_state_save)
 #endif /* FPU */
@@ -201,7 +201,7 @@ ENTRY(cpu_throw)
 	beqz	t3, 1f		/* No, skip. */
 
 	/* Restore registers. */
-	fpu_state_load_macro x13
+	__fpu_state_load x13
 1:
 #endif
 
@@ -265,7 +265,7 @@ ENTRY(cpu_switch)
 	or	t3, t3, t2
 	sd	t3, (TF_SSTATUS)(t0)
 
-	fpu_state_save_macro x13
+	__fpu_state_save x13
 1:
 #endif
 
@@ -327,7 +327,7 @@ ENTRY(cpu_switch)
 	beqz	t3, 1f		/* No, skip. */
 
 	/* Restore registers. */
-	fpu_state_load_macro x13
+	__fpu_state_load x13
 1:
 #endif
 
@@ -430,7 +430,7 @@ ENTRY(savectx)
 	sd	s11, (PCB_S + 11 * 8)(a0)
 
 #ifdef FPU
-	fpu_state_save_macro a0
+	__fpu_state_save a0
 #endif
 	ret
 END(savectx)
