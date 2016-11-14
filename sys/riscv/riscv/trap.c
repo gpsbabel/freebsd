@@ -360,7 +360,7 @@ do_trap_user(struct trapframe *frame)
 		svc_handler(frame);
 		break;
 	case EXCP_ILLEGAL_INSTRUCTION:
-#if 1
+#if 0
 		printf("illegal instruction at 0x%x, sstatus %x\n",
 		    frame->tf_sepc, frame->tf_sstatus);
 #endif
@@ -371,7 +371,7 @@ do_trap_user(struct trapframe *frame)
 			userret(td, frame);
 		} else {
 			/*
-			 * May be a FPE trap. Enable FPE
+			 * May be a FPE trap. Enable FPE usage
 			 * for this thread and try again.
 			 */
 			frame->tf_sstatus |= SSTATUS_FS_INITIAL;
