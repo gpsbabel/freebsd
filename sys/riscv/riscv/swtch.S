@@ -192,8 +192,20 @@ ENTRY(cpu_throw)
 	ld	s10, (PCB_S + 10 * 8)(x13)
 	ld	s11, (PCB_S + 11 * 8)(x13)
 
-	ret
+#ifdef FPU
+	/* Will FPU be enabled for new thread? */
+	ld	t0, TD_FRAME(a1)
+	ld	t1, (TF_SSTATUS)(t0)
+	li	t2, SSTATUS_FS_MASK
+	and	t3, t1, t2
+	beqz	t3, 1f		/* No, skip. */
 
+	/* Restore registers. */
+	fpu_state_load_macro x13
+1:
+#endif
+
+	ret
 .Lcpu_throw_panic_str:
 	.asciz "cpu_throw: %p\0"
 END(cpu_throw)
@@ -246,7 +258,7 @@ ENTRY(cpu_switch)
 	li	t2, SSTATUS_FS_DIRTY
 	bne	t3, t2, 1f		/* No, skip. */
 
-	/* Yes, mark FPU state clean and save registers */
+	/* Yes, mark FPU state clean and save registers. */
 	li	t2, ~SSTATUS_FS_MASK
 	and	t3, t1, t2
 	li	t2, SSTATUS_FS_CLEAN
