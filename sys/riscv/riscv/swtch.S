@@ -193,7 +193,7 @@ ENTRY(cpu_throw)
 	ld	s11, (PCB_S + 11 * 8)(x13)
 
 #ifdef FPU
-	/* Will FPU be enabled for new thread? */
+	/* Is FPU enabled for new thread? */
 	ld	t0, TD_FRAME(a1)
 	ld	t1, (TF_SSTATUS)(t0)
 	li	t2, SSTATUS_FS_MASK
@@ -319,7 +319,7 @@ ENTRY(cpu_switch)
 	ld	s11, (PCB_S + 11 * 8)(x13)
 
 #ifdef FPU
-	/* Will FPU be enabled for new thread? */
+	/* Is FPU enabled for new thread? */
 	ld	t0, TD_FRAME(a1)
 	ld	t1, (TF_SSTATUS)(t0)
 	li	t2, SSTATUS_FS_MASK
