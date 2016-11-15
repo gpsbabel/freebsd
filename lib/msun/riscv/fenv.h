@@ -48,19 +48,11 @@ typedef	__uint64_t	fenv_t;
 typedef	__uint64_t	fexcept_t;
 
 /* Exception flags */
-#ifdef SOFTFLOAT
-#define	FE_INVALID	0x0001
-#define	FE_DIVBYZERO	0x0002
-#define	FE_OVERFLOW	0x0004
-#define	FE_UNDERFLOW	0x0008
-#define	FE_INEXACT	0x0010
-#else
 #define	FE_INVALID	0x0010
 #define	FE_DIVBYZERO	0x0008
 #define	FE_OVERFLOW	0x0004
 #define	FE_UNDERFLOW	0x0002
 #define	FE_INEXACT	0x0001
-#endif
 #define	FE_ALL_EXCEPT	(FE_DIVBYZERO | FE_INEXACT | \
 			 FE_INVALID | FE_OVERFLOW | FE_UNDERFLOW)
 
