@@ -360,23 +360,22 @@ do_trap_user(struct trapframe *frame)
 		svc_handler(frame);
 		break;
 	case EXCP_ILLEGAL_INSTRUCTION:
-#if 0
 		printf("illegal instruction at 0x%x, sstatus %x\n",
 		    frame->tf_sepc, frame->tf_sstatus);
-#endif
-		if ((pcb->pcb_fpflags & PCB_FP_STARTED) != 0) {
-			/* Not a FPE trap */
-			call_trapsignal(td, SIGILL, ILL_ILLTRP,
-			    (void *)frame->tf_sepc);
-			userret(td, frame);
-		} else {
+		printf("inst %lx\n", *(uint64_t *)frame->tf_sepc);
+#ifdef FPE
+		if ((pcb->pcb_fpflags & PCB_FP_STARTED) == 0) {
 			/*
 			 * May be a FPE trap. Enable FPE usage
 			 * for this thread and try again.
 			 */
 			frame->tf_sstatus |= SSTATUS_FS_INITIAL;
 			pcb->pcb_fpflags |= PCB_FP_STARTED;
+			break;
 		}
+#endif
+		call_trapsignal(td, SIGILL, ILL_ILLTRP, (void *)frame->tf_sepc);
+		userret(td, frame);
 		break;
 	case EXCP_BREAKPOINT:
 		call_trapsignal(td, SIGTRAP, TRAP_BRKPT, (void *)frame->tf_sepc);
