@@ -360,9 +360,6 @@ do_trap_user(struct trapframe *frame)
 		svc_handler(frame);
 		break;
 	case EXCP_ILLEGAL_INSTRUCTION:
-		printf("illegal instruction at 0x%x, sstatus %x\n",
-		    frame->tf_sepc, frame->tf_sstatus);
-		printf("inst %lx\n", *(uint64_t *)frame->tf_sepc);
 #ifdef FPE
 		if ((pcb->pcb_fpflags & PCB_FP_STARTED) == 0) {
 			/*
