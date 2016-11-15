@@ -207,12 +207,12 @@ fill_fpregs(struct thread *td, struct fpreg *regs)
 	struct pcb *pcb;
 
 	pcb = td->td_pcb;
+
 	if ((pcb->pcb_fpflags & PCB_FP_STARTED) != 0) {
 		/*
 		 * If we have just been running FPE instructions we will
 		 * need to save the state to memcpy it below.
 		 */
-		//vfp_save_state(td, pcb);
 		fpe_state_save(td);
 
 		memcpy(regs->fp_x, pcb->pcb_x, sizeof(regs->fp_x));
@@ -370,12 +370,13 @@ get_fpcontext(struct thread *td, mcontext_t *mcp)
 
 	curpcb = curthread->td_pcb;
 
+	KASSERT(td->td_pcb == curpcb, ("Invalid fpe pcb"));
+
 	if ((curpcb->pcb_fpflags & PCB_FP_STARTED) != 0) {
 		/*
 		 * If we have just been running FPE instructions we will
 		 * need to save the state to memcpy it below.
 		 */
-		//vfp_save_state(td, curpcb);
 		fpe_state_save(td);
 
 		KASSERT((curpcb->pcb_fpflags & ~PCB_FP_USERMASK) == 0,
@@ -401,13 +402,7 @@ set_fpcontext(struct thread *td, mcontext_t *mcp)
 
 	if ((mcp->mc_flags & _MC_FP_VALID) != 0) {
 		curpcb = curthread->td_pcb;
-
-		/*
-		 * Discard any vfp state for the current thread, we
-		 * are about to override it.
-		 */
-		//vfp_discard(td);
-
+		/* FPE usage is enabled, override registers. */
 		memcpy(curpcb->pcb_x, mcp->mc_fpregs.fp_x,
 		    sizeof(mcp->mc_fpregs));
 		curpcb->pcb_fcsr = mcp->mc_fpregs.fp_fcsr;
