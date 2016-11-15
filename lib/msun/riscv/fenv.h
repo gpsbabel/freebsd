@@ -1,6 +1,6 @@
 /*-
- * Copyright (c) 2004-2005 David Schultz <das@FreeBSD.org>
- * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
+ * Copyright (c) 2004-2005 David Schultz <das@FreeBSD.ORG>
+ * Copyright (c) 2015-2016 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
  *
  * Portions of this software were developed by SRI International and the
