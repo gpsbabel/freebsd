@@ -248,8 +248,8 @@ ENTRY(cpu_switch)
 
 #ifdef FPE
 	/*
-	 * Was FPE enabled and was it in dirty state
-	 * before trap took place?
+	 * Is FPE enabled and is it in dirty state
+	 * for the old thread?
 	 */
 	ld	t0, TD_FRAME(a0)
 	ld	t1, (TF_SSTATUS)(t0)
