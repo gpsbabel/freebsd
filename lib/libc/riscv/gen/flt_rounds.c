@@ -44,34 +44,20 @@ __FBSDID("$FreeBSD$");
 #include "softfloat-for-gcc.h"
 #include "milieu.h"
 #include "softfloat.h"
-
-static const int map[] = {
-	1,	/* round to nearest */
-	0,	/* round to zero */
-	2,	/* round to positive infinity */
-	3	/* round to negative infinity */
-};
+#endif
 
 int
 __flt_rounds(void)
 {
-	int mode;
+	uint64_t mode;
 
+#ifdef SOFTFLOAT
 	mode = __softfloat_float_rounding_mode;
+#else
+	__asm __volatile("csrr %0, fcsr" : "=r" (mode));
+#endif
 
-	return map[mode & 0x03];
-}
-
-#else	/* !SOFTFLOAT */
-
-int
-__flt_rounds(void)
-{
-	uint64_t __fcsr;
-
-	__asm __volatile("csrr %0, fcsr" : "=r" (__fcsr));
-
-	switch (__fcsr & _ROUND_MASK) {
+	switch (mode & _ROUND_MASK) {
 	case FE_TOWARDZERO:
 		return (0);
 	case FE_TONEAREST:
@@ -84,5 +70,3 @@ __flt_rounds(void)
 
 	return (-1);
 }
-
-#endif
