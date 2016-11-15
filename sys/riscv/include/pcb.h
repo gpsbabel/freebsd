@@ -53,6 +53,7 @@ struct pcb {
 	uint64_t	pcb_fcsr;	/* Floating point control reg */
 	uint64_t	pcb_fpflags;	/* Floating point flags */
 #define	PCB_FP_STARTED	0x1
+#define	PCB_FP_USERMASK	0x1
 	uint64_t	pcb_sepc;	/* Supervisor exception pc */
 	vm_offset_t	pcb_l1addr;	/* L1 page tables base address */
 	vm_offset_t	pcb_onfault;	/* Copyinout fault handler */
