@@ -75,7 +75,8 @@ ENTRY(setjmp)
 	sd	ra, (12 * 8)(a0)
 	addi	a0, a0, (13 * 8)
 
-	/* Store the vfp registers */
+#ifndef SOFTFLOAT
+	/* Store the fpe registers */
 	fsd	fs0, (0 * 16)(a0)
 	fsd	fs1, (1 * 16)(a0)
 	fsd	fs2, (2 * 16)(a0)
@@ -89,6 +90,7 @@ ENTRY(setjmp)
 	fsd	fs10, (10 * 16)(a0)
 	fsd	fs11, (11 * 16)(a0)
 	addi	a0, a0, (12 * 16)
+#endif
 
 	/* Return value */
 	li	a0, 0
@@ -142,7 +144,8 @@ ENTRY(longjmp)
 	ld	ra, (12 * 8)(a0)
 	addi	a0, a0, (13 * 8)
 
-	/* Restore the vfp registers */
+#ifndef SOFTFLOAT
+	/* Restore the fpe registers */
 	fld	fs0, (0 * 16)(a0)
 	fld	fs1, (1 * 16)(a0)
 	fld	fs2, (2 * 16)(a0)
@@ -156,6 +159,7 @@ ENTRY(longjmp)
 	fld	fs10, (10 * 16)(a0)
 	fld	fs11, (11 * 16)(a0)
 	addi	a0, a0, (12 * 16)
+#endif
 
 	/* Load the return value */
 	mv	a0, a1

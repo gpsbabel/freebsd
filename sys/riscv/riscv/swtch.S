@@ -45,7 +45,7 @@ __FBSDID("$FreeBSD$");
 #ifdef FPE
 .macro __fpe_state_save p
 	/*
-	 * Enable FPE usage supervisor mode,
+	 * Enable FPE usage in supervisor mode,
 	 * so we can access registers.
 	 */
 	li	t0, SSTATUS_FS_INITIAL
@@ -94,7 +94,7 @@ __FBSDID("$FreeBSD$");
 
 .macro __fpe_state_load p
 	/*
-	 * Enable FPE usage supervisor mode,
+	 * Enable FPE usage in supervisor mode,
 	 * so we can access registers.
 	 */
 	li	t0, SSTATUS_FS_INITIAL
