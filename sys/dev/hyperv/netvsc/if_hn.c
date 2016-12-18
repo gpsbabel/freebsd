@@ -55,8 +55,10 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD$");
 
+#include "opt_hn.h"
 #include "opt_inet6.h"
 #include "opt_inet.h"
+#include "opt_rss.h"
 
 #include <sys/param.h>
 #include <sys/bus.h>
@@ -86,6 +88,9 @@ __FBSDID("$FreeBSD$");
 #include <net/if_types.h>
 #include <net/if_var.h>
 #include <net/rndis.h>
+#ifdef RSS
+#include <net/rss_config.h>
+#endif
 
 #include <netinet/in_systm.h>
 #include <netinet/in.h>
@@ -168,6 +173,12 @@ do {							\
 	    HN_RNDIS_PKT_LEN, (align))
 #define HN_PKTSIZE(m, align)		\
 	roundup2((m)->m_pkthdr.len + HN_RNDIS_PKT_LEN, (align))
+
+#ifdef RSS
+#define HN_RING_IDX2CPU(sc, idx)	rss_getcpu((idx) % rss_getnumbuckets())
+#else
+#define HN_RING_IDX2CPU(sc, idx)	(((sc)->hn_cpu + (idx)) % mp_ncpus)
+#endif
 
 struct hn_txdesc {
 #ifndef HN_USE_TXDESC_BUFRING
@@ -273,13 +284,16 @@ static int			hn_ndis_version_sysctl(SYSCTL_HANDLER_ARGS);
 static int			hn_caps_sysctl(SYSCTL_HANDLER_ARGS);
 static int			hn_hwassist_sysctl(SYSCTL_HANDLER_ARGS);
 static int			hn_rxfilter_sysctl(SYSCTL_HANDLER_ARGS);
+#ifndef RSS
 static int			hn_rss_key_sysctl(SYSCTL_HANDLER_ARGS);
 static int			hn_rss_ind_sysctl(SYSCTL_HANDLER_ARGS);
+#endif
 static int			hn_rss_hash_sysctl(SYSCTL_HANDLER_ARGS);
 static int			hn_txagg_size_sysctl(SYSCTL_HANDLER_ARGS);
 static int			hn_txagg_pkts_sysctl(SYSCTL_HANDLER_ARGS);
 static int			hn_txagg_pktmax_sysctl(SYSCTL_HANDLER_ARGS);
 static int			hn_txagg_align_sysctl(SYSCTL_HANDLER_ARGS);
+static int			hn_polling_sysctl(SYSCTL_HANDLER_ARGS);
 
 static void			hn_stop(struct hn_softc *);
 static void			hn_init_locked(struct hn_softc *);
@@ -296,6 +310,7 @@ static int			hn_synth_attach(struct hn_softc *, int);
 static void			hn_synth_detach(struct hn_softc *);
 static int			hn_synth_alloc_subchans(struct hn_softc *,
 				    int *);
+static bool			hn_synth_attachable(const struct hn_softc *);
 static void			hn_suspend(struct hn_softc *);
 static void			hn_suspend_data(struct hn_softc *);
 static void			hn_suspend_mgmt(struct hn_softc *);
@@ -303,7 +318,10 @@ static void			hn_resume(struct hn_softc *);
 static void			hn_resume_data(struct hn_softc *);
 static void			hn_resume_mgmt(struct hn_softc *);
 static void			hn_suspend_mgmt_taskfunc(void *, int);
-static void			hn_chan_drain(struct vmbus_channel *);
+static void			hn_chan_drain(struct hn_softc *,
+				    struct vmbus_channel *);
+static void			hn_polling(struct hn_softc *, u_int);
+static void			hn_chan_polling(struct vmbus_channel *, u_int);
 
 static void			hn_update_link_status(struct hn_softc *);
 static void			hn_change_network(struct hn_softc *);
@@ -316,8 +334,10 @@ static int			hn_create_rx_data(struct hn_softc *, int);
 static void			hn_destroy_rx_data(struct hn_softc *);
 static int			hn_check_iplen(const struct mbuf *, int);
 static int			hn_set_rxfilter(struct hn_softc *);
+#ifndef RSS
 static int			hn_rss_reconfig(struct hn_softc *);
-static void			hn_rss_ind_fixup(struct hn_softc *, int);
+#endif
+static void			hn_rss_ind_fixup(struct hn_softc *);
 static int			hn_rxpkt(struct hn_rx_ring *, const void *,
 				    int, const struct hn_rxinfo *);
 
@@ -327,6 +347,8 @@ static int			hn_create_tx_data(struct hn_softc *, int);
 static void			hn_fixup_tx_data(struct hn_softc *);
 static void			hn_destroy_tx_data(struct hn_softc *);
 static void			hn_txdesc_dmamap_destroy(struct hn_txdesc *);
+static void			hn_txdesc_gc(struct hn_tx_ring *,
+				    struct hn_txdesc *);
 static int			hn_encap(struct ifnet *, struct hn_tx_ring *,
 				    struct hn_txdesc *, struct mbuf **);
 static int			hn_txpkt(struct ifnet *, struct hn_tx_ring *,
@@ -407,10 +429,18 @@ SYSCTL_INT(_hw_hn, OID_AUTO, lro_entry_count, CTLFLAG_RDTUN,
 #endif
 #endif
 
-/* Use shared TX taskqueue */
-static int			hn_share_tx_taskq = 0;
-SYSCTL_INT(_hw_hn, OID_AUTO, share_tx_taskq, CTLFLAG_RDTUN,
-    &hn_share_tx_taskq, 0, "Enable shared TX taskqueue");
+static int			hn_tx_taskq_cnt = 1;
+SYSCTL_INT(_hw_hn, OID_AUTO, tx_taskq_cnt, CTLFLAG_RDTUN,
+    &hn_tx_taskq_cnt, 0, "# of TX taskqueues");
+
+#define HN_TX_TASKQ_M_INDEP	0
+#define HN_TX_TASKQ_M_GLOBAL	1
+#define HN_TX_TASKQ_M_EVTTQ	2
+
+static int			hn_tx_taskq_mode = HN_TX_TASKQ_M_INDEP;
+SYSCTL_INT(_hw_hn, OID_AUTO, tx_taskq_mode, CTLFLAG_RDTUN,
+    &hn_tx_taskq_mode, 0, "TX taskqueue modes: "
+    "0 - independent, 1 - share global tx taskqs, 2 - share event taskqs");
 
 #ifndef HN_USE_TXDESC_BUFRING
 static int			hn_use_txdesc_bufring = 0;
@@ -419,11 +449,6 @@ static int			hn_use_txdesc_bufring = 1;
 #endif
 SYSCTL_INT(_hw_hn, OID_AUTO, use_txdesc_bufring, CTLFLAG_RD,
     &hn_use_txdesc_bufring, 0, "Use buf_ring for TX descriptors");
-
-/* Bind TX taskqueue to the target CPU */
-static int			hn_bind_tx_taskq = -1;
-SYSCTL_INT(_hw_hn, OID_AUTO, bind_tx_taskq, CTLFLAG_RDTUN,
-    &hn_bind_tx_taskq, 0, "Bind TX taskqueue to the specified cpu");
 
 #ifdef HN_IFSTART_SUPPORT
 /* Use ifnet.if_start instead of ifnet.if_transmit */
@@ -461,13 +486,14 @@ SYSCTL_INT(_hw_hn, OID_AUTO, tx_agg_size, CTLFLAG_RDTUN,
     &hn_tx_agg_size, 0, "Packet transmission aggregation size limit");
 
 /* Packet transmission aggregation count limit */
-static int			hn_tx_agg_pkts = 0;
+static int			hn_tx_agg_pkts = -1;
 SYSCTL_INT(_hw_hn, OID_AUTO, tx_agg_pkts, CTLFLAG_RDTUN,
     &hn_tx_agg_pkts, 0, "Packet transmission aggregation packet limit");
 
 static u_int			hn_cpu_index;	/* next CPU for channel */
-static struct taskqueue		*hn_tx_taskq;	/* shared TX taskqueue */
+static struct taskqueue		**hn_tx_taskque;/* shared TX taskqueues */
 
+#ifndef RSS
 static const uint8_t
 hn_rss_key_default[NDIS_HASH_KEYSIZE_TOEPLITZ] = {
 	0x6d, 0x5a, 0x56, 0xda, 0x25, 0x5b, 0x0e, 0xc2,
@@ -476,6 +502,7 @@ hn_rss_key_default[NDIS_HASH_KEYSIZE_TOEPLITZ] = {
 	0x77, 0xcb, 0x2d, 0xa3, 0x80, 0x30, 0xf2, 0x0c,
 	0x6a, 0x42, 0xb7, 0x3b, 0xbe, 0xac, 0x01, 0xfa
 };
+#endif	/* !RSS */
 
 static device_method_t hn_methods[] = {
 	/* Device interface */
@@ -702,6 +729,10 @@ hn_set_txagg(struct hn_softc *sc)
 	if (sc->hn_rndis_agg_size < size)
 		size = sc->hn_rndis_agg_size;
 
+	/* NOTE: We only aggregate packets using chimney sending buffers. */
+	if (size > (uint32_t)sc->hn_chim_szmax)
+		size = sc->hn_chim_szmax;
+
 	if (size <= 2 * HN_PKTSIZE_MIN(sc->hn_rndis_agg_align)) {
 		/* Disable */
 		size = 0;
@@ -712,10 +743,6 @@ hn_set_txagg(struct hn_softc *sc)
 	/* NOTE: Type of the per TX ring setting is 'int'. */
 	if (size > INT_MAX)
 		size = INT_MAX;
-
-	/* NOTE: We only aggregate packets using chimney sending buffers. */
-	if (size > (uint32_t)sc->hn_chim_szmax)
-		size = sc->hn_chim_szmax;
 
 	/*
 	 * Setup aggregation packet count.
@@ -773,6 +800,7 @@ hn_get_txswq_depth(const struct hn_tx_ring *txr)
 	return hn_tx_swq_depth;
 }
 
+#ifndef RSS
 static int
 hn_rss_reconfig(struct hn_softc *sc)
 {
@@ -811,13 +839,15 @@ hn_rss_reconfig(struct hn_softc *sc)
 	}
 	return (0);
 }
+#endif	/* !RSS */
 
 static void
-hn_rss_ind_fixup(struct hn_softc *sc, int nchan)
+hn_rss_ind_fixup(struct hn_softc *sc)
 {
 	struct ndis_rssprm_toeplitz *rss = &sc->hn_rss;
-	int i;
+	int i, nchan;
 
+	nchan = sc->hn_rx_ring_inuse;
 	KASSERT(nchan > 1, ("invalid # of channels %d", nchan));
 
 	/*
@@ -898,25 +928,21 @@ hn_attach(device_t dev)
 	/*
 	 * Setup taskqueue for transmission.
 	 */
-	if (hn_tx_taskq == NULL) {
-		sc->hn_tx_taskq = taskqueue_create("hn_tx", M_WAITOK,
-		    taskqueue_thread_enqueue, &sc->hn_tx_taskq);
-		if (hn_bind_tx_taskq >= 0) {
-			int cpu = hn_bind_tx_taskq;
-			cpuset_t cpu_set;
+	if (hn_tx_taskq_mode == HN_TX_TASKQ_M_INDEP) {
+		int i;
 
-			if (cpu > mp_ncpus - 1)
-				cpu = mp_ncpus - 1;
-			CPU_SETOF(cpu, &cpu_set);
-			taskqueue_start_threads_cpuset(&sc->hn_tx_taskq, 1,
-			    PI_NET, &cpu_set, "%s tx",
-			    device_get_nameunit(dev));
-		} else {
-			taskqueue_start_threads(&sc->hn_tx_taskq, 1, PI_NET,
-			    "%s tx", device_get_nameunit(dev));
+		sc->hn_tx_taskqs =
+		    malloc(hn_tx_taskq_cnt * sizeof(struct taskqueue *),
+		    M_DEVBUF, M_WAITOK);
+		for (i = 0; i < hn_tx_taskq_cnt; ++i) {
+			sc->hn_tx_taskqs[i] = taskqueue_create("hn_tx",
+			    M_WAITOK, taskqueue_thread_enqueue,
+			    &sc->hn_tx_taskqs[i]);
+			taskqueue_start_threads(&sc->hn_tx_taskqs[i], 1, PI_NET,
+			    "%s tx%d", device_get_nameunit(dev), i);
 		}
-	} else {
-		sc->hn_tx_taskq = hn_tx_taskq;
+	} else if (hn_tx_taskq_mode == HN_TX_TASKQ_M_GLOBAL) {
+		sc->hn_tx_taskqs = hn_tx_taskque;
 	}
 
 	/*
@@ -962,6 +988,10 @@ hn_attach(device_t dev)
 	} else if (ring_cnt > mp_ncpus) {
 		ring_cnt = mp_ncpus;
 	}
+#ifdef RSS
+	if (ring_cnt > rss_getnumbuckets())
+		ring_cnt = rss_getnumbuckets();
+#endif
 
 	tx_ring_cnt = hn_tx_ring_cnt;
 	if (tx_ring_cnt <= 0 || tx_ring_cnt > ring_cnt)
@@ -994,8 +1024,25 @@ hn_attach(device_t dev)
 	 */
 	sc->hn_xact = vmbus_xact_ctx_create(bus_get_dma_tag(dev),
 	    HN_XACT_REQ_SIZE, HN_XACT_RESP_SIZE, 0);
-	if (sc->hn_xact == NULL)
+	if (sc->hn_xact == NULL) {
+		error = ENXIO;
 		goto failed;
+	}
+
+	/*
+	 * Install orphan handler for the revocation of this device's
+	 * primary channel.
+	 *
+	 * NOTE:
+	 * The processing order is critical here:
+	 * Install the orphan handler, _before_ testing whether this
+	 * device's primary channel has been revoked or not.
+	 */
+	vmbus_chan_set_orphan(sc->hn_prichan, sc->hn_xact);
+	if (vmbus_chan_is_revoked(sc->hn_prichan)) {
+		error = ENXIO;
+		goto failed;
+	}
 
 	/*
 	 * Attach the synthetic parts, i.e. NVS and RNDIS.
@@ -1044,12 +1091,17 @@ hn_attach(device_t dev)
 	    hn_rss_hash_sysctl, "A", "RSS hash");
 	SYSCTL_ADD_INT(ctx, child, OID_AUTO, "rss_ind_size",
 	    CTLFLAG_RD, &sc->hn_rss_ind_size, 0, "RSS indirect entry count");
+#ifndef RSS
+	/*
+	 * Don't allow RSS key/indirect table changes, if RSS is defined.
+	 */
 	SYSCTL_ADD_PROC(ctx, child, OID_AUTO, "rss_key",
 	    CTLTYPE_OPAQUE | CTLFLAG_RW | CTLFLAG_MPSAFE, sc, 0,
 	    hn_rss_key_sysctl, "IU", "RSS key");
 	SYSCTL_ADD_PROC(ctx, child, OID_AUTO, "rss_ind",
 	    CTLTYPE_OPAQUE | CTLFLAG_RW | CTLFLAG_MPSAFE, sc, 0,
 	    hn_rss_ind_sysctl, "IU", "RSS indirect table");
+#endif
 	SYSCTL_ADD_UINT(ctx, child, OID_AUTO, "rndis_agg_size",
 	    CTLFLAG_RD, &sc->hn_rndis_agg_size, 0,
 	    "RNDIS offered packet transmission aggregation size limit");
@@ -1068,6 +1120,10 @@ hn_attach(device_t dev)
 	    hn_txagg_pkts_sysctl, "I",
 	    "Packet transmission aggregation packets, "
 	    "0 -- disable, -1 -- auto");
+	SYSCTL_ADD_PROC(ctx, child, OID_AUTO, "polling",
+	    CTLTYPE_UINT | CTLFLAG_RW | CTLFLAG_MPSAFE, sc, 0,
+	    hn_polling_sysctl, "I",
+	    "Polling frequency: [100,1000000], 0 disable polling");
 
 	/*
 	 * Setup the ifmedia, which has been initialized earlier.
@@ -1170,6 +1226,14 @@ hn_detach(device_t dev)
 	struct hn_softc *sc = device_get_softc(dev);
 	struct ifnet *ifp = sc->hn_ifp;
 
+	if (sc->hn_xact != NULL && vmbus_chan_is_revoked(sc->hn_prichan)) {
+		/*
+		 * In case that the vmbus missed the orphan handler
+		 * installation.
+		 */
+		vmbus_xact_ctx_orphan(sc->hn_xact);
+	}
+
 	if (device_is_attached(dev)) {
 		HN_LOCK(sc);
 		if (sc->hn_flags & HN_FLAG_SYNTH_ATTACHED) {
@@ -1191,12 +1255,23 @@ hn_detach(device_t dev)
 	hn_destroy_rx_data(sc);
 	hn_destroy_tx_data(sc);
 
-	if (sc->hn_tx_taskq != hn_tx_taskq)
-		taskqueue_free(sc->hn_tx_taskq);
+	if (sc->hn_tx_taskqs != NULL && sc->hn_tx_taskqs != hn_tx_taskque) {
+		int i;
+
+		for (i = 0; i < hn_tx_taskq_cnt; ++i)
+			taskqueue_free(sc->hn_tx_taskqs[i]);
+		free(sc->hn_tx_taskqs, M_DEVBUF);
+	}
 	taskqueue_free(sc->hn_mgmt_taskq0);
 
-	if (sc->hn_xact != NULL)
+	if (sc->hn_xact != NULL) {
+		/*
+		 * Uninstall the orphan handler _before_ the xact is
+		 * destructed.
+		 */
+		vmbus_chan_unset_orphan(sc->hn_prichan);
 		vmbus_xact_ctx_destroy(sc->hn_xact);
+	}
 
 	if_free(ifp);
 
@@ -1386,10 +1461,12 @@ hn_txdesc_put(struct hn_tx_ring *txr, struct hn_txdesc *txd)
 	txr->hn_txdesc_avail++;
 	SLIST_INSERT_HEAD(&txr->hn_txlist, txd, link);
 	mtx_unlock_spin(&txr->hn_txlist_spin);
-#else
+#else	/* HN_USE_TXDESC_BUFRING */
+#ifdef HN_DEBUG
 	atomic_add_int(&txr->hn_txdesc_avail, 1);
-	buf_ring_enqueue(txr->hn_txdesc_br, txd);
 #endif
+	buf_ring_enqueue(txr->hn_txdesc_br, txd);
+#endif	/* !HN_USE_TXDESC_BUFRING */
 
 	return 1;
 }
@@ -1415,8 +1492,10 @@ hn_txdesc_get(struct hn_tx_ring *txr)
 
 	if (txd != NULL) {
 #ifdef HN_USE_TXDESC_BUFRING
+#ifdef HN_DEBUG
 		atomic_subtract_int(&txr->hn_txdesc_avail, 1);
 #endif
+#endif	/* HN_USE_TXDESC_BUFRING */
 		KASSERT(txd->m == NULL && txd->refs == 0 &&
 		    STAILQ_EMPTY(&txd->agg_list) &&
 		    txd->chim_index == HN_NVS_CHIM_IDX_INVALID &&
@@ -1435,7 +1514,7 @@ hn_txdesc_hold(struct hn_txdesc *txd)
 {
 
 	/* 0->1 transition will never work */
-	KASSERT(txd->refs > 0, ("invalid refs %d", txd->refs));
+	KASSERT(txd->refs > 0, ("invalid txd refs %d", txd->refs));
 	atomic_add_int(&txd->refs, 1);
 }
 
@@ -1489,7 +1568,7 @@ hn_txpkt_done(struct hn_nvs_sendctx *sndc, struct hn_softc *sc,
 	txr = txd->txr;
 	KASSERT(txr->hn_chan == chan,
 	    ("channel mismatch, on chan%u, should be chan%u",
-	     vmbus_chan_subidx(chan), vmbus_chan_subidx(txr->hn_chan)));
+	     vmbus_chan_id(chan), vmbus_chan_id(txr->hn_chan)));
 
 	txr->hn_has_txeof = 1;
 	hn_txdesc_put(txr, txd);
@@ -1877,17 +1956,20 @@ done:
 static int
 hn_txpkt(struct ifnet *ifp, struct hn_tx_ring *txr, struct hn_txdesc *txd)
 {
-	int error, send_failed = 0;
+	int error, send_failed = 0, has_bpf;
 
 again:
-	/*
-	 * Make sure that this txd and any aggregated txds are not freed
-	 * before ETHER_BPF_MTAP.
-	 */
-	hn_txdesc_hold(txd);
+	has_bpf = bpf_peers_present(ifp->if_bpf);
+	if (has_bpf) {
+		/*
+		 * Make sure that this txd and any aggregated txds are not
+		 * freed before ETHER_BPF_MTAP.
+		 */
+		hn_txdesc_hold(txd);
+	}
 	error = txr->hn_sendpkt(txr, txd);
 	if (!error) {
-		if (bpf_peers_present(ifp->if_bpf)) {
+		if (has_bpf) {
 			const struct hn_txdesc *tmp_txd;
 
 			ETHER_BPF_MTAP(ifp, txd->m);
@@ -1910,7 +1992,8 @@ again:
 		txr->hn_pkts += txr->hn_stat_pkts;
 		txr->hn_sends++;
 	}
-	hn_txdesc_put(txr, txd);
+	if (has_bpf)
+		hn_txdesc_put(txr, txd);
 
 	if (__predict_false(error)) {
 		int freed;
@@ -2284,6 +2367,9 @@ hn_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 			break;
 		}
 
+		/* Disable polling. */
+		hn_polling(sc, 0);
+
 		/*
 		 * Suspend this interface before the synthetic parts
 		 * are ripped.
@@ -2328,6 +2414,13 @@ hn_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 		 * All done!  Resume the interface now.
 		 */
 		hn_resume(sc);
+
+		/*
+		 * Re-enable polling if this interface is running and
+		 * the polling is requested.
+		 */
+		if ((ifp->if_drv_flags & IFF_DRV_RUNNING) && sc->hn_pollhz > 0)
+			hn_polling(sc, sc->hn_pollhz);
 
 		HN_UNLOCK(sc);
 		break;
@@ -2455,6 +2548,9 @@ hn_stop(struct hn_softc *sc)
 	KASSERT(sc->hn_flags & HN_FLAG_SYNTH_ATTACHED,
 	    ("synthetic parts were not attached"));
 
+	/* Disable polling. */
+	hn_polling(sc, 0);
+
 	/* Clear RUNNING bit _before_ hn_suspend_data() */
 	atomic_clear_int(&ifp->if_drv_flags, IFF_DRV_RUNNING);
 	hn_suspend_data(sc);
@@ -2492,6 +2588,10 @@ hn_init_locked(struct hn_softc *sc)
 
 	/* Everything is ready; unleash! */
 	atomic_set_int(&ifp->if_drv_flags, IFF_DRV_RUNNING);
+
+	/* Re-enable polling if requested. */
+	if (sc->hn_pollhz > 0)
+		hn_polling(sc, sc->hn_pollhz);
 }
 
 static void
@@ -2799,6 +2899,61 @@ hn_txagg_align_sysctl(SYSCTL_HANDLER_ARGS)
 	return (sysctl_handle_int(oidp, &align, 0, req));
 }
 
+static void
+hn_chan_polling(struct vmbus_channel *chan, u_int pollhz)
+{
+	if (pollhz == 0)
+		vmbus_chan_poll_disable(chan);
+	else
+		vmbus_chan_poll_enable(chan, pollhz);
+}
+
+static void
+hn_polling(struct hn_softc *sc, u_int pollhz)
+{
+	int nsubch = sc->hn_rx_ring_inuse - 1;
+
+	HN_LOCK_ASSERT(sc);
+
+	if (nsubch > 0) {
+		struct vmbus_channel **subch;
+		int i;
+
+		subch = vmbus_subchan_get(sc->hn_prichan, nsubch);
+		for (i = 0; i < nsubch; ++i)
+			hn_chan_polling(subch[i], pollhz);
+		vmbus_subchan_rel(subch, nsubch);
+	}
+	hn_chan_polling(sc->hn_prichan, pollhz);
+}
+
+static int
+hn_polling_sysctl(SYSCTL_HANDLER_ARGS)
+{
+	struct hn_softc *sc = arg1;
+	int pollhz, error;
+
+	pollhz = sc->hn_pollhz;
+	error = sysctl_handle_int(oidp, &pollhz, 0, req);
+	if (error || req->newptr == NULL)
+		return (error);
+
+	if (pollhz != 0 &&
+	    (pollhz < VMBUS_CHAN_POLLHZ_MIN || pollhz > VMBUS_CHAN_POLLHZ_MAX))
+		return (EINVAL);
+
+	HN_LOCK(sc);
+	if (sc->hn_pollhz != pollhz) {
+		sc->hn_pollhz = pollhz;
+		if ((sc->hn_ifp->if_drv_flags & IFF_DRV_RUNNING) &&
+		    (sc->hn_flags & HN_FLAG_SYNTH_ATTACHED))
+			hn_polling(sc, sc->hn_pollhz);
+	}
+	HN_UNLOCK(sc);
+
+	return (0);
+}
+
 static int
 hn_ndis_version_sysctl(SYSCTL_HANDLER_ARGS)
 {
@@ -2854,6 +3009,8 @@ hn_rxfilter_sysctl(SYSCTL_HANDLER_ARGS)
 	return sysctl_handle_string(oidp, filter_str, sizeof(filter_str), req);
 }
 
+#ifndef RSS
+
 static int
 hn_rss_key_sysctl(SYSCTL_HANDLER_ARGS)
 {
@@ -2908,12 +3065,14 @@ hn_rss_ind_sysctl(SYSCTL_HANDLER_ARGS)
 		goto back;
 	sc->hn_flags |= HN_FLAG_HAS_RSSIND;
 
-	hn_rss_ind_fixup(sc, sc->hn_rx_ring_inuse);
+	hn_rss_ind_fixup(sc);
 	error = hn_rss_reconfig(sc);
 back:
 	HN_UNLOCK(sc);
 	return (error);
 }
+
+#endif	/* !RSS */
 
 static int
 hn_rss_hash_sysctl(SYSCTL_HANDLER_ARGS)
@@ -3215,7 +3374,10 @@ hn_destroy_rx_data(struct hn_softc *sc)
 	int i;
 
 	if (sc->hn_rxbuf != NULL) {
-		hyperv_dmamem_free(&sc->hn_rxbuf_dma, sc->hn_rxbuf);
+		if ((sc->hn_flags & HN_FLAG_RXBUF_REF) == 0)
+			hyperv_dmamem_free(&sc->hn_rxbuf_dma, sc->hn_rxbuf);
+		else
+			device_printf(sc->hn_dev, "RXBUF is referenced\n");
 		sc->hn_rxbuf = NULL;
 	}
 
@@ -3227,7 +3389,12 @@ hn_destroy_rx_data(struct hn_softc *sc)
 
 		if (rxr->hn_br == NULL)
 			continue;
-		hyperv_dmamem_free(&rxr->hn_br_dma, rxr->hn_br);
+		if ((rxr->hn_rx_flags & HN_RX_FLAG_BR_REF) == 0) {
+			hyperv_dmamem_free(&rxr->hn_br_dma, rxr->hn_br);
+		} else {
+			device_printf(sc->hn_dev,
+			    "%dth channel bufring is referenced", i);
+		}
 		rxr->hn_br = NULL;
 
 #if defined(INET) || defined(INET6)
@@ -3268,7 +3435,12 @@ hn_tx_ring_create(struct hn_softc *sc, int id)
 	    M_WAITOK, &txr->hn_tx_lock);
 #endif
 
-	txr->hn_tx_taskq = sc->hn_tx_taskq;
+	if (hn_tx_taskq_mode == HN_TX_TASKQ_M_EVTTQ) {
+		txr->hn_tx_taskq = VMBUS_GET_EVENT_TASKQ(
+		    device_get_parent(dev), dev, HN_RING_IDX2CPU(sc, id));
+	} else {
+		txr->hn_tx_taskq = sc->hn_tx_taskqs[id % hn_tx_taskq_cnt];
+	}
 
 #ifdef HN_IFSTART_SUPPORT
 	if (hn_use_if_start) {
@@ -3412,9 +3584,11 @@ hn_tx_ring_create(struct hn_softc *sc, int id)
 		if (txr->hn_tx_sysctl_tree != NULL) {
 			child = SYSCTL_CHILDREN(txr->hn_tx_sysctl_tree);
 
+#ifdef HN_DEBUG
 			SYSCTL_ADD_INT(ctx, child, OID_AUTO, "txdesc_avail",
 			    CTLFLAG_RD, &txr->hn_txdesc_avail, 0,
 			    "# of available TX descs");
+#endif
 #ifdef HN_IFSTART_SUPPORT
 			if (!hn_use_if_start)
 #endif
@@ -3449,24 +3623,43 @@ hn_txdesc_dmamap_destroy(struct hn_txdesc *txd)
 }
 
 static void
+hn_txdesc_gc(struct hn_tx_ring *txr, struct hn_txdesc *txd)
+{
+
+	KASSERT(txd->refs == 0 || txd->refs == 1,
+	    ("invalid txd refs %d", txd->refs));
+
+	/* Aggregated txds will be freed by their aggregating txd. */
+	if (txd->refs > 0 && (txd->flags & HN_TXD_FLAG_ONAGG) == 0) {
+		int freed;
+
+		freed = hn_txdesc_put(txr, txd);
+		KASSERT(freed, ("can't free txdesc"));
+	}
+}
+
+static void
 hn_tx_ring_destroy(struct hn_tx_ring *txr)
 {
-	struct hn_txdesc *txd;
+	int i;
 
 	if (txr->hn_txdesc == NULL)
 		return;
 
-#ifndef HN_USE_TXDESC_BUFRING
-	while ((txd = SLIST_FIRST(&txr->hn_txlist)) != NULL) {
-		SLIST_REMOVE_HEAD(&txr->hn_txlist, link);
-		hn_txdesc_dmamap_destroy(txd);
-	}
-#else
-	mtx_lock(&txr->hn_tx_lock);
-	while ((txd = buf_ring_dequeue_sc(txr->hn_txdesc_br)) != NULL)
-		hn_txdesc_dmamap_destroy(txd);
-	mtx_unlock(&txr->hn_tx_lock);
-#endif
+	/*
+	 * NOTE:
+	 * Because the freeing of aggregated txds will be deferred
+	 * to the aggregating txd, two passes are used here:
+	 * - The first pass GCes any pending txds.  This GC is necessary,
+	 *   since if the channels are revoked, hypervisor will not
+	 *   deliver send-done for all pending txds.
+	 * - The second pass frees the busdma stuffs, i.e. after all txds
+	 *   were freed.
+	 */
+	for (i = 0; i < txr->hn_txdesc_cnt; ++i)
+		hn_txdesc_gc(txr, &txr->hn_txdesc[i]);
+	for (i = 0; i < txr->hn_txdesc_cnt; ++i)
+		hn_txdesc_dmamap_destroy(&txr->hn_txdesc[i]);
 
 	if (txr->hn_tx_data_dtag != NULL)
 		bus_dma_tag_destroy(txr->hn_tx_data_dtag);
@@ -3677,7 +3870,12 @@ hn_destroy_tx_data(struct hn_softc *sc)
 	int i;
 
 	if (sc->hn_chim != NULL) {
-		hyperv_dmamem_free(&sc->hn_chim_dma, sc->hn_chim);
+		if ((sc->hn_flags & HN_FLAG_CHIM_REF) == 0) {
+			hyperv_dmamem_free(&sc->hn_chim_dma, sc->hn_chim);
+		} else {
+			device_printf(sc->hn_dev,
+			    "chimney sending buffer is referenced");
+		}
 		sc->hn_chim = NULL;
 	}
 
@@ -3995,8 +4193,17 @@ hn_transmit(struct ifnet *ifp, struct mbuf *m)
 	/*
 	 * Select the TX ring based on flowid
 	 */
-	if (M_HASHTYPE_GET(m) != M_HASHTYPE_NONE)
-		idx = m->m_pkthdr.flowid % sc->hn_tx_ring_inuse;
+	if (M_HASHTYPE_GET(m) != M_HASHTYPE_NONE) {
+#ifdef RSS
+		uint32_t bid;
+
+		if (rss_hash2bucket(m->m_pkthdr.flowid, M_HASHTYPE_GET(m),
+		    &bid) == 0)
+			idx = bid % sc->hn_tx_ring_inuse;
+		else
+#endif
+			idx = m->m_pkthdr.flowid % sc->hn_tx_ring_inuse;
+	}
 	txr = &sc->hn_tx_ring[idx];
 
 	error = drbr_enqueue(ifp, txr->hn_mbuf_br, m);
@@ -4137,7 +4344,7 @@ hn_chan_attach(struct hn_softc *sc, struct vmbus_channel *chan)
 	}
 
 	/* Bind this channel to a proper CPU. */
-	vmbus_chan_cpu_set(chan, (sc->hn_cpu + idx) % mp_ncpus);
+	vmbus_chan_cpu_set(chan, HN_RING_IDX2CPU(sc, idx));
 
 	/*
 	 * Open this channel
@@ -4148,11 +4355,14 @@ hn_chan_attach(struct hn_softc *sc, struct vmbus_channel *chan)
 	cbr.cbr_rxsz = HN_RXBR_SIZE;
 	error = vmbus_chan_open_br(chan, &cbr, NULL, 0, hn_chan_callback, rxr);
 	if (error) {
-		if_printf(sc->hn_ifp, "open chan%u failed: %d\n",
-		    vmbus_chan_id(chan), error);
-		rxr->hn_rx_flags &= ~HN_RX_FLAG_ATTACHED;
-		if (txr != NULL)
-			txr->hn_tx_flags &= ~HN_TX_FLAG_ATTACHED;
+		if (error == EISCONN) {
+			if_printf(sc->hn_ifp, "bufring is connected after "
+			    "chan%u open failure\n", vmbus_chan_id(chan));
+			rxr->hn_rx_flags |= HN_RX_FLAG_BR_REF;
+		} else {
+			if_printf(sc->hn_ifp, "open chan%u failed: %d\n",
+			    vmbus_chan_id(chan), error);
+		}
 	}
 	return (error);
 }
@@ -4161,7 +4371,7 @@ static void
 hn_chan_detach(struct hn_softc *sc, struct vmbus_channel *chan)
 {
 	struct hn_rx_ring *rxr;
-	int idx;
+	int idx, error;
 
 	idx = vmbus_chan_subidx(chan);
 
@@ -4190,7 +4400,15 @@ hn_chan_detach(struct hn_softc *sc, struct vmbus_channel *chan)
 	 * NOTE:
 	 * Channel closing does _not_ destroy the target channel.
 	 */
-	vmbus_chan_close(chan);
+	error = vmbus_chan_close_direct(chan);
+	if (error == EISCONN) {
+		if_printf(sc->hn_ifp, "chan%u bufring is connected "
+		    "after being closed\n", vmbus_chan_id(chan));
+		rxr->hn_rx_flags |= HN_RX_FLAG_BR_REF;
+	} else if (error) {
+		if_printf(sc->hn_ifp, "chan%u close failed: %d\n",
+		    vmbus_chan_id(chan), error);
+	}
 }
 
 static int
@@ -4200,15 +4418,18 @@ hn_attach_subchans(struct hn_softc *sc)
 	int subchan_cnt = sc->hn_rx_ring_inuse - 1;
 	int i, error = 0;
 
-	if (subchan_cnt == 0)
-		return (0);
+	KASSERT(subchan_cnt > 0, ("no sub-channels"));
 
 	/* Attach the sub-channels. */
 	subchans = vmbus_subchan_get(sc->hn_prichan, subchan_cnt);
 	for (i = 0; i < subchan_cnt; ++i) {
-		error = hn_chan_attach(sc, subchans[i]);
-		if (error)
-			break;
+		int error1;
+
+		error1 = hn_chan_attach(sc, subchans[i]);
+		if (error1) {
+			error = error1;
+			/* Move on; all channels will be detached later. */
+		}
 	}
 	vmbus_subchan_rel(subchans, subchan_cnt);
 
@@ -4320,15 +4541,38 @@ hn_synth_alloc_subchans(struct hn_softc *sc, int *nsubch)
 	return (0);
 }
 
+static bool
+hn_synth_attachable(const struct hn_softc *sc)
+{
+	int i;
+
+	if (sc->hn_flags & HN_FLAG_ERRORS)
+		return (false);
+
+	for (i = 0; i < sc->hn_rx_ring_cnt; ++i) {
+		const struct hn_rx_ring *rxr = &sc->hn_rx_ring[i];
+
+		if (rxr->hn_rx_flags & HN_RX_FLAG_BR_REF)
+			return (false);
+	}
+	return (true);
+}
+
 static int
 hn_synth_attach(struct hn_softc *sc, int mtu)
 {
+#define ATTACHED_NVS		0x0002
+#define ATTACHED_RNDIS		0x0004
+
 	struct ndis_rssprm_toeplitz *rss = &sc->hn_rss;
 	int error, nsubch, nchan, i;
-	uint32_t old_caps;
+	uint32_t old_caps, attached = 0;
 
 	KASSERT((sc->hn_flags & HN_FLAG_SYNTH_ATTACHED) == 0,
 	    ("synthetic parts were attached"));
+
+	if (!hn_synth_attachable(sc))
+		return (ENXIO);
 
 	/* Save capabilities for later verification. */
 	old_caps = sc->hn_caps;
@@ -4343,21 +4587,23 @@ hn_synth_attach(struct hn_softc *sc, int mtu)
 	 */
 	error = hn_chan_attach(sc, sc->hn_prichan);
 	if (error)
-		return (error);
+		goto failed;
 
 	/*
 	 * Attach NVS.
 	 */
 	error = hn_nvs_attach(sc, mtu);
 	if (error)
-		return (error);
+		goto failed;
+	attached |= ATTACHED_NVS;
 
 	/*
 	 * Attach RNDIS _after_ NVS is attached.
 	 */
 	error = hn_rndis_attach(sc, mtu);
 	if (error)
-		return (error);
+		goto failed;
+	attached |= ATTACHED_RNDIS;
 
 	/*
 	 * Make sure capabilities are not changed.
@@ -4365,9 +4611,8 @@ hn_synth_attach(struct hn_softc *sc, int mtu)
 	if (device_is_attached(sc->hn_dev) && old_caps != sc->hn_caps) {
 		if_printf(sc->hn_ifp, "caps mismatch old 0x%08x, new 0x%08x\n",
 		    old_caps, sc->hn_caps);
-		/* Restore old capabilities and abort. */
-		sc->hn_caps = old_caps;
-		return ENXIO;
+		error = ENXIO;
+		goto failed;
 	}
 
 	/*
@@ -4380,26 +4625,45 @@ hn_synth_attach(struct hn_softc *sc, int mtu)
 	nsubch = sc->hn_rx_ring_cnt - 1;
 	error = hn_synth_alloc_subchans(sc, &nsubch);
 	if (error)
-		return (error);
+		goto failed;
+	/* NOTE: _Full_ synthetic parts detach is required now. */
+	sc->hn_flags |= HN_FLAG_SYNTH_ATTACHED;
 
+	/*
+	 * Set the # of TX/RX rings that could be used according to
+	 * the # of channels that NVS offered.
+	 */
 	nchan = nsubch + 1;
+	hn_set_ring_inuse(sc, nchan);
 	if (nchan == 1) {
 		/* Only the primary channel can be used; done */
 		goto back;
 	}
 
 	/*
-	 * Configure RSS key and indirect table _after_ all sub-channels
-	 * are allocated.
+	 * Attach the sub-channels.
+	 *
+	 * NOTE: hn_set_ring_inuse() _must_ have been called.
 	 */
+	error = hn_attach_subchans(sc);
+	if (error)
+		goto failed;
 
+	/*
+	 * Configure RSS key and indirect table _after_ all sub-channels
+	 * are attached.
+	 */
 	if ((sc->hn_flags & HN_FLAG_HAS_RSSKEY) == 0) {
 		/*
 		 * RSS key is not set yet; set it to the default RSS key.
 		 */
 		if (bootverbose)
 			if_printf(sc->hn_ifp, "setup default RSS key\n");
+#ifdef RSS
+		rss_getkey(rss->rss_key);
+#else
 		memcpy(rss->rss_key, hn_rss_key_default, sizeof(rss->rss_key));
+#endif
 		sc->hn_flags |= HN_FLAG_HAS_RSSKEY;
 	}
 
@@ -4412,47 +4676,54 @@ hn_synth_attach(struct hn_softc *sc, int mtu)
 			if_printf(sc->hn_ifp, "setup default RSS indirect "
 			    "table\n");
 		}
-		for (i = 0; i < NDIS_HASH_INDCNT; ++i)
-			rss->rss_ind[i] = i % nchan;
+		for (i = 0; i < NDIS_HASH_INDCNT; ++i) {
+			uint32_t subidx;
+
+#ifdef RSS
+			subidx = rss_get_indirection_to_bucket(i);
+#else
+			subidx = i;
+#endif
+			rss->rss_ind[i] = subidx % nchan;
+		}
 		sc->hn_flags |= HN_FLAG_HAS_RSSIND;
 	} else {
 		/*
 		 * # of usable channels may be changed, so we have to
 		 * make sure that all entries in RSS indirect table
 		 * are valid.
+		 *
+		 * NOTE: hn_set_ring_inuse() _must_ have been called.
 		 */
-		hn_rss_ind_fixup(sc, nchan);
+		hn_rss_ind_fixup(sc);
 	}
 
 	error = hn_rndis_conf_rss(sc, NDIS_RSS_FLAG_NONE);
-	if (error) {
-		/*
-		 * Failed to configure RSS key or indirect table; only
-		 * the primary channel can be used.
-		 */
-		nchan = 1;
-	}
-back:
-	/*
-	 * Set the # of TX/RX rings that could be used according to
-	 * the # of channels that NVS offered.
-	 */
-	hn_set_ring_inuse(sc, nchan);
-
-	/*
-	 * Attach the sub-channels, if any.
-	 */
-	error = hn_attach_subchans(sc);
 	if (error)
-		return (error);
-
+		goto failed;
+back:
 	/*
 	 * Fixup transmission aggregation setup.
 	 */
 	hn_set_txagg(sc);
-
-	sc->hn_flags |= HN_FLAG_SYNTH_ATTACHED;
 	return (0);
+
+failed:
+	if (sc->hn_flags & HN_FLAG_SYNTH_ATTACHED) {
+		hn_synth_detach(sc);
+	} else {
+		if (attached & ATTACHED_RNDIS)
+			hn_rndis_detach(sc);
+		if (attached & ATTACHED_NVS)
+			hn_nvs_detach(sc);
+		hn_chan_detach(sc, sc->hn_prichan);
+		/* Restore old capabilities. */
+		sc->hn_caps = old_caps;
+	}
+	return (error);
+
+#undef ATTACHED_RNDIS
+#undef ATTACHED_NVS
 }
 
 /*
@@ -4463,7 +4734,6 @@ back:
 static void
 hn_synth_detach(struct hn_softc *sc)
 {
-	HN_LOCK_ASSERT(sc);
 
 	KASSERT(sc->hn_flags & HN_FLAG_SYNTH_ATTACHED,
 	    ("synthetic parts were not attached"));
@@ -4492,6 +4762,14 @@ hn_set_ring_inuse(struct hn_softc *sc, int ring_cnt)
 		sc->hn_tx_ring_inuse = sc->hn_tx_ring_cnt;
 	sc->hn_rx_ring_inuse = ring_cnt;
 
+#ifdef RSS
+	if (sc->hn_rx_ring_inuse != rss_getnumbuckets()) {
+		if_printf(sc->hn_ifp, "# of RX rings (%d) does not match "
+		    "# of RSS buckets (%d)\n", sc->hn_rx_ring_inuse,
+		    rss_getnumbuckets());
+	}
+#endif
+
 	if (bootverbose) {
 		if_printf(sc->hn_ifp, "%d TX ring, %d RX ring\n",
 		    sc->hn_tx_ring_inuse, sc->hn_rx_ring_inuse);
@@ -4499,10 +4777,17 @@ hn_set_ring_inuse(struct hn_softc *sc, int ring_cnt)
 }
 
 static void
-hn_chan_drain(struct vmbus_channel *chan)
+hn_chan_drain(struct hn_softc *sc, struct vmbus_channel *chan)
 {
 
-	while (!vmbus_chan_rx_empty(chan) || !vmbus_chan_tx_empty(chan))
+	/*
+	 * NOTE:
+	 * The TX bufring will not be drained by the hypervisor,
+	 * if the primary channel is revoked.
+	 */
+	while (!vmbus_chan_rx_empty(chan) ||
+	    (!vmbus_chan_is_revoked(sc->hn_prichan) &&
+	     !vmbus_chan_tx_empty(chan)))
 		pause("waitch", 1);
 	vmbus_chan_intr_drain(chan);
 }
@@ -4511,6 +4796,7 @@ static void
 hn_suspend_data(struct hn_softc *sc)
 {
 	struct vmbus_channel **subch = NULL;
+	struct hn_tx_ring *txr;
 	int i, nsubch;
 
 	HN_LOCK_ASSERT(sc);
@@ -4519,19 +4805,23 @@ hn_suspend_data(struct hn_softc *sc)
 	 * Suspend TX.
 	 */
 	for (i = 0; i < sc->hn_tx_ring_inuse; ++i) {
-		struct hn_tx_ring *txr = &sc->hn_tx_ring[i];
+		txr = &sc->hn_tx_ring[i];
 
 		mtx_lock(&txr->hn_tx_lock);
 		txr->hn_suspended = 1;
 		mtx_unlock(&txr->hn_tx_lock);
 		/* No one is able send more packets now. */
 
-		/* Wait for all pending sends to finish. */
-		while (hn_tx_ring_pending(txr))
+		/*
+		 * Wait for all pending sends to finish.
+		 *
+		 * NOTE:
+		 * We will _not_ receive all pending send-done, if the
+		 * primary channel is revoked.
+		 */
+		while (hn_tx_ring_pending(txr) &&
+		    !vmbus_chan_is_revoked(sc->hn_prichan))
 			pause("hnwtx", 1 /* 1 tick */);
-
-		taskqueue_drain(txr->hn_tx_taskq, &txr->hn_tx_task);
-		taskqueue_drain(txr->hn_tx_taskq, &txr->hn_txeof_task);
 	}
 
 	/*
@@ -4554,12 +4844,27 @@ hn_suspend_data(struct hn_softc *sc)
 
 	if (subch != NULL) {
 		for (i = 0; i < nsubch; ++i)
-			hn_chan_drain(subch[i]);
+			hn_chan_drain(sc, subch[i]);
 	}
-	hn_chan_drain(sc->hn_prichan);
+	hn_chan_drain(sc, sc->hn_prichan);
 
 	if (subch != NULL)
 		vmbus_subchan_rel(subch, nsubch);
+
+	/*
+	 * Drain any pending TX tasks.
+	 *
+	 * NOTE:
+	 * The above hn_chan_drain() can dispatch TX tasks, so the TX
+	 * tasks will have to be drained _after_ the above hn_chan_drain()
+	 * calls.
+	 */
+	for (i = 0; i < sc->hn_tx_ring_inuse; ++i) {
+		txr = &sc->hn_tx_ring[i];
+
+		taskqueue_drain(txr->hn_tx_taskq, &txr->hn_tx_task);
+		taskqueue_drain(txr->hn_tx_taskq, &txr->hn_txeof_task);
+	}
 }
 
 static void
@@ -5205,26 +5510,42 @@ hn_chan_callback(struct vmbus_channel *chan, void *xrxr)
 static void
 hn_tx_taskq_create(void *arg __unused)
 {
+	int i;
+
+	/*
+	 * Fix the # of TX taskqueues.
+	 */
+	if (hn_tx_taskq_cnt <= 0)
+		hn_tx_taskq_cnt = 1;
+	else if (hn_tx_taskq_cnt > mp_ncpus)
+		hn_tx_taskq_cnt = mp_ncpus;
+
+	/*
+	 * Fix the TX taskqueue mode.
+	 */
+	switch (hn_tx_taskq_mode) {
+	case HN_TX_TASKQ_M_INDEP:
+	case HN_TX_TASKQ_M_GLOBAL:
+	case HN_TX_TASKQ_M_EVTTQ:
+		break;
+	default:
+		hn_tx_taskq_mode = HN_TX_TASKQ_M_INDEP;
+		break;
+	}
 
 	if (vm_guest != VM_GUEST_HV)
 		return;
 
-	if (!hn_share_tx_taskq)
+	if (hn_tx_taskq_mode != HN_TX_TASKQ_M_GLOBAL)
 		return;
 
-	hn_tx_taskq = taskqueue_create("hn_tx", M_WAITOK,
-	    taskqueue_thread_enqueue, &hn_tx_taskq);
-	if (hn_bind_tx_taskq >= 0) {
-		int cpu = hn_bind_tx_taskq;
-		cpuset_t cpu_set;
-
-		if (cpu > mp_ncpus - 1)
-			cpu = mp_ncpus - 1;
-		CPU_SETOF(cpu, &cpu_set);
-		taskqueue_start_threads_cpuset(&hn_tx_taskq, 1, PI_NET,
-		    &cpu_set, "hn tx");
-	} else {
-		taskqueue_start_threads(&hn_tx_taskq, 1, PI_NET, "hn tx");
+	hn_tx_taskque = malloc(hn_tx_taskq_cnt * sizeof(struct taskqueue *),
+	    M_DEVBUF, M_WAITOK);
+	for (i = 0; i < hn_tx_taskq_cnt; ++i) {
+		hn_tx_taskque[i] = taskqueue_create("hn_tx", M_WAITOK,
+		    taskqueue_thread_enqueue, &hn_tx_taskque[i]);
+		taskqueue_start_threads(&hn_tx_taskque[i], 1, PI_NET,
+		    "hn tx%d", i);
 	}
 }
 SYSINIT(hn_txtq_create, SI_SUB_DRIVERS, SI_ORDER_SECOND,
@@ -5234,8 +5555,13 @@ static void
 hn_tx_taskq_destroy(void *arg __unused)
 {
 
-	if (hn_tx_taskq != NULL)
-		taskqueue_free(hn_tx_taskq);
+	if (hn_tx_taskque != NULL) {
+		int i;
+
+		for (i = 0; i < hn_tx_taskq_cnt; ++i)
+			taskqueue_free(hn_tx_taskque[i]);
+		free(hn_tx_taskque, M_DEVBUF);
+	}
 }
 SYSUNINIT(hn_txtq_destroy, SI_SUB_DRIVERS, SI_ORDER_SECOND,
     hn_tx_taskq_destroy, NULL);
