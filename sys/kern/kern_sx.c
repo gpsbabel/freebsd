@@ -276,29 +276,6 @@ sx_destroy(struct sx *sx)
 }
 
 int
-_sx_slock(struct sx *sx, int opts, const char *file, int line)
-{
-	int error = 0;
-
-	if (SCHEDULER_STOPPED())
-		return (0);
-	KASSERT(kdb_active != 0 || !TD_IS_IDLETHREAD(curthread),
-	    ("sx_slock() by idle thread %p on sx %s @ %s:%d",
-	    curthread, sx->lock_object.lo_name, file, line));
-	KASSERT(sx->sx_lock != SX_LOCK_DESTROYED,
-	    ("sx_slock() of destroyed sx @ %s:%d", file, line));
-	WITNESS_CHECKORDER(&sx->lock_object, LOP_NEWORDER, file, line, NULL);
-	error = __sx_slock(sx, opts, file, line);
-	if (!error) {
-		LOCK_LOG_LOCK("SLOCK", &sx->lock_object, 0, 0, file, line);
-		WITNESS_LOCK(&sx->lock_object, 0, file, line);
-		TD_LOCKS_INC(curthread);
-	}
-
-	return (error);
-}
-
-int
 sx_try_slock_(struct sx *sx, const char *file, int line)
 {
 	uintptr_t x;
@@ -388,21 +365,6 @@ sx_try_xlock_(struct sx *sx, const char *file, int line)
 	}
 
 	return (rval);
-}
-
-void
-_sx_sunlock(struct sx *sx, const char *file, int line)
-{
-
-	if (SCHEDULER_STOPPED())
-		return;
-	KASSERT(sx->sx_lock != SX_LOCK_DESTROYED,
-	    ("sx_sunlock() of destroyed sx @ %s:%d", file, line));
-	_sx_assert(sx, SA_SLOCKED, file, line);
-	WITNESS_UNLOCK(&sx->lock_object, 0, file, line);
-	LOCK_LOG_LOCK("SUNLOCK", &sx->lock_object, 0, 0, file, line);
-	__sx_sunlock(sx, file, line);
-	TD_LOCKS_DEC(curthread);
 }
 
 void
@@ -530,15 +492,14 @@ sx_downgrade_(struct sx *sx, const char *file, int line)
  * accessible from at least sx.h.
  */
 int
-_sx_xlock_hard(struct sx *sx, uintptr_t tid, int opts, const char *file,
-    int line)
+_sx_xlock_hard(struct sx *sx, uintptr_t x, uintptr_t tid, int opts,
+    const char *file, int line)
 {
 	GIANT_DECLARE;
 #ifdef ADAPTIVE_SX
 	volatile struct thread *owner;
 	u_int i, spintries = 0;
 #endif
-	uintptr_t x;
 #ifdef LOCK_PROFILING
 	uint64_t waittime = 0;
 	int contested = 0;
@@ -563,8 +524,6 @@ _sx_xlock_hard(struct sx *sx, uintptr_t tid, int opts, const char *file,
 	lock_delay_arg_init(&lda, NULL);
 #endif
 
-	x = SX_READ_VALUE(sx);
-
 	/* If we already hold an exclusive lock, then recurse. */
 	if (__predict_false(lv_sx_owner(x) == (struct thread *)tid)) {
 		KASSERT((sx->lock_object.lo_flags & LO_RECURSABLE) != 0,
@@ -587,9 +546,8 @@ _sx_xlock_hard(struct sx *sx, uintptr_t tid, int opts, const char *file,
 #endif
 	for (;;) {
 		if (x == SX_LOCK_UNLOCKED) {
-			if (atomic_cmpset_acq_ptr(&sx->sx_lock, x, tid))
+			if (atomic_fcmpset_acq_ptr(&sx->sx_lock, &x, tid))
 				break;
-			x = SX_READ_VALUE(sx);
 			continue;
 		}
 #ifdef KDTRACE_HOOKS
@@ -844,14 +802,8 @@ _sx_xunlock_hard(struct sx *sx, uintptr_t tid, const char *file, int line)
 		kick_proc0();
 }
 
-/*
- * This function represents the so-called 'hard case' for sx_slock
- * operation.  All 'easy case' failures are redirected to this.  Note
- * that ideally this would be a static function, but it needs to be
- * accessible from at least sx.h.
- */
 int
-_sx_slock_hard(struct sx *sx, int opts, const char *file, int line)
+_sx_slock(struct sx *sx, int opts, const char *file, int line)
 {
 	GIANT_DECLARE;
 #ifdef ADAPTIVE_SX
@@ -881,6 +833,12 @@ _sx_slock_hard(struct sx *sx, int opts, const char *file, int line)
 #elif defined(KDTRACE_HOOKS)
 	lock_delay_arg_init(&lda, NULL);
 #endif
+	KASSERT(kdb_active != 0 || !TD_IS_IDLETHREAD(curthread),
+	    ("sx_slock() by idle thread %p on sx %s @ %s:%d",
+	    curthread, sx->lock_object.lo_name, file, line));
+	KASSERT(sx->sx_lock != SX_LOCK_DESTROYED,
+	    ("sx_slock() of destroyed sx @ %s:%d", file, line));
+	WITNESS_CHECKORDER(&sx->lock_object, LOP_NEWORDER, file, line, NULL);
 #ifdef KDTRACE_HOOKS
 	all_time -= lockstat_nsecs(&sx->lock_object);
 #endif
@@ -902,7 +860,7 @@ _sx_slock_hard(struct sx *sx, int opts, const char *file, int line)
 		 */
 		if (x & SX_LOCK_SHARED) {
 			MPASS(!(x & SX_LOCK_SHARED_WAITERS));
-			if (atomic_cmpset_acq_ptr(&sx->sx_lock, x,
+			if (atomic_fcmpset_acq_ptr(&sx->sx_lock, &x,
 			    x + SX_ONE_SHARER)) {
 				if (LOCK_LOG_TEST(&sx->lock_object, 0))
 					CTR4(KTR_LOCK,
@@ -911,7 +869,6 @@ _sx_slock_hard(struct sx *sx, int opts, const char *file, int line)
 					    (void *)(x + SX_ONE_SHARER));
 				break;
 			}
-			x = SX_READ_VALUE(sx);
 			continue;
 		}
 #ifdef KDTRACE_HOOKS
@@ -1049,21 +1006,19 @@ _sx_slock_hard(struct sx *sx, int opts, const char *file, int line)
 		    LOCKSTAT_READER, (state & SX_LOCK_SHARED) == 0,
 		    (state & SX_LOCK_SHARED) == 0 ? 0 : SX_SHARERS(state));
 #endif
-	if (error == 0)
+	if (error == 0) {
 		LOCKSTAT_PROFILE_OBTAIN_RWLOCK_SUCCESS(sx__acquire, sx,
 		    contested, waittime, file, line, LOCKSTAT_READER);
+		LOCK_LOG_LOCK("SLOCK", &sx->lock_object, 0, 0, file, line);
+		WITNESS_LOCK(&sx->lock_object, 0, file, line);
+		TD_LOCKS_INC(curthread);
+	}
 	GIANT_RESTORE();
 	return (error);
 }
 
-/*
- * This function represents the so-called 'hard case' for sx_sunlock
- * operation.  All 'easy case' failures are redirected to this.  Note
- * that ideally this would be a static function, but it needs to be
- * accessible from at least sx.h.
- */
 void
-_sx_sunlock_hard(struct sx *sx, const char *file, int line)
+_sx_sunlock(struct sx *sx, const char *file, int line)
 {
 	uintptr_t x;
 	int wakeup_swapper;
@@ -1071,6 +1026,12 @@ _sx_sunlock_hard(struct sx *sx, const char *file, int line)
 	if (SCHEDULER_STOPPED())
 		return;
 
+	KASSERT(sx->sx_lock != SX_LOCK_DESTROYED,
+	    ("sx_sunlock() of destroyed sx @ %s:%d", file, line));
+	_sx_assert(sx, SA_SLOCKED, file, line);
+	WITNESS_UNLOCK(&sx->lock_object, 0, file, line);
+	LOCK_LOG_LOCK("SUNLOCK", &sx->lock_object, 0, 0, file, line);
+	LOCKSTAT_PROFILE_RELEASE_RWLOCK(sx__release, sx, LOCKSTAT_READER);
 	x = SX_READ_VALUE(sx);
 	for (;;) {
 		/*
@@ -1085,7 +1046,7 @@ _sx_sunlock_hard(struct sx *sx, const char *file, int line)
 		 * so, just drop one and return.
 		 */
 		if (SX_SHARERS(x) > 1) {
-			if (atomic_cmpset_rel_ptr(&sx->sx_lock, x,
+			if (atomic_fcmpset_rel_ptr(&sx->sx_lock, &x,
 			    x - SX_ONE_SHARER)) {
 				if (LOCK_LOG_TEST(&sx->lock_object, 0))
 					CTR4(KTR_LOCK,
@@ -1094,8 +1055,6 @@ _sx_sunlock_hard(struct sx *sx, const char *file, int line)
 					    (void *)(x - SX_ONE_SHARER));
 				break;
 			}
-
-			x = SX_READ_VALUE(sx);
 			continue;
 		}
 
@@ -1105,14 +1064,14 @@ _sx_sunlock_hard(struct sx *sx, const char *file, int line)
 		 */
 		if (!(x & SX_LOCK_EXCLUSIVE_WAITERS)) {
 			MPASS(x == SX_SHARERS_LOCK(1));
-			if (atomic_cmpset_rel_ptr(&sx->sx_lock,
-			    SX_SHARERS_LOCK(1), SX_LOCK_UNLOCKED)) {
+			x = SX_SHARERS_LOCK(1);
+			if (atomic_fcmpset_rel_ptr(&sx->sx_lock,
+			    &x, SX_LOCK_UNLOCKED)) {
 				if (LOCK_LOG_TEST(&sx->lock_object, 0))
 					CTR2(KTR_LOCK, "%s: %p last succeeded",
 					    __func__, sx);
 				break;
 			}
-			x = SX_READ_VALUE(sx);
 			continue;
 		}
 
@@ -1147,6 +1106,7 @@ _sx_sunlock_hard(struct sx *sx, const char *file, int line)
 			kick_proc0();
 		break;
 	}
+	TD_LOCKS_DEC(curthread);
 }
 
 #ifdef INVARIANT_SUPPORT
