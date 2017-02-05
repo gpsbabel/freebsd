@@ -784,6 +784,7 @@ thread_lock_flags_(struct thread *td, int opts, const char *file, int line)
 #endif
 	for (;;) {
 retry:
+		v = MTX_UNOWNED;
 		spinlock_enter();
 		m = td->td_lock;
 		KASSERT(m->mtx_lock != MTX_DESTROYED,
