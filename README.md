@@ -1,7 +1,7 @@
 ## Prepare your environment.
 On FreeBSD/amd64 machine install the following packages:
 ```
-sudo pkg install riscv64-xtoolchain-gcc emulators/qemu-riscv emulators/riscv-isa-sim
+sudo pkg install riscv64-xtoolchain-gcc qemu-riscv riscv-isa-sim
 ```
 
 ## Build FreeBSD world
