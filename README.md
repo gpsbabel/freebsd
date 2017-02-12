@@ -4,24 +4,31 @@ On FreeBSD 11.0 machine install the following packages:
 sudo pkg install riscv64-xtoolchain-gcc qemu-riscv riscv-isa-sim
 ```
 
+Set the following environment variables:
+```
+setenv MAKEOBJDIRPREFIX /home/${USER}/obj/
+setenv WITHOUT_FORMAT_EXTENSIONS yes
+setenv DESTDIR /home/${USER}/riscv-world
+```
+
 ## Build FreeBSD world
 ```
 svnlite co http://svn.freebsd.org/base/head freebsd-riscv
 cd freebsd-riscv
-setenv DESTDIR /home/${USER}/riscv-world
-make TARGET_ARCH=riscv64 -DNO_ROOT -DWITHOUT_TESTS DESTDIR=$DESTDIR installworld
-make TARGET_ARCH=riscv64 -DNO_ROOT -DWITHOUT_TESTS DESTDIR=$DESTDIR distribution
+make -j4 CROSS_TOOLCHAIN=riscv64-gcc TARGET_ARCH=riscv64 buildworld
 ```
 
 ## Build 32mb rootfs image
 ```
 cd freebsd-riscv
+make TARGET_ARCH=riscv64 -DNO_ROOT -DWITHOUT_TESTS DESTDIR=$DESTDIR installworld
+make TARGET_ARCH=riscv64 -DNO_ROOT -DWITHOUT_TESTS DESTDIR=$DESTDIR distribution
 fetch https://raw.githubusercontent.com/bukinr/riscv-tools/master/image/basic.files
 tools/tools/makeroot/makeroot.sh -s 32m -f basic.files riscv.img $DESTDIR
 ```
 
 ## Prepare your kernel config
-Modify sys/riscv/conf/GENERIC, uncomment following lines and specify the path to your riscv.img:
+Modify sys/riscv/conf/GENERIC. Uncomment the following lines and specify the path to your riscv.img:
 ```
 options 	MD_ROOT
 options 	MD_ROOT_SIZE=32768	# 32MB ram disk
@@ -33,9 +40,9 @@ options 	ROOTDEVNAME=\"ufs:/dev/md0\"
 ```
 cd freebsd-riscv
 for Spike:
-make TARGET_ARCH=riscv64 KERNCONF=SPIKE buildkernel
+make -j4 TARGET_ARCH=riscv64 KERNCONF=SPIKE buildkernel
 for QEMU:
-make TARGET_ARCH=riscv64 KERNCONF=QEMU buildkernel
+make -j4 TARGET_ARCH=riscv64 KERNCONF=QEMU buildkernel
 ```
 
 ## Build BBL
