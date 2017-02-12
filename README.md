@@ -1,0 +1,2 @@
+# freebsd-wiki
+wiki pages
