@@ -20,7 +20,7 @@ fetch https://raw.githubusercontent.com/bukinr/riscv-tools/master/image/basic.fi
 tools/tools/makeroot/makeroot.sh -s 32m -f basic.files riscv.img $DESTDIR
 ```
 
-## Prepare kernel config
+## Prepare your kernel config
 Modify sys/riscv/conf/GENERIC, uncomment following lines and specify the path to your riscv.img:
 ```
 options 	MD_ROOT
@@ -59,4 +59,4 @@ spike -m1024 -p2 /path/to/bbl
 qemu-system-riscv64 -m 2048M -kernel /path/to/bbl -nographic
 ```
 
-Additional information available on [FreeBSD Wiki](http://wiki.freebsd.org/riscv).
+Additional information is available on [FreeBSD Wiki](http://wiki.freebsd.org/riscv).
