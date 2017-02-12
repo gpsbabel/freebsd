@@ -20,7 +20,8 @@ fetch https://raw.githubusercontent.com/bukinr/riscv-tools/master/image/basic.fi
 tools/tools/makeroot/makeroot.sh -s 32m -f basic.files riscv.img $DESTDIR
 ```
 
-## Prepare kernel config. Modify sys/riscv/conf/GENERIC, uncomment following lines and specify the path to your riscv.img:
+## Prepare kernel config
+Modify sys/riscv/conf/GENERIC, uncomment following lines and specify the path to your riscv.img:
 ```
 options 	MD_ROOT
 options 	MD_ROOT_SIZE=32768	# 32MB ram disk
