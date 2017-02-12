@@ -119,6 +119,13 @@
 
 #define	TCPTV_DELACK	( hz/10 )		/* 100ms timeout */
 
+/*
+ * If we exceed this number of retransmits for a single segment, we'll consider
+ * the current srtt measurement no longer valid and will recalculate from
+ * scratch starting with the next ACK.
+ */
+#define TCP_RTT_INVALIDATE (TCP_MAXRXTSHIFT / 4)
+
 #ifdef	TCPTIMERS
 static const char *tcptimers[] =
     { "REXMT", "PERSIST", "KEEP", "2MSL", "DELACK" };
@@ -190,6 +197,9 @@ extern int tcp_syn_backoff[];
 
 extern int tcp_finwait2_timeout;
 extern int tcp_fast_finwait2_recycle;
+
+int tcp_inpinfo_lock_add(struct inpcb *inp);
+void tcp_inpinfo_lock_del(struct inpcb *inp, struct tcpcb *tp);
 
 void	tcp_timer_init(void);
 void	tcp_timer_2msl(void *xtp);

@@ -30,7 +30,7 @@
 
 #define	XHCI_MAX_DEVICES	MIN(USB_MAX_DEVICES, 128)
 #define	XHCI_MAX_ENDPOINTS	32	/* hardcoded - do not change */
-#define	XHCI_MAX_SCRATCHPADS	1024
+#define	XHCI_MAX_SCRATCHPADS	256	/* theoretical max is 1023 */
 #define	XHCI_MAX_EVENTS		(16 * 13)
 #define	XHCI_MAX_COMMANDS	(16 * 1)
 #define	XHCI_MAX_RSEG		1
@@ -525,6 +525,7 @@ struct xhci_softc {
 
 uint8_t 	xhci_use_polling(void);
 usb_error_t xhci_halt_controller(struct xhci_softc *);
+usb_error_t xhci_reset_controller(struct xhci_softc *);
 usb_error_t xhci_init(struct xhci_softc *, device_t, uint8_t);
 usb_error_t xhci_start_controller(struct xhci_softc *);
 void	xhci_interrupt(struct xhci_softc *);

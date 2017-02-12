@@ -140,6 +140,7 @@ safe_fprintf(FILE *f, const char *fmt, ...)
 		} else {
 			/* Leave fmtbuff pointing to the truncated
 			 * string in fmtbuff_stack. */
+			fmtbuff = fmtbuff_stack;
 			length = sizeof(fmtbuff_stack) - 1;
 			break;
 		}
@@ -182,7 +183,7 @@ safe_fprintf(FILE *f, const char *fmt, ...)
 		}
 
 		/* If our output buffer is full, dump it and keep going. */
-		if (i > (sizeof(outbuff) - 20)) {
+		if (i > (sizeof(outbuff) - 128)) {
 			outbuff[i] = '\0';
 			fprintf(f, "%s", outbuff);
 			i = 0;

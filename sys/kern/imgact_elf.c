@@ -113,7 +113,8 @@ SYSCTL_INT(__CONCAT(_kern_elf, __ELF_WORD_SIZE), OID_AUTO,
 
 static int elf_legacy_coredump = 0;
 SYSCTL_INT(_debug, OID_AUTO, __elfN(legacy_coredump), CTLFLAG_RW, 
-    &elf_legacy_coredump, 0, "");
+    &elf_legacy_coredump, 0,
+    "include all and only RW pages in core dumps");
 
 int __elfN(nxstack) =
 #if defined(__amd64__) || defined(__powerpc64__) /* both 64 and 32 bit */ || \
@@ -453,7 +454,7 @@ __elfN(map_insert)(vm_map_t map, vm_object_t object, vm_ooffset_t offset,
 			rv = vm_map_find(map, NULL, 0, &start, end - start, 0,
 			    VMFS_NO_SPACE, prot | VM_PROT_WRITE, VM_PROT_ALL,
 			    0);
-			if (rv)
+			if (rv != KERN_SUCCESS)
 				return (rv);
 			if (object == NULL)
 				return (KERN_SUCCESS);
@@ -468,9 +469,8 @@ __elfN(map_insert)(vm_map_t map, vm_object_t object, vm_ooffset_t offset,
 				error = copyout((caddr_t)sf_buf_kva(sf) + off,
 				    (caddr_t)start, sz);
 				vm_imgact_unmap_page(sf);
-				if (error) {
+				if (error != 0)
 					return (KERN_FAILURE);
-				}
 				offset += sz;
 			}
 			rv = KERN_SUCCESS;
@@ -859,6 +859,7 @@ __CONCAT(exec_, __elfN(imgact))(struct image_params *imgp)
 		error = ENOEXEC;
 		goto ret;
 	}
+	et_dyn_addr = 0;
 	if (hdr->e_type == ET_DYN) {
 		if ((brand_info->flags & BI_CAN_EXEC_DYN) == 0) {
 			uprintf("Cannot execute shared object\n");
@@ -871,10 +872,7 @@ __CONCAT(exec_, __elfN(imgact))(struct image_params *imgp)
 		 */
 		if (baddr == 0)
 			et_dyn_addr = ET_DYN_LOAD_ADDR;
-		else
-			et_dyn_addr = 0;
-	} else
-		et_dyn_addr = 0;
+	}
 	sv = brand_info->sysvec;
 	if (interp != NULL && brand_info->interp_newpath != NULL)
 		newinterp = brand_info->interp_newpath;
@@ -1057,8 +1055,10 @@ __CONCAT(exec_, __elfN(imgact))(struct image_params *imgp)
 	imgp->interpreted = 0;
 	imgp->reloc_base = addr;
 	imgp->proc->p_osrel = osrel;
+	imgp->proc->p_elf_machine = hdr->e_machine;
+	imgp->proc->p_elf_flags = hdr->e_flags;
 
- ret:
+ret:
 	free(interp_buf, M_TEMP);
 	return (error);
 }
@@ -1160,9 +1160,9 @@ struct coredump_params {
 
 static void cb_put_phdr(vm_map_entry_t, void *);
 static void cb_size_segment(vm_map_entry_t, void *);
-static int core_write(struct coredump_params *, void *, size_t, off_t,
+static int core_write(struct coredump_params *, const void *, size_t, off_t,
     enum uio_seg);
-static void each_writable_segment(struct thread *, segment_callback, void *);
+static void each_dumpable_segment(struct thread *, segment_callback, void *);
 static int __elfN(corehdr)(struct coredump_params *, int, void *, size_t,
     struct note_info_list *, size_t);
 static void __elfN(prepare_notes)(struct thread *, struct note_info_list *,
@@ -1202,7 +1202,14 @@ compress_chunk(struct coredump_params *p, char *base, char *buf, u_int len)
 
 	while (len > 0) {
 		chunk_len = MIN(len, CORE_BUF_SIZE);
-		copyin(base, buf, chunk_len);
+
+		/*
+		 * We can get EFAULT error here.
+		 * In that case zero out the current chunk of the segment.
+		 */
+		error = copyin(base, buf, chunk_len);
+		if (error != 0)
+			bzero(buf, chunk_len);
 		error = gzio_write(p->gzs, buf, chunk_len);
 		if (error != 0)
 			break;
@@ -1222,12 +1229,12 @@ core_gz_write(void *base, size_t len, off_t offset, void *arg)
 #endif /* GZIO */
 
 static int
-core_write(struct coredump_params *p, void *base, size_t len, off_t offset,
-    enum uio_seg seg)
+core_write(struct coredump_params *p, const void *base, size_t len,
+    off_t offset, enum uio_seg seg)
 {
 
-	return (vn_rdwr_inchunks(UIO_WRITE, p->vp, base, len, offset,
-	    seg, IO_UNIT | IO_DIRECT | IO_RANGELOCKED,
+	return (vn_rdwr_inchunks(UIO_WRITE, p->vp, __DECONST(void *, base),
+	    len, offset, seg, IO_UNIT | IO_DIRECT | IO_RANGELOCKED,
 	    p->active_cred, p->file_cred, NULL, p->td));
 }
 
@@ -1235,12 +1242,32 @@ static int
 core_output(void *base, size_t len, off_t offset, struct coredump_params *p,
     void *tmpbuf)
 {
+	int error;
 
 #ifdef GZIO
 	if (p->gzs != NULL)
 		return (compress_chunk(p, base, tmpbuf, len));
 #endif
-	return (core_write(p, base, len, offset, UIO_USERSPACE));
+	/*
+	 * EFAULT is a non-fatal error that we can get, for example,
+	 * if the segment is backed by a file but extends beyond its
+	 * end.
+	 */
+	error = core_write(p, base, len, offset, UIO_USERSPACE);
+	if (error == EFAULT) {
+		log(LOG_WARNING, "Failed to fully fault in a core file segment "
+		    "at VA %p with size 0x%zx to be written at offset 0x%jx "
+		    "for process %s\n", base, len, offset, curproc->p_comm);
+
+		/*
+		 * Write a "real" zero byte at the end of the target region
+		 * in the case this is the last segment.
+		 * The intermediate space will be implicitly zero-filled.
+		 */
+		error = core_write(p, zero_region, 1, offset + len - 1,
+		    UIO_SYSSPACE);
+	}
+	return (error);
 }
 
 /*
@@ -1316,12 +1343,14 @@ __elfN(coredump)(struct thread *td, struct vnode *vp, off_t limit, int flags)
 	/* Size the program segments. */
 	seginfo.count = 0;
 	seginfo.size = 0;
-	each_writable_segment(td, cb_size_segment, &seginfo);
+	each_dumpable_segment(td, cb_size_segment, &seginfo);
 
 	/*
 	 * Collect info about the core file header area.
 	 */
 	hdrsize = sizeof(Elf_Ehdr) + sizeof(Elf_Phdr) * (1 + seginfo.count);
+	if (seginfo.count + 1 >= PN_XNUM)
+		hdrsize += sizeof(Elf_Shdr);
 	__elfN(prepare_notes)(td, &notelst, &notesz);
 	coresize = round_page(hdrsize + notesz) + seginfo.size;
 
@@ -1416,7 +1445,7 @@ done:
 }
 
 /*
- * A callback for each_writable_segment() to write out the segment's
+ * A callback for each_dumpable_segment() to write out the segment's
  * program header entry.
  */
 static void
@@ -1442,13 +1471,11 @@ cb_put_phdr(entry, closure)
 }
 
 /*
- * A callback for each_writable_segment() to gather information about
+ * A callback for each_dumpable_segment() to gather information about
  * the number of segments and their total size.
  */
 static void
-cb_size_segment(entry, closure)
-	vm_map_entry_t entry;
-	void *closure;
+cb_size_segment(vm_map_entry_t entry, void *closure)
 {
 	struct sseg_closure *ssc = (struct sseg_closure *)closure;
 
@@ -1462,10 +1489,7 @@ cb_size_segment(entry, closure)
  * caller-supplied data.
  */
 static void
-each_writable_segment(td, func, closure)
-	struct thread *td;
-	segment_callback func;
-	void *closure;
+each_dumpable_segment(struct thread *td, segment_callback func, void *closure)
 {
 	struct proc *p = td->td_proc;
 	vm_map_t map = &p->p_vmspace->vm_map;
@@ -1617,10 +1641,10 @@ __elfN(puthdr)(struct thread *td, void *hdr, size_t hdrsize, int numsegs,
 {
 	Elf_Ehdr *ehdr;
 	Elf_Phdr *phdr;
+	Elf_Shdr *shdr;
 	struct phdr_closure phc;
 
 	ehdr = (Elf_Ehdr *)hdr;
-	phdr = (Elf_Phdr *)((char *)hdr + sizeof(Elf_Ehdr));
 
 	ehdr->e_ident[EI_MAG0] = ELFMAG0;
 	ehdr->e_ident[EI_MAG1] = ELFMAG1;
@@ -1633,25 +1657,50 @@ __elfN(puthdr)(struct thread *td, void *hdr, size_t hdrsize, int numsegs,
 	ehdr->e_ident[EI_ABIVERSION] = 0;
 	ehdr->e_ident[EI_PAD] = 0;
 	ehdr->e_type = ET_CORE;
-#if defined(COMPAT_FREEBSD32) && __ELF_WORD_SIZE == 32
-	ehdr->e_machine = ELF_ARCH32;
-#else
-	ehdr->e_machine = ELF_ARCH;
-#endif
+	ehdr->e_machine = td->td_proc->p_elf_machine;
 	ehdr->e_version = EV_CURRENT;
 	ehdr->e_entry = 0;
 	ehdr->e_phoff = sizeof(Elf_Ehdr);
-	ehdr->e_flags = 0;
+	ehdr->e_flags = td->td_proc->p_elf_flags;
 	ehdr->e_ehsize = sizeof(Elf_Ehdr);
 	ehdr->e_phentsize = sizeof(Elf_Phdr);
-	ehdr->e_phnum = numsegs + 1;
 	ehdr->e_shentsize = sizeof(Elf_Shdr);
-	ehdr->e_shnum = 0;
 	ehdr->e_shstrndx = SHN_UNDEF;
+	if (numsegs + 1 < PN_XNUM) {
+		ehdr->e_phnum = numsegs + 1;
+		ehdr->e_shnum = 0;
+	} else {
+		ehdr->e_phnum = PN_XNUM;
+		ehdr->e_shnum = 1;
+
+		ehdr->e_shoff = ehdr->e_phoff +
+		    (numsegs + 1) * ehdr->e_phentsize;
+		KASSERT(ehdr->e_shoff == hdrsize - sizeof(Elf_Shdr),
+		    ("e_shoff: %zu, hdrsize - shdr: %zu",
+		     (size_t)ehdr->e_shoff, hdrsize - sizeof(Elf_Shdr)));
+
+		shdr = (Elf_Shdr *)((char *)hdr + ehdr->e_shoff);
+		memset(shdr, 0, sizeof(*shdr));
+		/*
+		 * A special first section is used to hold large segment and
+		 * section counts.  This was proposed by Sun Microsystems in
+		 * Solaris and has been adopted by Linux; the standard ELF
+		 * tools are already familiar with the technique.
+		 *
+		 * See table 7-7 of the Solaris "Linker and Libraries Guide"
+		 * (or 12-7 depending on the version of the document) for more
+		 * details.
+		 */
+		shdr->sh_type = SHT_NULL;
+		shdr->sh_size = ehdr->e_shnum;
+		shdr->sh_link = ehdr->e_shstrndx;
+		shdr->sh_info = numsegs + 1;
+	}
 
 	/*
 	 * Fill in the program header entries.
 	 */
+	phdr = (Elf_Phdr *)((char *)hdr + ehdr->e_phoff);
 
 	/* The note segement. */
 	phdr->p_type = PT_NOTE;
@@ -1667,7 +1716,7 @@ __elfN(puthdr)(struct thread *td, void *hdr, size_t hdrsize, int numsegs,
 	/* All the writable segments from the program. */
 	phc.phdr = phdr;
 	phc.offset = round_page(hdrsize + notesz);
-	each_writable_segment(td, cb_put_phdr, &phc);
+	each_dumpable_segment(td, cb_put_phdr, &phc);
 }
 
 static size_t
@@ -1822,8 +1871,12 @@ typedef vm_offset_t elf_ps_strings_t;
 static void
 __elfN(note_prpsinfo)(void *arg, struct sbuf *sb, size_t *sizep)
 {
+	struct sbuf sbarg;
+	size_t len;
+	char *cp, *end;
 	struct proc *p;
 	elf_prpsinfo_t *psinfo;
+	int error;
 
 	p = (struct proc *)arg;
 	if (sb != NULL) {
@@ -1832,13 +1885,44 @@ __elfN(note_prpsinfo)(void *arg, struct sbuf *sb, size_t *sizep)
 		psinfo->pr_version = PRPSINFO_VERSION;
 		psinfo->pr_psinfosz = sizeof(elf_prpsinfo_t);
 		strlcpy(psinfo->pr_fname, p->p_comm, sizeof(psinfo->pr_fname));
-		/*
-		 * XXX - We don't fill in the command line arguments properly
-		 * yet.
-		 */
-		strlcpy(psinfo->pr_psargs, p->p_comm,
-		    sizeof(psinfo->pr_psargs));
-
+		PROC_LOCK(p);
+		if (p->p_args != NULL) {
+			len = sizeof(psinfo->pr_psargs) - 1;
+			if (len > p->p_args->ar_length)
+				len = p->p_args->ar_length;
+			memcpy(psinfo->pr_psargs, p->p_args->ar_args, len);
+			PROC_UNLOCK(p);
+			error = 0;
+		} else {
+			_PHOLD(p);
+			PROC_UNLOCK(p);
+			sbuf_new(&sbarg, psinfo->pr_psargs,
+			    sizeof(psinfo->pr_psargs), SBUF_FIXEDLEN);
+			error = proc_getargv(curthread, p, &sbarg);
+			PRELE(p);
+			if (sbuf_finish(&sbarg) == 0)
+				len = sbuf_len(&sbarg) - 1;
+			else
+				len = sizeof(psinfo->pr_psargs) - 1;
+			sbuf_delete(&sbarg);
+		}
+		if (error || len == 0)
+			strlcpy(psinfo->pr_psargs, p->p_comm,
+			    sizeof(psinfo->pr_psargs));
+		else {
+			KASSERT(len < sizeof(psinfo->pr_psargs),
+			    ("len is too long: %zu vs %zu", len,
+			    sizeof(psinfo->pr_psargs)));
+			cp = psinfo->pr_psargs;
+			end = cp + len - 1;
+			for (;;) {
+				cp = memchr(cp, '\0', end - cp);
+				if (cp == NULL)
+					break;
+				*cp = ' ';
+			}
+		}
+		psinfo->pr_pid = p->p_pid;
 		sbuf_bcat(sb, psinfo, sizeof(*psinfo));
 		free(psinfo, M_TEMP);
 	}

@@ -12,6 +12,7 @@ ARCHDIR=	${MACHINE_CPUARCH}
 
 KMOD=		dtrace
 SRCS=		dtrace.c \
+		dtrace_xoroshiro128_plus.c \
 		dtrace_asm.S \
 		dtrace_subr.c
 
@@ -42,6 +43,7 @@ CFLAGS+=	-I${SYSDIR}/cddl/compat/opensolaris \
 		-I${SYSDIR}/cddl/dev/dtrace \
 		-I${SYSDIR}/cddl/dev/dtrace/${ARCHDIR} \
 		-I${SYSDIR}/cddl/contrib/opensolaris/uts/common \
+		-I${SYSDIR}/cddl/contrib/opensolaris/uts/common/dtrace \
 		-I${SYSDIR}/cddl/contrib/opensolaris/common/util \
 		-I${SYSDIR} -DDIS_MEM
 
@@ -56,6 +58,15 @@ dtrace_asm.o:  assym.s
 .if ${MACHINE_CPUARCH} == "arm"
 assym.o: assym.s
 	${AS} -meabi=5 -o assym.o assym.s
+.endif
+
+.if ${MACHINE_CPUARCH} == "riscv"
+assym.o: assym.s
+.if ${TARGET_ARCH:Mriscv*sf}
+	${AS} -mfloat-abi=soft -o assym.o assym.s
+.else
+	${AS} -mfloat-abi=double -o assym.o assym.s
+.endif
 .endif
 
 .include <bsd.kmod.mk>

@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2014-2015, Matthew Macy (mmacy@nextbsd.org)
+ * Copyright (c) 2014-2017, Matthew Macy (mmacy@nextbsd.org)
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,6 +35,7 @@
 #include <machine/bus.h>
 #include <sys/bus_dma.h>
 #include <sys/nv.h>
+#include <sys/gtaskqueue.h>
 
 
 /*
@@ -63,12 +64,14 @@ typedef struct if_int_delay_info  *if_int_delay_info_t;
 typedef struct if_rxd_frag {
 	uint8_t irf_flid;
 	uint16_t irf_idx;
+	uint16_t irf_len;
 } *if_rxd_frag_t;
 
 typedef struct if_rxd_info {
 	/* set by iflib */
 	uint16_t iri_qsidx;		/* qset index */
 	uint16_t iri_vtag;		/* vlan tag - if flag set */
+	/* XXX redundant with the new irf_len field */
 	uint16_t iri_len;		/* packet length */
 	uint16_t iri_cidx;		/* consumer index of cq */
 	struct ifnet *iri_ifp;		/* some drivers >1 interface per softc */
@@ -156,10 +159,11 @@ typedef struct if_txrx {
 	void (*ift_txd_flush) (void *, uint16_t, uint32_t);
 	int (*ift_txd_credits_update) (void *, uint16_t, uint32_t, bool);
 
-	int (*ift_rxd_available) (void *, uint16_t qsidx, uint32_t pidx);
+	int (*ift_rxd_available) (void *, uint16_t qsidx, uint32_t pidx,
+	    int budget);
 	int (*ift_rxd_pkt_get) (void *, if_rxd_info_t ri);
 	void (*ift_rxd_refill) (void * , uint16_t qsidx, uint8_t flidx, uint32_t pidx,
-							uint64_t *paddrs, caddr_t *vaddrs, uint16_t count);
+							uint64_t *paddrs, caddr_t *vaddrs, uint16_t count, uint16_t buf_size);
 	void (*ift_rxd_flush) (void *, uint16_t qsidx, uint8_t flidx, uint32_t pidx);
 	int (*ift_legacy_intr) (void *);
 } *if_txrx_t;
@@ -170,15 +174,27 @@ typedef struct if_softc_ctx {
 	int isc_ntxqsets;
 	int isc_msix_bar;		/* can be model specific - initialize in attach_pre */
 	int isc_tx_nsegments;		/* can be model specific - initialize in attach_pre */
+	int isc_ntxd[8];
+	int isc_nrxd[8];
+
+	uint32_t isc_txqsizes[8];
+	uint32_t isc_rxqsizes[8];
+	int isc_max_txqsets;
+	int isc_max_rxqsets;
 	int isc_tx_tso_segments_max;
 	int isc_tx_tso_size_max;
 	int isc_tx_tso_segsize_max;
+	int isc_tx_csum_flags;
+	int isc_capenable;
 	int isc_rss_table_size;
 	int isc_rss_table_mask;
+	int isc_nrxqsets_max;
+	int isc_ntxqsets_max;
 
 	iflib_intr_mode_t isc_intr;
 	uint16_t isc_max_frame_size; /* set at init time by driver */
 	pci_vendor_info_t isc_vendor_info;	/* set by iflib prior to attach_pre */
+	if_txrx_t isc_txrx;
 } *if_softc_ctx_t;
 
 /*
@@ -186,10 +202,7 @@ typedef struct if_softc_ctx {
  */
 struct if_shared_ctx {
 	int isc_magic;
-	if_txrx_t isc_txrx;
 	driver_t *isc_driver;
-	int isc_ntxd;
-	int isc_nrxd;
 	int isc_nfl;
 	int isc_flags;
 	bus_size_t isc_q_align;
@@ -199,13 +212,10 @@ struct if_shared_ctx {
 	bus_size_t isc_rx_maxsegsize;
 	int isc_rx_nsegments;
 	int isc_rx_process_limit;
-
-
-	uint32_t isc_txqsizes[8];
 	int isc_ntxqs;			/* # of tx queues per tx qset - usually 1 */
-	uint32_t isc_rxqsizes[8];
 	int isc_nrxqs;			/* # of rx queues per rx qset - intel 1, chelsio 2, broadcom 3 */
 	int isc_admin_intrcnt;		/* # of admin/link interrupts */
+
 
 	int isc_tx_reclaim_thresh;
 
@@ -215,6 +225,12 @@ struct if_shared_ctx {
 /* optional function to transform the read values to match the table*/
 	void (*isc_parse_devinfo) (uint16_t *device_id, uint16_t *subvendor_id,
 				   uint16_t *subdevice_id, uint16_t *rev_id);
+	int isc_nrxd_min[8];
+	int isc_nrxd_default[8];
+	int isc_nrxd_max[8];
+	int isc_ntxd_min[8];
+	int isc_ntxd_default[8];
+	int isc_ntxd_max[8];
 };
 
 typedef struct iflib_dma_info {
@@ -240,18 +256,30 @@ typedef enum {
 
 
 /*
- * Interface has a separate command queue
+ * Interface has a separate command queue for RX
  */
-#define IFLIB_HAS_CQ		0x1
+#define IFLIB_HAS_RXCQ		0x01
 /*
  * Driver has already allocated vectors
  */
-#define IFLIB_SKIP_MSIX		0x2
-
+#define IFLIB_SKIP_MSIX		0x02
 /*
  * Interface is a virtual function
  */
-#define IFLIB_IS_VF		0x4
+#define IFLIB_IS_VF		0x04
+/*
+ * Interface has a separate command queue for TX
+ */
+#define IFLIB_HAS_TXCQ		0x08
+/*
+ * Interface does checksum in place
+ */
+#define IFLIB_NEED_SCRATCH	0x10
+/*
+ * Interface doesn't expect in_pseudo for th_sum
+ */
+#define IFLIB_TSO_INIT_IP	0x20
+
 
 
 /*
@@ -308,7 +336,10 @@ void iflib_irq_free(if_ctx_t ctx, if_irq_t irq);
 void iflib_io_tqg_attach(struct grouptask *gt, void *uniq, int cpu, char *name);
 
 void iflib_config_gtask_init(if_ctx_t ctx, struct grouptask *gtask,
-			     task_fn_t *fn, char *name);
+			     gtask_fn_t *fn, char *name);
+
+void iflib_config_gtask_deinit(struct grouptask *gtask);
+
 
 
 void iflib_tx_intr_deferred(if_ctx_t ctx, int txqid);
@@ -317,7 +348,7 @@ void iflib_admin_intr_deferred(if_ctx_t ctx);
 void iflib_iov_intr_deferred(if_ctx_t ctx);
 
 
-void iflib_link_state_change(if_ctx_t ctx, int linkstate);
+void iflib_link_state_change(if_ctx_t ctx, int linkstate, uint64_t baudrate);
 
 int iflib_dma_alloc(if_ctx_t ctx, int size, iflib_dma_info_t dma, int mapflags);
 void iflib_dma_free(iflib_dma_info_t dma);

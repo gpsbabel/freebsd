@@ -33,7 +33,7 @@
 #ifndef _MPRVAR_H
 #define _MPRVAR_H
 
-#define MPR_DRIVER_VERSION	"13.00.00.00-fbsd"
+#define MPR_DRIVER_VERSION	"13.01.00.00-fbsd"
 
 #define MPR_DB_MAX_WAIT		2500
 
@@ -41,6 +41,7 @@
 #define MPR_EVT_REPLY_FRAMES	32
 #define MPR_REPLY_FRAMES	MPR_REQ_FRAMES
 #define MPR_CHAIN_FRAMES	2048
+#define MPR_MAXIO_PAGES		(-1)
 #define MPR_SENSE_LEN		SSD_FULL_SIZE
 #define MPR_MSI_COUNT		1
 #define MPR_SGE64_SIZE		12
@@ -264,11 +265,13 @@ struct mpr_softc {
 	int				io_cmds_highwater;
 	int				chain_free;
 	int				max_chains;
+	int				max_io_pages;
 	int				chain_free_lowwater;
 	uint32_t			chain_frame_size;
 	uint16_t			chain_seg_size;
 	u_int				enable_ssu;
 	int				spinup_wait_time;
+	int				use_phynum;
 	uint64_t			chain_alloc_fail;
 	struct sysctl_ctx_list		sysctl_ctx;
 	struct sysctl_oid		*sysctl_tree;
@@ -581,6 +584,9 @@ mpr_unlock(struct mpr_softc *sc)
 #define mpr_printf(sc, args...)				\
 	device_printf((sc)->mpr_dev, ##args)
 
+#define mpr_print_field(sc, msg, args...)		\
+	printf("\t" msg, ##args)
+
 #define mpr_vprintf(sc, args...)			\
 do {							\
 	if (bootverbose)				\
@@ -593,25 +599,13 @@ do {							\
 		device_printf((sc)->mpr_dev, msg, ##args);	\
 } while (0)
 
-#define mpr_dprint_field(sc, level, msg, args...)		\
-do {								\
-	if ((sc)->mpr_debug & (level))				\
-		printf("\t" msg, ##args);			\
-} while (0)
-
 #define MPR_PRINTFIELD_START(sc, tag...)	\
-	mpr_dprint((sc), MPR_INFO, ##tag);	\
-	mpr_dprint_field((sc), MPR_INFO, ":\n")
+	mpr_printf((sc), ##tag);		\
+	mpr_print_field((sc), ":\n")
 #define MPR_PRINTFIELD_END(sc, tag)		\
-	mpr_dprint((sc), MPR_INFO, tag "\n")
+	mpr_printf((sc), tag "\n")
 #define MPR_PRINTFIELD(sc, facts, attr, fmt)	\
-	mpr_dprint_field((sc), MPR_INFO, #attr ": " #fmt "\n", (facts)->attr)
-
-#define MPR_EVENTFIELD_START(sc, tag...)	\
-	mpr_dprint((sc), MPR_EVENT, ##tag);	\
-	mpr_dprint_field((sc), MPR_EVENT, ":\n")
-#define MPR_EVENTFIELD(sc, facts, attr, fmt)	\
-	mpr_dprint_field((sc), MPR_EVENT, #attr ": " #fmt "\n", (facts)->attr)
+	mpr_print_field((sc), #attr ": " #fmt "\n", (facts)->attr)
 
 static __inline void
 mpr_from_u64(uint64_t data, U64 *mpr)

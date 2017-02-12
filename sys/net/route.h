@@ -135,7 +135,7 @@ VNET_DECLARE(u_int, rt_add_addr_allfibs); /* Announce interfaces to all fibs */
 #endif
 #endif
 
-#if defined(_KERNEL) || defined(_WANT_RTENTRY)
+#if defined(_KERNEL)
 struct rtentry {
 	struct	radix_node rt_nodes[2];	/* tree glue, and other values */
 	/*
@@ -159,7 +159,7 @@ struct rtentry {
 	struct mtx	rt_mtx;		/* mutex for routing entry */
 	struct rtentry	*rt_chain;	/* pointer to next rtentry to delete */
 };
-#endif /* _KERNEL || _WANT_RTENTRY */
+#endif /* _KERNEL */
 
 #define	RTF_UP		0x1		/* route usable */
 #define	RTF_GATEWAY	0x2		/* destination is a gateway */
@@ -360,7 +360,7 @@ struct rt_addrinfo {
 				 || (ifp)->if_link_state == LINK_STATE_UP)
 
 #define	RT_LOCK_INIT(_rt) \
-	mtx_init(&(_rt)->rt_mtx, "rtentry", NULL, MTX_DEF | MTX_DUPOK)
+	mtx_init(&(_rt)->rt_mtx, "rtentry", NULL, MTX_DEF | MTX_DUPOK | MTX_NEW)
 #define	RT_LOCK(_rt)		mtx_lock(&(_rt)->rt_mtx)
 #define	RT_UNLOCK(_rt)		mtx_unlock(&(_rt)->rt_mtx)
 #define	RT_LOCK_DESTROY(_rt)	mtx_destroy(&(_rt)->rt_mtx)

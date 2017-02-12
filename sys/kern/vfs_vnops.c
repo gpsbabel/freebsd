@@ -21,7 +21,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -349,8 +349,12 @@ vn_open_vnode(struct vnode *vp, int fmode, struct ucred *cred,
 	if ((error = VOP_OPEN(vp, fmode, cred, td, fp)) != 0)
 		return (error);
 
-	if (fmode & (O_EXLOCK | O_SHLOCK)) {
+	while ((fmode & (O_EXLOCK | O_SHLOCK)) != 0) {
 		KASSERT(fp != NULL, ("open with flock requires fp"));
+		if (fp->f_type != DTYPE_NONE && fp->f_type != DTYPE_VNODE) {
+			error = EOPNOTSUPP;
+			break;
+		}
 		lock_flags = VOP_ISLOCKED(vp);
 		VOP_UNLOCK(vp, 0);
 		lf.l_whence = SEEK_SET;
@@ -367,8 +371,12 @@ vn_open_vnode(struct vnode *vp, int fmode, struct ucred *cred,
 		if (error == 0)
 			fp->f_flag |= FHASLOCK;
 		vn_lock(vp, lock_flags | LK_RETRY);
-		if (error == 0 && vp->v_iflag & VI_DOOMED)
+		if (error != 0)
+			break;
+		if ((vp->v_iflag & VI_DOOMED) != 0) {
 			error = ENOENT;
+			break;
+		}
 
 		/*
 		 * Another thread might have used this vnode as an
@@ -376,20 +384,20 @@ vn_open_vnode(struct vnode *vp, int fmode, struct ucred *cred,
 		 * Ensure the vnode is still able to be opened for
 		 * writing after the lock has been obtained.
 		 */
-		if (error == 0 && accmode & VWRITE)
+		if ((accmode & VWRITE) != 0)
 			error = vn_writechk(vp);
-
-		if (error != 0) {
-			fp->f_flag |= FOPENFAILED;
-			fp->f_vnode = vp;
-			if (fp->f_ops == &badfileops) {
-				fp->f_type = DTYPE_VNODE;
-				fp->f_ops = &vnops;
-			}
-			vref(vp);
-		}
+		break;
 	}
-	if (error == 0 && fmode & FWRITE) {
+
+	if (error != 0) {
+		fp->f_flag |= FOPENFAILED;
+		fp->f_vnode = vp;
+		if (fp->f_ops == &badfileops) {
+			fp->f_type = DTYPE_VNODE;
+			fp->f_ops = &vnops;
+		}
+		vref(vp);
+	} else if  ((fmode & FWRITE) != 0) {
 		VOP_ADD_WRITECOUNT(vp, 1);
 		CTR3(KTR_VFS, "%s: vp %p v_writecount increased to %d",
 		    __func__, vp, vp->v_writecount);
@@ -422,12 +430,9 @@ vn_writechk(vp)
 /*
  * Vnode close call
  */
-int
-vn_close(vp, flags, file_cred, td)
-	register struct vnode *vp;
-	int flags;
-	struct ucred *file_cred;
-	struct thread *td;
+static int
+vn_close1(struct vnode *vp, int flags, struct ucred *file_cred,
+    struct thread *td, bool keep_ref)
 {
 	struct mount *mp;
 	int error, lock_flags;
@@ -440,6 +445,7 @@ vn_close(vp, flags, file_cred, td)
 
 	vn_start_write(vp, &mp, V_WAIT);
 	vn_lock(vp, lock_flags | LK_RETRY);
+	AUDIT_ARG_VNODE1(vp);
 	if ((flags & (FWRITE | FOPENFAILED)) == FWRITE) {
 		VNASSERT(vp->v_writecount > 0, vp, 
 		    ("vn_close: negative writecount"));
@@ -448,9 +454,20 @@ vn_close(vp, flags, file_cred, td)
 		    __func__, vp, vp->v_writecount);
 	}
 	error = VOP_CLOSE(vp, flags, file_cred, td);
-	vput(vp);
+	if (keep_ref)
+		VOP_UNLOCK(vp, 0);
+	else
+		vput(vp);
 	vn_finished_write(mp);
 	return (error);
+}
+
+int
+vn_close(struct vnode *vp, int flags, struct ucred *file_cred,
+    struct thread *td)
+{
+
+	return (vn_close1(vp, flags, file_cred, td, false));
 }
 
 /*
@@ -1301,6 +1318,7 @@ vn_truncate(struct file *fp, off_t length, struct ucred *active_cred,
 	if (error)
 		goto out1;
 	vn_lock(vp, LK_EXCLUSIVE | LK_RETRY);
+	AUDIT_ARG_VNODE1(vp);
 	if (vp->v_type == VDIR) {
 		error = EISDIR;
 		goto out;
@@ -1362,6 +1380,7 @@ vn_stat(vp, sb, active_cred, file_cred, td)
 	int error;
 	u_short mode;
 
+	AUDIT_ARG_VNODE1(vp);
 #ifdef MAC
 	error = mac_vnode_check_stat(active_cred, file_cred, vp);
 	if (error)
@@ -1490,6 +1509,10 @@ vn_ioctl(fp, com, data, active_cred, td)
 			return (VOP_IOCTL(vp, com, data, fp->f_flag,
 			    active_cred, td));
 		}
+		break;
+	case VCHR:
+		return (VOP_IOCTL(vp, com, data, fp->f_flag,
+		    active_cred, td));
 	default:
 		return (ENOTTY);
 	}
@@ -1511,6 +1534,7 @@ vn_poll(fp, events, active_cred, td)
 	vp = fp->f_vnode;
 #ifdef MAC
 	vn_lock(vp, LK_EXCLUSIVE | LK_RETRY);
+	AUDIT_ARG_VNODE1(vp);
 	error = mac_vnode_check_poll(active_cred, fp->f_cred, vp);
 	VOP_UNLOCK(vp, 0);
 	if (!error)
@@ -1530,28 +1554,21 @@ _vn_lock(struct vnode *vp, int flags, char *file, int line)
 	int error;
 
 	VNASSERT((flags & LK_TYPE_MASK) != 0, vp,
-	    ("vn_lock called with no locktype."));
-	do {
-#ifdef DEBUG_VFS_LOCKS
-		KASSERT(vp->v_holdcnt != 0,
-		    ("vn_lock %p: zero hold count", vp));
-#endif
-		error = VOP_LOCK1(vp, flags, file, line);
-		flags &= ~LK_INTERLOCK;	/* Interlock is always dropped. */
-		KASSERT((flags & LK_RETRY) == 0 || error == 0,
-		    ("LK_RETRY set with incompatible flags (0x%x) or an error occurred (%d)",
-		    flags, error));
-		/*
-		 * Callers specify LK_RETRY if they wish to get dead vnodes.
-		 * If RETRY is not set, we return ENOENT instead.
-		 */
-		if (error == 0 && vp->v_iflag & VI_DOOMED &&
-		    (flags & LK_RETRY) == 0) {
+	    ("vn_lock: no locktype"));
+	VNASSERT(vp->v_holdcnt != 0, vp, ("vn_lock: zero hold count"));
+retry:
+	error = VOP_LOCK1(vp, flags, file, line);
+	flags &= ~LK_INTERLOCK;	/* Interlock is always dropped. */
+	KASSERT((flags & LK_RETRY) == 0 || error == 0,
+	    ("vn_lock: error %d incompatible with flags %#x", error, flags));
+
+	if ((flags & LK_RETRY) == 0) {
+		if (error == 0 && (vp->v_iflag & VI_DOOMED) != 0) {
 			VOP_UNLOCK(vp, 0);
 			error = ENOENT;
-			break;
 		}
-	} while (flags & LK_RETRY && error != 0);
+	} else if (error != 0)
+		goto retry;
 	return (error);
 }
 
@@ -1559,23 +1576,20 @@ _vn_lock(struct vnode *vp, int flags, char *file, int line)
  * File table vnode close routine.
  */
 static int
-vn_closefile(fp, td)
-	struct file *fp;
-	struct thread *td;
+vn_closefile(struct file *fp, struct thread *td)
 {
 	struct vnode *vp;
 	struct flock lf;
 	int error;
+	bool ref;
 
 	vp = fp->f_vnode;
 	fp->f_ops = &badfileops;
+	ref= (fp->f_flag & FHASLOCK) != 0 && fp->f_type == DTYPE_VNODE;
 
-	if (fp->f_type == DTYPE_VNODE && fp->f_flag & FHASLOCK)
-		vref(vp);
+	error = vn_close1(vp, fp->f_flag, fp->f_cred, td, ref);
 
-	error = vn_close(vp, fp->f_flag, fp->f_cred, td);
-
-	if (fp->f_type == DTYPE_VNODE && fp->f_flag & FHASLOCK) {
+	if (__predict_false(ref)) {
 		lf.l_whence = SEEK_SET;
 		lf.l_start = 0;
 		lf.l_len = 0;
@@ -2459,10 +2473,12 @@ vn_mmap(struct file *fp, vm_map_t map, vm_offset_t *addr, vm_size_t size,
 	}
 #ifdef HWPMC_HOOKS
 	/* Inform hwpmc(4) if an executable is being mapped. */
-	if (error == 0 && (prot & VM_PROT_EXECUTE) != 0) {
-		pkm.pm_file = vp;
-		pkm.pm_address = (uintptr_t) *addr;
-		PMC_CALL_HOOK(td, PMC_FN_MMAP, (void *) &pkm);
+	if (PMC_HOOK_INSTALLED(PMC_FN_MMAP)) {
+		if ((prot & VM_PROT_EXECUTE) != 0 && error == 0) {
+			pkm.pm_file = vp;
+			pkm.pm_address = (uintptr_t) *addr;
+			PMC_CALL_HOOK(td, PMC_FN_MMAP, (void *) &pkm);
+		}
 	}
 #endif
 	return (error);

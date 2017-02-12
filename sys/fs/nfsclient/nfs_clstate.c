@@ -84,7 +84,7 @@ __FBSDID("$FreeBSD$");
 /*
  * Global variables
  */
-extern struct nfsstats newnfsstats;
+extern struct nfsstatsv1 nfsstatsv1;
 extern struct nfsreqhead nfsd_reqq;
 extern u_int32_t newnfs_false, newnfs_true;
 extern int nfscl_debuglevel;
@@ -343,10 +343,10 @@ nfscl_newopen(struct nfsclclient *clp, struct nfscldeleg *dp,
 		nowp->nfsow_defunct = 0;
 		nfscl_lockinit(&nowp->nfsow_rwlock);
 		if (dp != NULL) {
-			newnfsstats.cllocalopenowners++;
+			nfsstatsv1.cllocalopenowners++;
 			LIST_INSERT_HEAD(&dp->nfsdl_owner, nowp, nfsow_list);
 		} else {
-			newnfsstats.clopenowners++;
+			nfsstatsv1.clopenowners++;
 			LIST_INSERT_HEAD(&clp->nfsc_owner, nowp, nfsow_list);
 		}
 		owp = *owpp = nowp;
@@ -380,9 +380,9 @@ nfscl_newopen(struct nfsclclient *clp, struct nfscldeleg *dp,
 				TAILQ_INSERT_HEAD(&clp->nfsc_deleg, dp,
 				    nfsdl_list);
 				dp->nfsdl_timestamp = NFSD_MONOSEC + 120;
-				newnfsstats.cllocalopens++;
+				nfsstatsv1.cllocalopens++;
 			} else {
-				newnfsstats.clopens++;
+				nfsstatsv1.clopens++;
 			}
 			LIST_INSERT_HEAD(&owp->nfsow_open, nop, nfso_list);
 			*opp = nop;
@@ -430,7 +430,7 @@ nfscl_deleg(mount_t mp, struct nfsclclient *clp, u_int8_t *nfhp,
 		LIST_INSERT_HEAD(NFSCLDELEGHASH(clp, nfhp, fhlen), dp,
 		    nfsdl_hash);
 		dp->nfsdl_timestamp = NFSD_MONOSEC + 120;
-		newnfsstats.cldelegates++;
+		nfsstatsv1.cldelegates++;
 		nfscl_delegcnt++;
 	} else {
 		/*
@@ -1071,10 +1071,10 @@ nfscl_getbytelock(vnode_t vp, u_int64_t off, u_int64_t len,
 		LIST_INIT(&nlp->nfsl_lock);
 		if (donelocally) {
 			nlp->nfsl_open = NULL;
-			newnfsstats.cllocallockowners++;
+			nfsstatsv1.cllocallockowners++;
 		} else {
 			nlp->nfsl_open = op;
-			newnfsstats.cllockowners++;
+			nfsstatsv1.cllockowners++;
 		}
 		LIST_INSERT_HEAD(lhp, nlp, nfsl_list);
 		lp = nlp;
@@ -1402,9 +1402,9 @@ nfscl_freeopen(struct nfsclopen *op, int local)
 	nfscl_freealllocks(&op->nfso_lock, local);
 	FREE((caddr_t)op, M_NFSCLOPEN);
 	if (local)
-		newnfsstats.cllocalopens--;
+		nfsstatsv1.cllocalopens--;
 	else
-		newnfsstats.clopens--;
+		nfsstatsv1.clopens--;
 }
 
 /*
@@ -1483,9 +1483,9 @@ nfscl_freeopenowner(struct nfsclowner *owp, int local)
 	LIST_REMOVE(owp, nfsow_list);
 	FREE((caddr_t)owp, M_NFSCLOWNER);
 	if (local)
-		newnfsstats.cllocalopenowners--;
+		nfsstatsv1.cllocalopenowners--;
 	else
-		newnfsstats.clopenowners--;
+		nfsstatsv1.clopenowners--;
 }
 
 /*
@@ -1502,9 +1502,9 @@ nfscl_freelockowner(struct nfscllockowner *lp, int local)
 	}
 	FREE((caddr_t)lp, M_NFSCLLOCKOWNER);
 	if (local)
-		newnfsstats.cllocallockowners--;
+		nfsstatsv1.cllocallockowners--;
 	else
-		newnfsstats.cllockowners--;
+		nfsstatsv1.cllockowners--;
 }
 
 /*
@@ -1517,9 +1517,9 @@ nfscl_freelock(struct nfscllock *lop, int local)
 	LIST_REMOVE(lop, nfslo_list);
 	FREE((caddr_t)lop, M_NFSCLLOCK);
 	if (local)
-		newnfsstats.cllocallocks--;
+		nfsstatsv1.cllocallocks--;
 	else
-		newnfsstats.cllocks--;
+		nfsstatsv1.cllocks--;
 }
 
 /*
@@ -1553,7 +1553,7 @@ nfscl_freedeleg(struct nfscldeleghead *hdp, struct nfscldeleg *dp)
 	TAILQ_REMOVE(hdp, dp, nfsdl_list);
 	LIST_REMOVE(dp, nfsdl_hash);
 	FREE((caddr_t)dp, M_NFSCLDELEG);
-	newnfsstats.cldelegates--;
+	nfsstatsv1.cldelegates--;
 	nfscl_delegcnt--;
 }
 
@@ -1621,18 +1621,18 @@ nfscl_expireclient(struct nfsclclient *clp, struct nfsmount *nmp,
 			    LIST_REMOVE(op, nfso_list);
 			    op->nfso_own = towp;
 			    LIST_INSERT_HEAD(&towp->nfsow_open, op, nfso_list);
-			    newnfsstats.cllocalopens--;
-			    newnfsstats.clopens++;
+			    nfsstatsv1.cllocalopens--;
+			    nfsstatsv1.clopens++;
 			}
 		    } else {
 			/* Just add the openowner to the client list */
 			LIST_REMOVE(owp, nfsow_list);
 			owp->nfsow_clp = clp;
 			LIST_INSERT_HEAD(&clp->nfsc_owner, owp, nfsow_list);
-			newnfsstats.cllocalopenowners--;
-			newnfsstats.clopenowners++;
-			newnfsstats.cllocalopens--;
-			newnfsstats.clopens++;
+			nfsstatsv1.cllocalopenowners--;
+			nfsstatsv1.clopenowners++;
+			nfsstatsv1.cllocalopens--;
+			nfsstatsv1.clopens++;
 		    }
 		}
 		owp = nowp;
@@ -2282,9 +2282,9 @@ nfscl_insertlock(struct nfscllockowner *lp, struct nfscllock *new_lop,
 	else
 		LIST_INSERT_AFTER(insert_lop, new_lop, nfslo_list);
 	if (local)
-		newnfsstats.cllocallocks++;
+		nfsstatsv1.cllocallocks++;
 	else
-		newnfsstats.cllocks++;
+		nfsstatsv1.cllocks++;
 }
 
 /*
@@ -2470,8 +2470,11 @@ nfscl_renewthread(struct nfsclclient *clp, NFSPROC_T *p)
 			if (recover_done_time < NFSD_MONOSEC) {
 				recover_done_time = NFSD_MONOSEC +
 				    clp->nfsc_renew;
+				NFSCL_DEBUG(1, "Doing recovery..\n");
 				nfscl_recover(clp, cred, p);
 			} else {
+				NFSCL_DEBUG(1, "Clear Recovery dt=%u ms=%jd\n",
+				    recover_done_time, (intmax_t)NFSD_MONOSEC);
 				NFSLOCKCLSTATE();
 				clp->nfsc_flags &= ~NFSCLFLAGS_RECOVER;
 				NFSUNLOCKCLSTATE();
@@ -2481,8 +2484,7 @@ nfscl_renewthread(struct nfsclclient *clp, NFSPROC_T *p)
 		    (clp->nfsc_flags & NFSCLFLAGS_HASCLIENTID)) {
 			clp->nfsc_expire = NFSD_MONOSEC + clp->nfsc_renew;
 			clidrev = clp->nfsc_clientidrev;
-			error = nfsrpc_renew(clp,
-			    TAILQ_FIRST(&clp->nfsc_nmp->nm_sess), cred, p);
+			error = nfsrpc_renew(clp, NULL, cred, p);
 			if (error == NFSERR_CBPATHDOWN)
 			    cbpathdown = 1;
 			else if (error == NFSERR_STALECLIENTID ||
@@ -2494,24 +2496,27 @@ nfscl_renewthread(struct nfsclclient *clp, NFSPROC_T *p)
 			    (void) nfscl_hasexpired(clp, clidrev, p);
 		}
 
-		/* Do renews for any DS sessions. */
 checkdsrenew:
-		NFSLOCKMNT(clp->nfsc_nmp);
-		/* Skip first entry, since the MDS is handled above. */
-		dsp = TAILQ_FIRST(&clp->nfsc_nmp->nm_sess);
-		if (dsp != NULL)
-			dsp = TAILQ_NEXT(dsp, nfsclds_list);
-		while (dsp != NULL) {
-			if (dsp->nfsclds_expire <= NFSD_MONOSEC) {
-				dsp->nfsclds_expire = NFSD_MONOSEC +
-				    clp->nfsc_renew;
-				NFSUNLOCKMNT(clp->nfsc_nmp);
-				(void)nfsrpc_renew(clp, dsp, cred, p);
-				goto checkdsrenew;
+		if (NFSHASNFSV4N(clp->nfsc_nmp)) {
+			/* Do renews for any DS sessions. */
+			NFSLOCKMNT(clp->nfsc_nmp);
+			/* Skip first entry, since the MDS is handled above. */
+			dsp = TAILQ_FIRST(&clp->nfsc_nmp->nm_sess);
+			if (dsp != NULL)
+				dsp = TAILQ_NEXT(dsp, nfsclds_list);
+			while (dsp != NULL) {
+				if (dsp->nfsclds_expire <= NFSD_MONOSEC &&
+				    dsp->nfsclds_sess.nfsess_defunct == 0) {
+					dsp->nfsclds_expire = NFSD_MONOSEC +
+					    clp->nfsc_renew;
+					NFSUNLOCKMNT(clp->nfsc_nmp);
+					(void)nfsrpc_renew(clp, dsp, cred, p);
+					goto checkdsrenew;
+				}
+				dsp = TAILQ_NEXT(dsp, nfsclds_list);
 			}
-			dsp = TAILQ_NEXT(dsp, nfsclds_list);
+			NFSUNLOCKMNT(clp->nfsc_nmp);
 		}
-		NFSUNLOCKMNT(clp->nfsc_nmp);
 
 		TAILQ_INIT(&dh);
 		NFSLOCKCLSTATE();
@@ -2571,7 +2576,7 @@ tryagain:
 				    LIST_REMOVE(dp, nfsdl_hash);
 				    TAILQ_INSERT_HEAD(&dh, dp, nfsdl_list);
 				    nfscl_delegcnt--;
-				    newnfsstats.cldelegates--;
+				    nfsstatsv1.cldelegates--;
 				}
 				NFSLOCKCLSTATE();
 			}
@@ -2612,7 +2617,7 @@ tryagain:
 			    LIST_REMOVE(dp, nfsdl_hash);
 			    TAILQ_INSERT_HEAD(&dh, dp, nfsdl_list);
 			    nfscl_delegcnt--;
-			    newnfsstats.cldelegates--;
+			    nfsstatsv1.cldelegates--;
 			}
 		    }
 		    dp = ndp;
@@ -3163,6 +3168,7 @@ nfscl_docb(struct nfsrv_descript *nd, NFSPROC_T *p)
 	int changed, gotone, laytype, recalltype;
 	uint32_t iomode;
 	struct nfsclrecalllayout *recallp = NULL;
+	struct nfsclsession *tsep;
 
 	gotseq_ok = 0;
 	nfsrvd_rephead(nd);
@@ -3215,8 +3221,8 @@ nfscl_docb(struct nfsrv_descript *nd, NFSPROC_T *p)
 		    break;
 		}
 		nd->nd_procnum = op;
-		if (op < NFSV4OP_CBNOPS)
-			newnfsstats.cbrpccnt[nd->nd_procnum]++;
+		if (op < NFSV41_CBNOPS)
+			nfsstatsv1.cbrpccnt[nd->nd_procnum]++;
 		switch (op) {
 		case NFSV4OP_CBGETATTR:
 			NFSCL_DEBUG(4, "cbgetattr\n");
@@ -3472,13 +3478,12 @@ nfscl_docb(struct nfsrv_descript *nd, NFSPROC_T *p)
 					error = NFSERR_SERVERFAULT;
 			} else
 				error = NFSERR_SEQUENCEPOS;
-			if (error == 0)
+			if (error == 0) {
+				tsep = nfsmnt_mdssession(clp->nfsc_nmp);
 				error = nfsv4_seqsession(seqid, slotid,
-				    highslot,
-				    NFSMNT_MDSSESSION(clp->nfsc_nmp)->
-				    nfsess_cbslots, &rep,
-				    NFSMNT_MDSSESSION(clp->nfsc_nmp)->
-				    nfsess_backslots);
+				    highslot, tsep->nfsess_cbslots, &rep,
+				    tsep->nfsess_backslots);
+			}
 			NFSUNLOCKCLSTATE();
 			if (error == 0) {
 				gotseq_ok = 1;
@@ -3546,8 +3551,8 @@ out:
 		NFSLOCKCLSTATE();
 		clp = nfscl_getclntsess(sessionid);
 		if (clp != NULL) {
-			nfsv4_seqsess_cacherep(slotid,
-			    NFSMNT_MDSSESSION(clp->nfsc_nmp)->nfsess_cbslots,
+			tsep = nfsmnt_mdssession(clp->nfsc_nmp);
+			nfsv4_seqsess_cacherep(slotid, tsep->nfsess_cbslots,
 			    NFSERR_OK, &rep);
 			NFSUNLOCKCLSTATE();
 		} else {
@@ -3603,15 +3608,17 @@ nfscl_getmnt(int minorvers, uint8_t *sessionid, u_int32_t cbident,
 	struct nfsclclient *clp;
 	mount_t mp;
 	int error;
+	struct nfsclsession *tsep;
 
 	*clpp = NULL;
 	NFSLOCKCLSTATE();
 	LIST_FOREACH(clp, &nfsclhead, nfsc_list) {
+		tsep = nfsmnt_mdssession(clp->nfsc_nmp);
 		if (minorvers == NFSV4_MINORVERSION) {
 			if (clp->nfsc_cbident == cbident)
 				break;
-		} else if (!NFSBCMP(NFSMNT_MDSSESSION(clp->nfsc_nmp)->
-		    nfsess_sessionid, sessionid, NFSX_V4SESSIONID))
+		} else if (!NFSBCMP(tsep->nfsess_sessionid, sessionid,
+		    NFSX_V4SESSIONID))
 			break;
 	}
 	if (clp == NULL) {
@@ -3650,11 +3657,14 @@ static struct nfsclclient *
 nfscl_getclntsess(uint8_t *sessionid)
 {
 	struct nfsclclient *clp;
+	struct nfsclsession *tsep;
 
-	LIST_FOREACH(clp, &nfsclhead, nfsc_list)
-		if (!NFSBCMP(NFSMNT_MDSSESSION(clp->nfsc_nmp)->nfsess_sessionid,
-		    sessionid, NFSX_V4SESSIONID))
+	LIST_FOREACH(clp, &nfsclhead, nfsc_list) {
+		tsep = nfsmnt_mdssession(clp->nfsc_nmp);
+		if (!NFSBCMP(tsep->nfsess_sessionid, sessionid,
+		    NFSX_V4SESSIONID))
 			break;
+	}
 	return (clp);
 }
 

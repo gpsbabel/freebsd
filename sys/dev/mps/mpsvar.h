@@ -33,7 +33,7 @@
 #ifndef _MPSVAR_H
 #define _MPSVAR_H
 
-#define MPS_DRIVER_VERSION	"21.00.00.00-fbsd"
+#define MPS_DRIVER_VERSION	"21.01.00.00-fbsd"
 
 #define MPS_DB_MAX_WAIT		2500
 
@@ -41,6 +41,7 @@
 #define MPS_EVT_REPLY_FRAMES	32
 #define MPS_REPLY_FRAMES	MPS_REQ_FRAMES
 #define MPS_CHAIN_FRAMES	2048
+#define MPS_MAXIO_PAGES		(-1)
 #define MPS_SENSE_LEN		SSD_FULL_SIZE
 #define MPS_MSI_COUNT		1
 #define MPS_SGE64_SIZE		12
@@ -280,9 +281,11 @@ struct mps_softc {
 	int				io_cmds_highwater;
 	int				chain_free;
 	int				max_chains;
+	int				max_io_pages;
 	int				chain_free_lowwater;
 	u_int				enable_ssu;
 	int				spinup_wait_time;
+	int				use_phynum;
 	uint64_t			chain_alloc_fail;
 	struct sysctl_ctx_list		sysctl_ctx;
 	struct sysctl_oid		*sysctl_tree;
@@ -606,6 +609,9 @@ mps_unlock(struct mps_softc *sc)
 #define mps_printf(sc, args...)				\
 	device_printf((sc)->mps_dev, ##args)
 
+#define mps_print_field(sc, msg, args...)		\
+	printf("\t" msg, ##args)
+
 #define mps_vprintf(sc, args...)			\
 do {							\
 	if (bootverbose)				\
@@ -618,25 +624,13 @@ do {							\
 		device_printf((sc)->mps_dev, msg, ##args);	\
 } while (0)
 
-#define mps_dprint_field(sc, level, msg, args...)		\
-do {								\
-	if ((sc)->mps_debug & (level))				\
-		printf("\t" msg, ##args);			\
-} while (0)
-
 #define MPS_PRINTFIELD_START(sc, tag...)	\
-	mps_dprint((sc), MPS_XINFO, ##tag);	\
-	mps_dprint_field((sc), MPS_XINFO, ":\n")
+	mps_printf((sc), ##tag);			\
+	mps_print_field((sc), ":\n")
 #define MPS_PRINTFIELD_END(sc, tag)		\
-	mps_dprint((sc), MPS_XINFO, tag "\n")
+	mps_printf((sc), tag "\n")
 #define MPS_PRINTFIELD(sc, facts, attr, fmt)	\
-	mps_dprint_field((sc), MPS_XINFO, #attr ": " #fmt "\n", (facts)->attr)
-
-#define MPS_EVENTFIELD_START(sc, tag...)	\
-	mps_dprint((sc), MPS_EVENT, ##tag);	\
-	mps_dprint_field((sc), MPS_EVENT, ":\n")
-#define MPS_EVENTFIELD(sc, facts, attr, fmt)	\
-	mps_dprint_field((sc), MPS_EVENT, #attr ": " #fmt "\n", (facts)->attr)
+	mps_print_field((sc), #attr ": " #fmt "\n", (facts)->attr)
 
 #define MPS_FUNCTRACE(sc)			\
 	mps_dprint((sc), MPS_TRACE, "%s\n", __func__)

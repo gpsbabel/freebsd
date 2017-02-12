@@ -347,7 +347,7 @@ mpssas_log_command(struct mps_command *cm, u_int level, const char *fmt, ...)
 	sbuf_printf(&sb, "SMID %u ", cm->cm_desc.Default.SMID);
 	sbuf_vprintf(&sb, fmt, ap);
 	sbuf_finish(&sb);
-	mps_dprint_field(cm->cm_sc, level, "%s", sbuf_data(&sb));
+	mps_print_field(cm->cm_sc, "%s", sbuf_data(&sb));
 
 	va_end(ap);
 }
@@ -928,6 +928,8 @@ mpssas_action(struct cam_sim *sim, union ccb *ccb)
 	case XPT_PATH_INQ:
 	{
 		struct ccb_pathinq *cpi = &ccb->cpi;
+		struct mps_softc *sc = sassc->sc;
+		uint8_t sges_per_frame;
 
 		cpi->version_num = 1;
 		cpi->hba_inquiry = PI_SDTR_ABLE|PI_TAG_ABLE|PI_WIDE_16;
@@ -941,9 +943,9 @@ mpssas_action(struct cam_sim *sim, union ccb *ccb)
 		cpi->max_target = sassc->maxtargets - 1;
 		cpi->max_lun = 255;
 		cpi->initiator_id = sassc->maxtargets - 1;
-		strncpy(cpi->sim_vid, "FreeBSD", SIM_IDLEN);
-		strncpy(cpi->hba_vid, "Avago Tech (LSI)", HBA_IDLEN);
-		strncpy(cpi->dev_name, cam_sim_name(sim), DEV_IDLEN);
+		strlcpy(cpi->sim_vid, "FreeBSD", SIM_IDLEN);
+		strlcpy(cpi->hba_vid, "Avago Tech", HBA_IDLEN);
+		strlcpy(cpi->dev_name, cam_sim_name(sim), DEV_IDLEN);
 		cpi->unit_number = cam_sim_unit(sim);
 		cpi->bus_id = cam_sim_bus(sim);
 		cpi->base_transfer_speed = 150000;
@@ -951,12 +953,23 @@ mpssas_action(struct cam_sim *sim, union ccb *ccb)
 		cpi->transport_version = 0;
 		cpi->protocol = PROTO_SCSI;
 		cpi->protocol_version = SCSI_REV_SPC;
-#if __FreeBSD_version >= 800001
+
 		/*
-		 * XXX KDM where does this number come from?
+		 * Max IO Size is Page Size * the following:
+		 * ((SGEs per frame - 1 for chain element) *
+		 * Max Chain Depth) + 1 for no chain needed in last frame
+		 *
+		 * If user suggests a Max IO size to use, use the smaller of the
+		 * user's value and the calculated value as long as the user's
+		 * value is larger than 0. The user's value is in pages.
 		 */
-		cpi->maxio = 256 * 1024;
-#endif
+		sges_per_frame = ((sc->facts->IOCRequestFrameSize * 4) /
+		    sizeof(MPI2_SGE_SIMPLE64)) - 1;
+		cpi->maxio = (sges_per_frame * sc->facts->MaxChainDepth) + 1;
+		cpi->maxio *= PAGE_SIZE;
+		if ((sc->max_io_pages > 0) && (sc->max_io_pages * PAGE_SIZE <
+		    cpi->maxio))
+			cpi->maxio = sc->max_io_pages * PAGE_SIZE;
 		mpssas_set_ccbstatus(ccb, CAM_REQ_CMP);
 		break;
 	}
@@ -1859,6 +1872,10 @@ mpssas_action_scsiio(struct mpssas_softc *sassc, union ccb *ccb)
 		}
 	}
 
+#if defined(BUF_TRACKING) || defined(FULL_BUF_TRACKING)
+	if (csio->bio != NULL)
+		biotrack(csio->bio, __func__);
+#endif
 	callout_reset_sbt(&cm->cm_callout, SBT_1MS * ccb->ccb_h.timeout, 0,
 	    mpssas_scsiio_timeout, cm, 0);
 
@@ -2111,6 +2128,11 @@ mpssas_scsiio_complete(struct mps_softc *sc, struct mps_command *cm)
 	cm->cm_targ->outstanding--;
 	TAILQ_REMOVE(&cm->cm_targ->commands, cm, cm_link);
 	ccb->ccb_h.status &= ~(CAM_STATUS_MASK | CAM_SIM_QUEUED);
+
+#if defined(BUF_TRACKING) || defined(FULL_BUF_TRACKING)
+	if (ccb->csio.bio != NULL)
+		biotrack(ccb->csio.bio, __func__);
+#endif
 
 	if (cm->cm_state == MPS_CM_STATE_TIMEDOUT) {
 		TAILQ_REMOVE(&cm->cm_targ->timedout_commands, cm, cm_recovery);
@@ -2424,8 +2446,9 @@ mpssas_scsiio_complete(struct mps_softc *sc, struct mps_command *cm)
 		 */
 		mpssas_set_ccbstatus(ccb, CAM_REQ_CMP_ERR);
 		mpssas_log_command(cm, MPS_INFO,
-		    "terminated ioc %x scsi %x state %x xfer %u\n",
-		    le16toh(rep->IOCStatus), rep->SCSIStatus, rep->SCSIState,
+		    "terminated ioc %x loginfo %x scsi %x state %x xfer %u\n",
+		    le16toh(rep->IOCStatus), le32toh(rep->IOCLogInfo),
+		    rep->SCSIStatus, rep->SCSIState,
 		    le32toh(rep->TransferCount));
 		break;
 	case MPI2_IOCSTATUS_INVALID_FUNCTION:
@@ -2440,8 +2463,9 @@ mpssas_scsiio_complete(struct mps_softc *sc, struct mps_command *cm)
 	case MPI2_IOCSTATUS_SCSI_TASK_MGMT_FAILED:
 	default:
 		mpssas_log_command(cm, MPS_XINFO,
-		    "completed ioc %x scsi %x state %x xfer %u\n",
-		    le16toh(rep->IOCStatus), rep->SCSIStatus, rep->SCSIState,
+		    "completed ioc %x loginfo %x scsi %x state %x xfer %u\n",
+		    le16toh(rep->IOCStatus), le32toh(rep->IOCLogInfo),
+		    rep->SCSIStatus, rep->SCSIState,
 		    le32toh(rep->TransferCount));
 		csio->resid = cm->cm_length;
 		mpssas_set_ccbstatus(ccb, CAM_REQ_CMP_ERR);

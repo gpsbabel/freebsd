@@ -29,7 +29,7 @@
 .\"
 .\" $FreeBSD$
 .\"
-.Dd July 3, 2015
+.Dd February 6, 2017
 .Dt SETKEY 8
 .Os
 .\"
@@ -270,8 +270,6 @@ must be a decimal number, or a hexadecimal number with
 prefix.
 SPI values between 0 and 255 are reserved for future use by IANA
 and they cannot be used.
-TCP-MD5 associations must use 0x1000 and therefore only have per-host
-granularity at this time.
 .\"
 .Pp
 .It Ar extensions
@@ -713,6 +711,8 @@ The
 .Nm
 utility first appeared in WIDE Hydrangea IPv6 protocol stack kit.
 The utility was completely re-designed in June 1998.
+It first appeared in
+.Fx 4.0 .
 .\"
 .Sh BUGS
 The

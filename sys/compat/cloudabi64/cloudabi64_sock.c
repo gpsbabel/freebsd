@@ -40,6 +40,7 @@ __FBSDID("$FreeBSD$");
 #include <compat/cloudabi/cloudabi_util.h>
 
 #include <compat/cloudabi64/cloudabi64_proto.h>
+#include <compat/cloudabi64/cloudabi64_util.h>
 
 static MALLOC_DEFINE(M_SOCKET, "socket", "CloudABI socket");
 
@@ -52,6 +53,7 @@ cloudabi64_sys_sock_recv(struct thread *td,
 	cloudabi64_recv_out_t ro = {};
 	cloudabi64_iovec_t iovobj;
 	struct msghdr msghdr = {};
+	const cloudabi64_iovec_t *user_iov;
 	size_t i;
 	int error;
 
@@ -60,20 +62,20 @@ cloudabi64_sys_sock_recv(struct thread *td,
 		return (error);
 
 	/* Convert results in cloudabi_recv_in_t to struct msghdr. */
-	if (ri.ri_datalen > UIO_MAXIOV)
+	if (ri.ri_data_len > UIO_MAXIOV)
 		return (EINVAL);
-	msghdr.msg_iovlen = ri.ri_datalen;
+	msghdr.msg_iovlen = ri.ri_data_len;
 	msghdr.msg_iov = malloc(msghdr.msg_iovlen * sizeof(struct iovec),
 	    M_SOCKET, M_WAITOK);
+	user_iov = TO_PTR(ri.ri_data);
 	for (i = 0; i < msghdr.msg_iovlen; i++) {
-		error = copyin(&((cloudabi64_iovec_t *)ri.ri_data)[i], &iovobj,
-		    sizeof(iovobj));
+		error = copyin(&user_iov[i], &iovobj, sizeof(iovobj));
 		if (error != 0) {
 			free(msghdr.msg_iov, M_SOCKET);
 			return (error);
 		}
-		msghdr.msg_iov[i].iov_base = (void *)iovobj.iov_base;
-		msghdr.msg_iov[i].iov_len = iovobj.iov_len;
+		msghdr.msg_iov[i].iov_base = TO_PTR(iovobj.buf);
+		msghdr.msg_iov[i].iov_len = iovobj.buf_len;
 	}
 	msghdr.msg_name = &ss;
 	msghdr.msg_namelen = sizeof(ss);
@@ -104,6 +106,7 @@ cloudabi64_sys_sock_send(struct thread *td,
 	cloudabi64_send_out_t so = {};
 	cloudabi64_ciovec_t iovobj;
 	struct msghdr msghdr = {};
+	const cloudabi64_ciovec_t *user_iov;
 	size_t i;
 	int error, flags;
 
@@ -112,20 +115,20 @@ cloudabi64_sys_sock_send(struct thread *td,
 		return (error);
 
 	/* Convert results in cloudabi_send_in_t to struct msghdr. */
-	if (si.si_datalen > UIO_MAXIOV)
+	if (si.si_data_len > UIO_MAXIOV)
 		return (EINVAL);
-	msghdr.msg_iovlen = si.si_datalen;
+	msghdr.msg_iovlen = si.si_data_len;
 	msghdr.msg_iov = malloc(msghdr.msg_iovlen * sizeof(struct iovec),
 	    M_SOCKET, M_WAITOK);
+	user_iov = TO_PTR(si.si_data);
 	for (i = 0; i < msghdr.msg_iovlen; i++) {
-		error = copyin(&((cloudabi64_ciovec_t *)si.si_data)[i], &iovobj,
-		    sizeof(iovobj));
+		error = copyin(&user_iov[i], &iovobj, sizeof(iovobj));
 		if (error != 0) {
 			free(msghdr.msg_iov, M_SOCKET);
 			return (error);
 		}
-		msghdr.msg_iov[i].iov_base = (void *)iovobj.iov_base;
-		msghdr.msg_iov[i].iov_len = iovobj.iov_len;
+		msghdr.msg_iov[i].iov_base = TO_PTR(iovobj.buf);
+		msghdr.msg_iov[i].iov_len = iovobj.buf_len;
 	}
 
 	flags = MSG_NOSIGNAL;

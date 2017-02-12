@@ -281,7 +281,7 @@ threadinit(void)
 
 	thread_zone = uma_zcreate("THREAD", sched_sizeof_thread(),
 	    thread_ctor, thread_dtor, thread_init, thread_fini,
-	    16 - 1, UMA_ZONE_NOFREE);
+	    32 - 1, UMA_ZONE_NOFREE);
 	tidhashtbl = hashinit(maxproc / 2, M_TIDHASH, &tidhash);
 	rw_init(&tidhash_lock, "tidhash");
 }
@@ -318,7 +318,7 @@ thread_reap(void)
 
 	/*
 	 * Don't even bother to lock if none at this instant,
-	 * we really don't care about the next instant..
+	 * we really don't care about the next instant.
 	 */
 	if (!TAILQ_EMPTY(&zombie_threads)) {
 		mtx_lock_spin(&zombie_lock);
@@ -383,6 +383,7 @@ thread_free(struct thread *td)
 	if (td->td_kstack != 0)
 		vm_thread_dispose(td);
 	vm_domain_policy_cleanup(&td->td_vm_dom_policy);
+	callout_drain(&td->td_slpcallout);
 	uma_zfree(thread_zone, td);
 }
 
@@ -580,6 +581,7 @@ thread_wait(struct proc *p)
 	td->td_cpuset = NULL;
 	cpu_thread_clean(td);
 	thread_cow_free(td);
+	callout_drain(&td->td_slpcallout);
 	thread_reap();	/* check for zombie threads etc. */
 }
 
@@ -894,7 +896,7 @@ thread_suspend_check(int return_instead)
 {
 	struct thread *td;
 	struct proc *p;
-	int wakeup_swapper, r;
+	int wakeup_swapper;
 
 	td = curthread;
 	p = td->td_proc;
@@ -927,21 +929,10 @@ thread_suspend_check(int return_instead)
 		if ((td->td_flags & TDF_SBDRY) != 0) {
 			KASSERT(return_instead,
 			    ("TDF_SBDRY set for unsafe thread_suspend_check"));
-			switch (td->td_flags & (TDF_SEINTR | TDF_SERESTART)) {
-			case 0:
-				r = 0;
-				break;
-			case TDF_SEINTR:
-				r = EINTR;
-				break;
-			case TDF_SERESTART:
-				r = ERESTART;
-				break;
-			default:
-				panic("both TDF_SEINTR and TDF_SERESTART");
-				break;
-			}
-			return (r);
+			KASSERT((td->td_flags & (TDF_SEINTR | TDF_SERESTART)) !=
+			    (TDF_SEINTR | TDF_SERESTART),
+			    ("both TDF_SEINTR and TDF_SERESTART"));
+			return (TD_SBDRY_INTR(td) ? TD_SBDRY_ERRNO(td) : 0);
 		}
 
 		/*
