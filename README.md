@@ -1,5 +1,5 @@
-## Prepare your environment.
-On FreeBSD/amd64 machine install the following packages:
+## Prepare your environment
+On FreeBSD 11.0 machine install the following packages:
 ```
 sudo pkg install riscv64-xtoolchain-gcc qemu-riscv riscv-isa-sim
 ```
