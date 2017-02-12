@@ -1,5 +1,8 @@
+# FreeBSD/RISC-V
+This is a port of FreeBSD operating system to RISC-V instruction set architecture.
+
 ## Prepare your environment
-On FreeBSD 11.0 machine install required packages:
+On FreeBSD 11.0 machine install the required packages:
 ```
 sudo pkg install riscv64-xtoolchain-gcc qemu-riscv riscv-isa-sim
 ```
