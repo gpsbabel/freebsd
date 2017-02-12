@@ -1,7 +1,7 @@
 # FreeBSD/RISC-V
 This is a port of FreeBSD operating system to RISC-V instruction set architecture.
 
-## Prepare your environment
+### Prepare your environment
 On FreeBSD 11.0 machine install the required packages:
 ```
 $ sudo pkg install riscv64-xtoolchain-gcc qemu-riscv riscv-isa-sim
@@ -14,14 +14,14 @@ $ setenv WITHOUT_FORMAT_EXTENSIONS yes
 $ setenv DESTDIR /home/${USER}/riscv-world
 ```
 
-## Build FreeBSD world
+### Build FreeBSD world
 ```
 # svnlite co http://svn.freebsd.org/base/head freebsd-riscv
 # cd freebsd-riscv
 # make -j4 CROSS_TOOLCHAIN=riscv64-gcc TARGET_ARCH=riscv64 buildworld
 ```
 
-## Build 32mb rootfs image
+### Build 32mb rootfs image
 ```
 $ cd freebsd-riscv
 $ make TARGET_ARCH=riscv64 -DNO_ROOT -DWITHOUT_TESTS DESTDIR=$DESTDIR installworld
@@ -30,7 +30,7 @@ $ fetch https://raw.githubusercontent.com/bukinr/riscv-tools/master/image/basic.
 $ tools/tools/makeroot/makeroot.sh -s 32m -f basic.files riscv.img $DESTDIR
 ```
 
-## Prepare your kernel config
+### Prepare your kernel config
 Modify sys/riscv/conf/GENERIC. Uncomment the following lines and specify the path to your riscv.img:
 ```
 options 	MD_ROOT
@@ -39,7 +39,7 @@ makeoptions	MFS_IMAGE=/path/to/riscv.img
 options 	ROOTDEVNAME=\"ufs:/dev/md0\"
 ```
 
-## Build FreeBSD kernel
+### Build FreeBSD kernel
 ```
 $ cd freebsd-riscv
 for Spike:
@@ -48,7 +48,7 @@ for QEMU:
 $ make -j4 CROSS_TOOLCHAIN=riscv64-gcc TARGET_ARCH=riscv64 KERNCONF=QEMU buildkernel
 ```
 
-## Build BBL
+### Build BBL
 ```
 $ git clone https://github.com/freebsd-riscv/riscv-pk
 $ cd riscv-pk
@@ -59,12 +59,12 @@ $ gmake LIBS=''
 $ unsetenv CFLAGS
 ```
 
-## Run Spike simulator
+### Run Spike simulator
 ```
 $ spike -m1024 -p2 /path/to/bbl
 ```
 
-## Run QEMU emulator
+### Run QEMU emulator
 ```
 $ qemu-system-riscv64 -m 2048M -kernel /path/to/bbl -nographic
 ```
