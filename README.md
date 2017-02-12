@@ -1,5 +1,5 @@
 ## Prepare your environment
-On FreeBSD 11.0 machine install the following packages:
+On FreeBSD 11.0 machine install required packages:
 ```
 sudo pkg install riscv64-xtoolchain-gcc qemu-riscv riscv-isa-sim
 ```
@@ -40,9 +40,9 @@ options 	ROOTDEVNAME=\"ufs:/dev/md0\"
 ```
 cd freebsd-riscv
 for Spike:
-make -j4 TARGET_ARCH=riscv64 KERNCONF=SPIKE buildkernel
+make -j4 CROSS_TOOLCHAIN=riscv64-gcc TARGET_ARCH=riscv64 KERNCONF=SPIKE buildkernel
 for QEMU:
-make -j4 TARGET_ARCH=riscv64 KERNCONF=QEMU buildkernel
+make -j4 CROSS_TOOLCHAIN=riscv64-gcc TARGET_ARCH=riscv64 KERNCONF=QEMU buildkernel
 ```
 
 ## Build BBL
