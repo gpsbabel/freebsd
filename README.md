@@ -29,6 +29,7 @@ options 	ROOTDEVNAME=\"ufs:/dev/md0\"
 
 ## Build FreeBSD kernel
 ```
+cd freebsd-riscv
 for Spike:
 make TARGET_ARCH=riscv64 KERNCONF=SPIKE buildkernel
 for QEMU:
@@ -55,3 +56,5 @@ spike -m1024 -p2 /path/to/bbl
 ```
 qemu-system-riscv64 -m 2048M -kernel /path/to/bbl -nographic
 ```
+
+Additional information available on [FreeBSD Wiki](http://wiki.freebsd.org/riscv)
