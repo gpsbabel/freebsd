@@ -7,23 +7,24 @@ sudo pkg install riscv64-xtoolchain-gcc emulators/qemu-riscv emulators/riscv-isa
 ## Build FreeBSD world
 ```
 svnlite co http://svn.freebsd.org/base/head freebsd-riscv
+cd freebsd-riscv
+setenv DESTDIR /home/${USER}/riscv-world
+make TARGET_ARCH=riscv64 -DNO_ROOT -DWITHOUT_TESTS DESTDIR=$DESTDIR installworld
+make TARGET_ARCH=riscv64 -DNO_ROOT -DWITHOUT_TESTS DESTDIR=$DESTDIR distribution
 ```
 
 ## Build 32mb rootfs image
 ```
 cd freebsd-riscv
-setenv DESTDIR /home/${USER}/riscv-world
-make TARGET_ARCH=riscv64 -DNO_ROOT -DWITHOUT_TESTS DESTDIR=$DESTDIR installworld
-make TARGET_ARCH=riscv64 -DNO_ROOT -DWITHOUT_TESTS DESTDIR=$DESTDIR distribution
 fetch https://raw.githubusercontent.com/bukinr/riscv-tools/master/image/basic.files
 tools/tools/makeroot/makeroot.sh -s 32m -f basic.files riscv.img $DESTDIR
 ```
 
-## Prepare kernel config. Modify sys/riscv/conf/GENERIC, uncomment following lines:
+## Prepare kernel config. Modify sys/riscv/conf/GENERIC, uncomment following lines and specify the path to your riscv.img:
 ```
 options 	MD_ROOT
 options 	MD_ROOT_SIZE=32768	# 32MB ram disk
-makeoptions	MFS_IMAGE=/path/to/img
+makeoptions	MFS_IMAGE=/path/to/riscv.img
 options 	ROOTDEVNAME=\"ufs:/dev/md0\"
 ```
 
