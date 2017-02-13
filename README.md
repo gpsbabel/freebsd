@@ -16,9 +16,9 @@ $ setenv DESTDIR /home/${USER}/riscv-world
 
 ### Build FreeBSD world
 ```
-# svnlite co http://svn.freebsd.org/base/head freebsd-riscv
-# cd freebsd-riscv
-# make -j4 CROSS_TOOLCHAIN=riscv64-gcc TARGET_ARCH=riscv64 buildworld
+$ svnlite co http://svn.freebsd.org/base/head freebsd-riscv
+$ cd freebsd-riscv
+$ make -j4 CROSS_TOOLCHAIN=riscv64-gcc TARGET_ARCH=riscv64 buildworld
 ```
 
 ### Build 32mb rootfs image
