@@ -1,6 +1,8 @@
 # FreeBSD/RISC-V
 This is a port of FreeBSD operating system to RISC-V instruction set architecture.
 
+[![Build Status](https://ci.freebsd.org/buildStatus/icon?job=FreeBSD-head-riscv64-build)](https://ci.freebsd.org/job/FreeBSD-head-riscv64-build/)
+
 ### Prepare your environment
 On FreeBSD 11.0 machine install the required packages:
 ```
