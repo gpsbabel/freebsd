@@ -1,5 +1,5 @@
 # FreeBSD/RISC-V
-This is a port of [FreeBSD operating system](http://www.freebsd.org) to RISC-V instruction set architecture.
+This is a port of [FreeBSD Operating System](http://www.freebsd.org) to RISC-V instruction set architecture.
 
 [![Build Status](https://ci.freebsd.org/buildStatus/icon?job=FreeBSD-head-riscv64-build)](https://ci.freebsd.org/job/FreeBSD-head-riscv64-build/)
 
