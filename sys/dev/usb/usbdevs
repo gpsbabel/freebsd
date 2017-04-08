@@ -747,6 +747,7 @@ vendor WESTMOUNTAIN	0x2405	West Mountain Radio
 vendor TRIPPLITE	0x2478	Tripp-Lite
 vendor HIROSE		0x2631	Hirose Electric
 vendor NHJ		0x2770	NHJ
+vendor THINGM		0x27b8	ThingM
 vendor PLANEX		0x2c02	Planex Communications
 vendor VIDZMEDIA	0x3275	VidzMedia Pte Ltd
 vendor LINKINSTRUMENTS	0x3195	Link Instruments Inc.
@@ -2434,7 +2435,9 @@ product HUAWEI E1752		0x1446	3G modem
 product HUAWEI K4505		0x1464	3G modem
 product HUAWEI K3765		0x1465	3G modem
 product HUAWEI E1820		0x14ac	E1820 HSPA+ USB Slider
+product HUAWEI K3771_INIT	0x14c4  K3771 Initial
 product HUAWEI K3770		0x14c9  3G modem
+product HUAWEI K3771		0x14ca  K3771
 product HUAWEI K3772		0x14cf	K3772
 product HUAWEI K3770_INIT	0x14d1  K3770 Initial
 product HUAWEI E3131_INIT	0x14fe	3G modem initial
@@ -4490,6 +4493,9 @@ product TELIT UC864G		0x1004	UC864G 3G modem
 
 /* Ten X Technology, Inc. */
 product TENX UAUDIO0		0xf211	USB audio headset
+
+/* ThingM products */
+product THINGM BLINK1		0x01ed	USB notification light
 
 /* Texas Intel products */
 product TI UTUSB41		0x1446	UT-USB41 hub

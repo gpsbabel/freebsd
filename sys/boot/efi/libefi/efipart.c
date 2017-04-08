@@ -254,7 +254,7 @@ efipart_cdinfo_add(EFI_HANDLE handle, EFI_HANDLE alias,
 		}
 		unit++;
 	}
- 
+
 	cd = malloc(sizeof(pdinfo_t));
 	if (cd == NULL) {
 		printf("Failed to add cd %d, out of memory\n", unit);
@@ -290,7 +290,7 @@ efipart_updatecd(void)
 			continue;
 		if (efipart_floppy(node) != NULL)
 			continue;
- 
+
 		status = BS->HandleProtocol(efipart_handles[i],
 		    &blkio_guid, (void **)&blkio);
 		if (EFI_ERROR(status))
@@ -589,14 +589,14 @@ efipart_print_common(struct devsw *dev, pdinfo_list_t *pdlist, int verbose)
 
 	if (STAILQ_EMPTY(pdlist))
 		return (0);
- 
+
 	printf("%s devices:", dev->dv_name);
 	if ((ret = pager_output("\n")) != 0)
 		return (ret);
 
 	STAILQ_FOREACH(pd, pdlist, pd_link) {
 		h = pd->pd_handle;
-		if (verbose) {  /* Output the device path. */
+		if (verbose) {	/* Output the device path. */
 			text = efi_devpath_name(efi_lookup_devpath(h));
 			if (text != NULL) {
 				printf("  %S", text);
@@ -635,8 +635,7 @@ efipart_print_common(struct devsw *dev, pdinfo_list_t *pdlist, int verbose)
 			pd_dev.d_opendata = blkio;
 			ret = disk_open(&pd_dev, blkio->Media->BlockSize *
 			    (blkio->Media->LastBlock + 1),
-			    blkio->Media->BlockSize,
-			    blkio->Media->RemovableMedia? DISK_F_NOCACHE: 0);
+			    blkio->Media->BlockSize);
 			if (ret == 0) {
 				ret = disk_print(&pd_dev, line, verbose);
 				disk_close(&pd_dev);
@@ -707,7 +706,7 @@ efipart_open(struct open_file *f, ...)
 	pd = efiblk_get_pdinfo(pdi, dev->d_unit);
 	if (pd == NULL)
 		return (EIO);
- 
+
 	if (pd->pd_blkio == NULL) {
 		status = BS->HandleProtocol(pd->pd_handle, &blkio_guid,
 		    (void **)&pd->pd_blkio);
@@ -726,8 +725,7 @@ efipart_open(struct open_file *f, ...)
 	if (dev->d_dev->dv_type == DEVT_DISK) {
 		return (disk_open(dev,
 		    blkio->Media->BlockSize * (blkio->Media->LastBlock + 1),
-		    blkio->Media->BlockSize,
-		    blkio->Media->RemovableMedia? DISK_F_NOCACHE: 0));
+		    blkio->Media->BlockSize));
 	}
 	return (0);
 }
@@ -791,7 +789,7 @@ efipart_ioctl(struct open_file *f, u_long cmd, void *data)
 		*(u_int *)data = pd->pd_blkio->Media->BlockSize;
 		break;
 	case DIOCGMEDIASIZE:
-		*(off_t *)data = pd->pd_blkio->Media->BlockSize *
+		*(uint64_t *)data = pd->pd_blkio->Media->BlockSize *
 		    (pd->pd_blkio->Media->LastBlock + 1);
 		break;
 	default:
@@ -836,8 +834,10 @@ efipart_readwrite(EFI_BLOCK_IO *blkio, int rw, daddr_t blk, daddr_t nblks,
 		return (ENOSYS);
 	}
 
-	if (EFI_ERROR(status))
-		printf("%s: rw=%d, status=%lu\n", __func__, rw, (u_long)status);
+	if (EFI_ERROR(status)) {
+		printf("%s: rw=%d, blk=%ju size=%ju status=%lu\n", __func__, rw,
+		    blk, nblks, EFI_ERROR_CODE(status));
+	}
 	return (efi_status_to_errno(status));
 }
 
@@ -861,6 +861,10 @@ efipart_strategy(void *devdata, int rw, daddr_t blk, size_t size,
 	if (pd == NULL)
 		return (EINVAL);
 
+	if (pd->pd_blkio->Media->RemovableMedia &&
+	    !pd->pd_blkio->Media->MediaPresent)
+		return (EIO);
+
 	bcd.dv_strategy = efipart_realstrategy;
 	bcd.dv_devdata = devdata;
 	bcd.dv_cache = pd->pd_bcache;
@@ -880,7 +884,7 @@ efipart_realstrategy(void *devdata, int rw, daddr_t blk, size_t size,
 	pdinfo_list_t *pdi;
 	pdinfo_t *pd;
 	EFI_BLOCK_IO *blkio;
-	off_t off;
+	uint64_t off, disk_blocks, d_offset = 0;
 	char *blkbuf;
 	size_t blkoff, blksz;
 	int error;
@@ -904,21 +908,34 @@ efipart_realstrategy(void *devdata, int rw, daddr_t blk, size_t size,
 		return (EIO);
 
 	off = blk * 512;
+	/*
+	 * Get disk blocks, this value is either for whole disk or for
+	 * partition.
+	 */
+	disk_blocks = 0;
+	if (dev->d_dev->dv_type == DEVT_DISK) {
+		if (disk_ioctl(dev, DIOCGMEDIASIZE, &disk_blocks) == 0) {
+			/* DIOCGMEDIASIZE does return bytes. */
+			disk_blocks /= blkio->Media->BlockSize;
+		}
+		d_offset = dev->d_offset;
+	}
+	if (disk_blocks == 0)
+		disk_blocks = blkio->Media->LastBlock + 1 - d_offset;
+
 	/* make sure we don't read past disk end */
-	if ((off + size) / blkio->Media->BlockSize - 1 >
-	    blkio->Media->LastBlock) {
-		size = blkio->Media->LastBlock + 1 -
-		    off / blkio->Media->BlockSize;
+	if ((off + size) / blkio->Media->BlockSize > d_offset + disk_blocks) {
+		size = d_offset + disk_blocks - off / blkio->Media->BlockSize;
 		size = size * blkio->Media->BlockSize;
 	}
 
 	if (rsize != NULL)
 		*rsize = size;
 
-        if ((size % blkio->Media->BlockSize == 0) &&
-	    ((blk * 512) % blkio->Media->BlockSize == 0))
-                return (efipart_readwrite(blkio, rw,
-		    blk * 512 / blkio->Media->BlockSize,
+	if ((size % blkio->Media->BlockSize == 0) &&
+	    (off % blkio->Media->BlockSize == 0))
+		return (efipart_readwrite(blkio, rw,
+		    off / blkio->Media->BlockSize,
 		    size / blkio->Media->BlockSize, buf));
 
 	/*

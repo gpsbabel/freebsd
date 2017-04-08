@@ -10,7 +10,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -148,7 +148,7 @@ struct protosw inetsw[] = {
 	.pr_type =		SOCK_SEQPACKET,
 	.pr_domain =		&inetdomain,
 	.pr_protocol =		IPPROTO_SCTP,
-	.pr_flags =		PR_WANTRCVD,
+	.pr_flags =		PR_WANTRCVD|PR_LASTHDR,
 	.pr_input =		sctp_input,
 	.pr_ctlinput =		sctp_ctlinput,
 	.pr_ctloutput =		sctp_ctloutput,
@@ -160,7 +160,7 @@ struct protosw inetsw[] = {
 	.pr_type =		SOCK_STREAM,
 	.pr_domain =		&inetdomain,
 	.pr_protocol =		IPPROTO_SCTP,
-	.pr_flags =		PR_CONNREQUIRED|PR_WANTRCVD,
+	.pr_flags =		PR_CONNREQUIRED|PR_WANTRCVD|PR_LASTHDR,
 	.pr_input =		sctp_input,
 	.pr_ctlinput =		sctp_ctlinput,
 	.pr_ctloutput =		sctp_ctloutput,

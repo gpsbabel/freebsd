@@ -10,7 +10,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -68,7 +68,7 @@ pass3(void)
 		}
 		inp = inpsort[inpindex];
 		state = inoinfo(inp->i_number)->ino_state;
-		if (inp->i_number == ROOTINO ||
+		if (inp->i_number == UFS_ROOTINO ||
 		    (inp->i_parent != 0 && !S_IS_DUNFOUND(state)))
 			continue;
 		if (state == DCLEAR)
@@ -81,7 +81,7 @@ pass3(void)
 		 */
 		if ((preen || bkgrdflag) &&
 		    resolved && usedsoftdep && S_IS_DUNFOUND(state)) {
-			if (inp->i_dotdot >= ROOTINO)
+			if (inp->i_dotdot >= UFS_ROOTINO)
 				inoinfo(inp->i_dotdot)->ino_linkcnt++;
 			continue;
 		}

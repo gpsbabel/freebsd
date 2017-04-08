@@ -39,7 +39,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -194,6 +194,9 @@ extern struct open_file files[];
 #define	F_WRITE		0x0002	/* file opened for writing */
 #define	F_RAW		0x0004	/* raw device open - no file system */
 #define F_NODEV		0x0008	/* network open - no device */
+#define	F_MASK		0xFFFF
+/* Mode modifier for strategy() */
+#define	F_NORA		(0x01 << 16)	/* Disable Read-Ahead */
 
 #define isascii(c)	(((c) & ~0x7F) == 0)
 
