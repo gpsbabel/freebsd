@@ -9,6 +9,15 @@ On FreeBSD 11.0 machine install the required packages:
 $ sudo pkg install riscv64-xtoolchain-gcc qemu-riscv riscv-isa-sim
 ```
 
+## Quick way
+
+### You can use pre-built images, otherwise proceed to next step.
+```
+fetch https://artifact.ci.freebsd.org/snapshot/head/latest/riscv/riscv64/bbl-spike.xz
+unxz bbl-spike.xz
+```
+
+## Complete build from scratch
 Set the following environment variables:
 ```
 $ setenv MAKEOBJDIRPREFIX /home/${USER}/obj/
