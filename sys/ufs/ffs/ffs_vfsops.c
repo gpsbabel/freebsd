@@ -54,6 +54,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/malloc.h>
 #include <sys/mutex.h>
 #include <sys/rwlock.h>
+#include <sys/vmmeter.h>
 
 #include <security/mac/mac_framework.h>
 
@@ -1318,6 +1319,10 @@ ffs_unmount(mp, mntflags)
 	MNT_ILOCK(mp);
 	mp->mnt_flag &= ~MNT_LOCAL;
 	MNT_IUNLOCK(mp);
+	if (td->td_su == mp) {
+		td->td_su = NULL;
+		vfs_rel(mp);
+	}
 	return (error);
 
 fail:
@@ -1858,12 +1863,9 @@ ffs_fhtovp(mp, fhp, flags, vpp)
 	if (fs->fs_magic != FS_UFS2_MAGIC)
 		return (ufs_fhtovp(mp, ufhp, flags, vpp));
 	cg = ino_to_cg(fs, ino);
-	error = bread(ump->um_devvp, fsbtodb(fs, cgtod(fs, cg)),
-		(int)fs->fs_cgsize, NOCRED, &bp);
-	if (error)
+	if ((error = ffs_getcg(fs, ump->um_devvp, cg, &bp, &cgp)) != 0)
 		return (error);
-	cgp = (struct cg *)bp->b_data;
-	if (!cg_chkmagic(cgp) || ino >= cg * fs->fs_ipg + cgp->cg_initediblk) {
+	if (ino >= cg * fs->fs_ipg + cgp->cg_initediblk) {
 		brelse(bp);
 		return (ESTALE);
 	}

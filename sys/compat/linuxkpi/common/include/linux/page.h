@@ -34,15 +34,16 @@
 #include <linux/types.h>
 
 #include <sys/param.h>
+#include <sys/vmmeter.h>
 
 #include <machine/atomic.h>
 #include <vm/vm.h>
 #include <vm/vm_page.h>
 #include <vm/pmap.h>
 
-typedef unsigned long pte_t;
-typedef unsigned long pmd_t;
-typedef unsigned long pgd_t;
+typedef unsigned long linux_pte_t;
+typedef unsigned long linux_pmd_t;
+typedef unsigned long linux_pgd_t;
 typedef unsigned long pgprot_t;
 
 #define page	vm_page
@@ -75,8 +76,10 @@ pgprot2cachemode(pgprot_t prot)
 #define	nth_page(page,n)	pfn_to_page(page_to_pfn((page)) + (n))
 
 #define	clear_page(page)		memset((page), 0, PAGE_SIZE)
-#define	pgprot_noncached(prot)		((pgprot_t)VM_MEMATTR_UNCACHEABLE)
-#define	pgprot_writecombine(prot)	((pgprot_t)VM_MEMATTR_WRITE_COMBINING)
+#define	pgprot_noncached(prot)		\
+	((prot) | cachemode2protval(VM_MEMATTR_UNCACHEABLE))
+#define	pgprot_writecombine(prot)	\
+	((prot) | cachemode2protval(VM_MEMATTR_WRITE_COMBINING))
 
 #undef	PAGE_MASK
 #define	PAGE_MASK	(~(PAGE_SIZE-1))

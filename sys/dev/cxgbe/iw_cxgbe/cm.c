@@ -622,11 +622,10 @@ init_iwarp_socket(struct socket *so, void *arg)
 	struct sockopt sopt;
 	int on = 1;
 
-	/* Note that SOCK_LOCK(so) is same as SOCKBUF_LOCK(&so->so_rcv) */
-	SOCK_LOCK(so);
+	SOCKBUF_LOCK(&so->so_rcv);
 	soupcall_set(so, SO_RCV, c4iw_so_upcall, arg);
 	so->so_state |= SS_NBIO;
-	SOCK_UNLOCK(so);
+	SOCKBUF_UNLOCK(&so->so_rcv);
 	sopt.sopt_dir = SOPT_SET;
 	sopt.sopt_level = IPPROTO_TCP;
 	sopt.sopt_name = TCP_NODELAY;
@@ -882,7 +881,7 @@ static int enable_tcp_window_scaling = 1;
 SYSCTL_INT(_hw_iw_cxgbe, OID_AUTO, enable_tcp_window_scaling, CTLFLAG_RWTUN, &enable_tcp_window_scaling, 0,
 		"Enable tcp window scaling (default = 1)");
 
-int c4iw_debug = 1;
+int c4iw_debug = 0;
 SYSCTL_INT(_hw_iw_cxgbe, OID_AUTO, c4iw_debug, CTLFLAG_RWTUN, &c4iw_debug, 0,
 		"Enable debug logging (default = 0)");
 
@@ -2376,6 +2375,8 @@ int c4iw_ep_disconnect(struct c4iw_ep *ep, int abrupt, gfp_t gfp)
 			set_bit(EP_DISC_ABORT, &ep->com.history);
 			close_complete_upcall(ep, -ECONNRESET);
 			ret = send_abort(ep);
+			if (ret)
+				fatal = 1;
 		} else {
 
 			CTR2(KTR_IW_CXGBE, "%s:ced5 %p", __func__, ep);
@@ -2383,13 +2384,9 @@ int c4iw_ep_disconnect(struct c4iw_ep *ep, int abrupt, gfp_t gfp)
 
 			if (!ep->parent_ep)
 				__state_set(&ep->com, MORIBUND);
-			ret = sodisconnect(ep->com.so);
+			sodisconnect(ep->com.so);
 		}
 
-		if (ret) {
-
-			fatal = 1;
-		}
 	}
 
 	if (fatal) {

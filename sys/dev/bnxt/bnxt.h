@@ -32,12 +32,12 @@ __FBSDID("$FreeBSD$");
 #ifndef _BNXT_H
 #define _BNXT_H
 
-#include <sys/types.h>
-#include <sys/bus.h>
-#include <sys/bus_dma.h>
+#include <sys/param.h>
 #include <sys/socket.h>
 #include <sys/sysctl.h>
 #include <sys/taskqueue.h>
+
+#include <machine/bus.h>
 
 #include <net/ethernet.h>
 #include <net/if.h>
@@ -78,6 +78,7 @@ __FBSDID("$FreeBSD$");
 #define BCM57417_NPAR1	0x16c0
 #define BCM57417_NPAR2	0x16cc
 #define BCM57417_SFP	0x16e2
+#define BCM57454	0x1614
 #define BCM58700	0x16cd
 #define NETXTREME_C_VF1	0x16cb
 #define NETXTREME_C_VF2	0x16e1
@@ -437,6 +438,7 @@ struct bnxt_ring {
 	uint32_t		ring_size;	/* Must be a power of two */
 	uint16_t		id;		/* Logical ID */
 	uint16_t		phys_id;
+	struct bnxt_full_tpa_start *tpa_start;
 };
 
 struct bnxt_cp_ring {
@@ -563,7 +565,6 @@ struct bnxt_softc {
 	struct sysctl_ctx_list	hw_stats;
 	struct sysctl_oid	*hw_stats_oid;
 
-	struct bnxt_full_tpa_start *tpa_start;
 	struct bnxt_ver_info	*ver_info;
 	struct bnxt_nvram_info	*nvm_info;
 	bool wol;

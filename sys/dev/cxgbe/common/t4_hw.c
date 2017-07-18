@@ -3683,9 +3683,6 @@ void t4_ulprx_read_la(struct adapter *adap, u32 *la_buf)
 	}
 }
 
-#define ADVERT_MASK (V_FW_PORT_CAP_SPEED(M_FW_PORT_CAP_SPEED) | \
-		     FW_PORT_CAP_ANEG)
-
 /**
  *	t4_link_l1cfg - apply link configuration to MAC/PHY
  *	@phy: the PHY to setup
@@ -3704,7 +3701,7 @@ int t4_link_l1cfg(struct adapter *adap, unsigned int mbox, unsigned int port,
 {
 	struct fw_port_cmd c;
 	unsigned int mdi = V_FW_PORT_CAP_MDI(FW_PORT_CAP_MDI_AUTO);
-	unsigned int fc, fec;
+	unsigned int aneg, fc, fec, speed;
 
 	fc = 0;
 	if (lc->requested_fc & PAUSE_RX)
@@ -3714,11 +3711,40 @@ int t4_link_l1cfg(struct adapter *adap, unsigned int mbox, unsigned int port,
 
 	fec = 0;
 	if (lc->requested_fec & FEC_RS)
-		fec |= FW_PORT_CAP_FEC_RS;
-	if (lc->requested_fec & FEC_BASER_RS)
-		fec |= FW_PORT_CAP_FEC_BASER_RS;
-	if (lc->requested_fec & FEC_RESERVED)
-		fec |= FW_PORT_CAP_FEC_RESERVED;
+		fec = FW_PORT_CAP_FEC_RS;
+	else if (lc->requested_fec & FEC_BASER_RS)
+		fec = FW_PORT_CAP_FEC_BASER_RS;
+	else if (lc->requested_fec & FEC_RESERVED)
+		fec = FW_PORT_CAP_FEC_RESERVED;
+
+	if (!(lc->supported & FW_PORT_CAP_ANEG) ||
+	    lc->requested_aneg == AUTONEG_DISABLE) {
+		aneg = 0;
+		switch (lc->requested_speed) {
+		case 100:
+			speed = FW_PORT_CAP_SPEED_100G;
+			break;
+		case 40:
+			speed = FW_PORT_CAP_SPEED_40G;
+			break;
+		case 25:
+			speed = FW_PORT_CAP_SPEED_25G;
+			break;
+		case 10:
+			speed = FW_PORT_CAP_SPEED_10G;
+			break;
+		case 1:
+			speed = FW_PORT_CAP_SPEED_1G;
+			break;
+		default:
+			return -EINVAL;
+			break;
+		}
+	} else {
+		aneg = FW_PORT_CAP_ANEG;
+		speed = lc->supported &
+		    V_FW_PORT_CAP_SPEED(M_FW_PORT_CAP_SPEED);
+	}
 
 	memset(&c, 0, sizeof(c));
 	c.op_to_portid = cpu_to_be32(V_FW_CMD_OP(FW_PORT_CMD) |
@@ -3727,21 +3753,9 @@ int t4_link_l1cfg(struct adapter *adap, unsigned int mbox, unsigned int port,
 	c.action_to_len16 =
 		cpu_to_be32(V_FW_PORT_CMD_ACTION(FW_PORT_ACTION_L1_CFG) |
 			    FW_LEN16(c));
+	c.u.l1cfg.rcap = cpu_to_be32(aneg | speed | fc | fec | mdi);
 
-	if (!(lc->supported & FW_PORT_CAP_ANEG)) {
-		c.u.l1cfg.rcap = cpu_to_be32((lc->supported & ADVERT_MASK) |
-					     fc | fec);
-		lc->fc = lc->requested_fc & ~PAUSE_AUTONEG;
-		lc->fec = lc->requested_fec;
-	} else if (lc->autoneg == AUTONEG_DISABLE) {
-		c.u.l1cfg.rcap = cpu_to_be32(lc->requested_speed |
-					     fc | fec | mdi);
-		lc->fc = lc->requested_fc & ~PAUSE_AUTONEG;
-		lc->fec = lc->requested_fec;
-	} else
-		c.u.l1cfg.rcap = cpu_to_be32(lc->advertising | fc | fec | mdi);
-
-	return t4_wr_mbox(adap, mbox, &c, sizeof(c), NULL);
+	return t4_wr_mbox_ns(adap, mbox, &c, sizeof(c), NULL);
 }
 
 /**
@@ -7474,6 +7488,90 @@ const char *t4_link_down_rc_str(unsigned char link_down_rc)
 	return reason[link_down_rc];
 }
 
+/*
+ * Updates all fields owned by the common code in port_info and link_config
+ * based on information provided by the firmware.  Does not touch any
+ * requested_* field.
+ */
+static void handle_port_info(struct port_info *pi, const struct fw_port_info *p)
+{
+	struct link_config *lc = &pi->link_cfg;
+	int speed;
+	unsigned char fc, fec;
+	u32 stat = be32_to_cpu(p->lstatus_to_modtype);
+
+	pi->port_type = G_FW_PORT_CMD_PTYPE(stat);
+	pi->mod_type = G_FW_PORT_CMD_MODTYPE(stat);
+	pi->mdio_addr = stat & F_FW_PORT_CMD_MDIOCAP ?
+	    G_FW_PORT_CMD_MDIOADDR(stat) : -1;
+
+	lc->supported = be16_to_cpu(p->pcap);
+	lc->advertising = be16_to_cpu(p->acap);
+	lc->lp_advertising = be16_to_cpu(p->lpacap);
+	lc->link_ok = (stat & F_FW_PORT_CMD_LSTATUS) != 0;
+	lc->link_down_rc = G_FW_PORT_CMD_LINKDNRC(stat);
+
+	speed = 0;
+	if (stat & V_FW_PORT_CMD_LSPEED(FW_PORT_CAP_SPEED_100M))
+		speed = 100;
+	else if (stat & V_FW_PORT_CMD_LSPEED(FW_PORT_CAP_SPEED_1G))
+		speed = 1000;
+	else if (stat & V_FW_PORT_CMD_LSPEED(FW_PORT_CAP_SPEED_10G))
+		speed = 10000;
+	else if (stat & V_FW_PORT_CMD_LSPEED(FW_PORT_CAP_SPEED_25G))
+		speed = 25000;
+	else if (stat & V_FW_PORT_CMD_LSPEED(FW_PORT_CAP_SPEED_40G))
+		speed = 40000;
+	else if (stat & V_FW_PORT_CMD_LSPEED(FW_PORT_CAP_SPEED_100G))
+		speed = 100000;
+	lc->speed = speed;
+
+	fc = 0;
+	if (stat & F_FW_PORT_CMD_RXPAUSE)
+		fc |= PAUSE_RX;
+	if (stat & F_FW_PORT_CMD_TXPAUSE)
+		fc |= PAUSE_TX;
+	lc->fc = fc;
+
+	fec = 0;
+	if (lc->advertising & FW_PORT_CAP_FEC_RS)
+		fec |= FEC_RS;
+	if (lc->advertising & FW_PORT_CAP_FEC_BASER_RS)
+		fec |= FEC_BASER_RS;
+	if (lc->advertising & FW_PORT_CAP_FEC_RESERVED)
+		fec |= FEC_RESERVED;
+	lc->fec = fec;
+}
+
+/**
+ *	t4_update_port_info - retrieve and update port information if changed
+ *	@pi: the port_info
+ *
+ *	We issue a Get Port Information Command to the Firmware and, if
+ *	successful, we check to see if anything is different from what we
+ *	last recorded and update things accordingly.
+ */
+ int t4_update_port_info(struct port_info *pi)
+ {
+	struct fw_port_cmd port_cmd;
+	int ret;
+
+	memset(&port_cmd, 0, sizeof port_cmd);
+	port_cmd.op_to_portid = cpu_to_be32(V_FW_CMD_OP(FW_PORT_CMD) |
+					    F_FW_CMD_REQUEST | F_FW_CMD_READ |
+					    V_FW_PORT_CMD_PORTID(pi->tx_chan));
+	port_cmd.action_to_len16 = cpu_to_be32(
+		V_FW_PORT_CMD_ACTION(FW_PORT_ACTION_GET_PORT_INFO) |
+		FW_LEN16(port_cmd));
+	ret = t4_wr_mbox_ns(pi->adapter, pi->adapter->mbox,
+			 &port_cmd, sizeof(port_cmd), &port_cmd);
+	if (ret)
+		return ret;
+
+	handle_port_info(pi, &port_cmd.u.info);
+	return 0;
+}
+
 /**
  *	t4_handle_fw_rpl - process a FW reply message
  *	@adap: the adapter
@@ -7490,52 +7588,31 @@ int t4_handle_fw_rpl(struct adapter *adap, const __be64 *rpl)
 
 	if (opcode == FW_PORT_CMD && action == FW_PORT_ACTION_GET_PORT_INFO) {
 		/* link/module state change message */
-		int speed = 0, fc = 0, i;
+		int i, old_ptype, old_mtype;
 		int chan = G_FW_PORT_CMD_PORTID(be32_to_cpu(p->op_to_portid));
 		struct port_info *pi = NULL;
-		struct link_config *lc;
-		u32 stat = be32_to_cpu(p->u.info.lstatus_to_modtype);
-		int link_ok = (stat & F_FW_PORT_CMD_LSTATUS) != 0;
-		u32 mod = G_FW_PORT_CMD_MODTYPE(stat);
-
-		if (stat & F_FW_PORT_CMD_RXPAUSE)
-			fc |= PAUSE_RX;
-		if (stat & F_FW_PORT_CMD_TXPAUSE)
-			fc |= PAUSE_TX;
-		if (stat & V_FW_PORT_CMD_LSPEED(FW_PORT_CAP_SPEED_100M))
-			speed = 100;
-		else if (stat & V_FW_PORT_CMD_LSPEED(FW_PORT_CAP_SPEED_1G))
-			speed = 1000;
-		else if (stat & V_FW_PORT_CMD_LSPEED(FW_PORT_CAP_SPEED_10G))
-			speed = 10000;
-		else if (stat & V_FW_PORT_CMD_LSPEED(FW_PORT_CAP_SPEED_25G))
-			speed = 25000;
-		else if (stat & V_FW_PORT_CMD_LSPEED(FW_PORT_CAP_SPEED_40G))
-			speed = 40000;
-		else if (stat & V_FW_PORT_CMD_LSPEED(FW_PORT_CAP_SPEED_100G))
-			speed = 100000;
+		struct link_config *lc, old_lc;
 
 		for_each_port(adap, i) {
 			pi = adap2pinfo(adap, i);
 			if (pi->tx_chan == chan)
 				break;
 		}
-		lc = &pi->link_cfg;
 
-		if (mod != pi->mod_type) {
-			pi->mod_type = mod;
-			t4_os_portmod_changed(adap, i);
+		lc = &pi->link_cfg;
+		old_lc = *lc;
+		old_ptype = pi->port_type;
+		old_mtype = pi->mod_type;
+
+		handle_port_info(pi, &p->u.info);
+		if (old_ptype != pi->port_type || old_mtype != pi->mod_type) {
+			t4_os_portmod_changed(pi, old_ptype, old_mtype,
+			    &old_lc);
 		}
-		if (link_ok != lc->link_ok || speed != lc->speed ||
-		    fc != lc->fc) {                    /* something changed */
-			if (!link_ok && lc->link_ok)
-				lc->link_down_rc = G_FW_PORT_CMD_LINKDNRC(stat);
-			lc->link_ok = link_ok;
-			lc->speed = speed;
-			lc->fc = fc;
-			lc->supported = be16_to_cpu(p->u.info.pcap);
-			lc->lp_advertising = be16_to_cpu(p->u.info.lpacap);
-			t4_os_link_changed(adap, i, link_ok);
+		if (old_lc.link_ok != lc->link_ok ||
+		    old_lc.speed != lc->speed ||
+		    old_lc.fc != lc->fc) {
+			t4_os_link_changed(pi, &old_lc);
 		}
 	} else {
 		CH_WARN_RATELIMIT(adap, "Unknown firmware reply %d\n", opcode);
@@ -7563,47 +7640,6 @@ static void get_pci_mode(struct adapter *adapter,
 		t4_os_pci_read_cfg2(adapter, pcie_cap + PCI_EXP_LNKSTA, &val);
 		p->speed = val & PCI_EXP_LNKSTA_CLS;
 		p->width = (val & PCI_EXP_LNKSTA_NLW) >> 4;
-	}
-}
-
-/**
- *	init_link_config - initialize a link's SW state
- *	@lc: structure holding the link state
- *	@pcaps: supported link capabilities
- *	@acaps: advertised link capabilities
- *
- *	Initializes the SW state maintained for each link, including the link's
- *	capabilities and default speed/flow-control/autonegotiation settings.
- */
-static void init_link_config(struct link_config *lc, unsigned int pcaps,
-    			     unsigned int acaps)
-{
-	unsigned int fec;
-
-	lc->supported = pcaps;
-	lc->lp_advertising = 0;
-	lc->requested_speed = 0;
-	lc->speed = 0;
-	lc->requested_fc = lc->fc = PAUSE_RX | PAUSE_TX;
-	lc->link_ok = 0;
-	lc->link_down_rc = 255;
-
-	fec = 0;
-	if (acaps & FW_PORT_CAP_FEC_RS)
-		fec |= FEC_RS;
-	if (acaps & FW_PORT_CAP_FEC_BASER_RS)
-		fec |= FEC_BASER_RS;
-	if (acaps & FW_PORT_CAP_FEC_RESERVED)
-		fec |= FEC_RESERVED;
-	lc->requested_fec = lc->fec = fec;
-
-	if (lc->supported & FW_PORT_CAP_ANEG) {
-		lc->advertising = lc->supported & ADVERT_MASK;
-		lc->autoneg = AUTONEG_ENABLE;
-		lc->requested_fc |= PAUSE_AUTONEG;
-	} else {
-		lc->advertising = 0;
-		lc->autoneg = AUTONEG_DISABLE;
 	}
 }
 
@@ -7907,7 +7943,7 @@ int t4_init_sge_params(struct adapter *adapter)
 {
 	u32 r;
 	struct sge_params *sp = &adapter->params.sge;
-	unsigned i;
+	unsigned i, tscale = 1;
 
 	r = t4_read_reg(adapter, A_SGE_INGRESS_RX_THRESHOLD);
 	sp->counter_val[0] = G_THRESHOLD_0(r);
@@ -7915,15 +7951,24 @@ int t4_init_sge_params(struct adapter *adapter)
 	sp->counter_val[2] = G_THRESHOLD_2(r);
 	sp->counter_val[3] = G_THRESHOLD_3(r);
 
+	if (chip_id(adapter) >= CHELSIO_T6) {
+		r = t4_read_reg(adapter, A_SGE_ITP_CONTROL);
+		tscale = G_TSCALE(r);
+		if (tscale == 0)
+			tscale = 1;
+		else
+			tscale += 2;
+	}
+
 	r = t4_read_reg(adapter, A_SGE_TIMER_VALUE_0_AND_1);
-	sp->timer_val[0] = core_ticks_to_us(adapter, G_TIMERVALUE0(r));
-	sp->timer_val[1] = core_ticks_to_us(adapter, G_TIMERVALUE1(r));
+	sp->timer_val[0] = core_ticks_to_us(adapter, G_TIMERVALUE0(r)) * tscale;
+	sp->timer_val[1] = core_ticks_to_us(adapter, G_TIMERVALUE1(r)) * tscale;
 	r = t4_read_reg(adapter, A_SGE_TIMER_VALUE_2_AND_3);
-	sp->timer_val[2] = core_ticks_to_us(adapter, G_TIMERVALUE2(r));
-	sp->timer_val[3] = core_ticks_to_us(adapter, G_TIMERVALUE3(r));
+	sp->timer_val[2] = core_ticks_to_us(adapter, G_TIMERVALUE2(r)) * tscale;
+	sp->timer_val[3] = core_ticks_to_us(adapter, G_TIMERVALUE3(r)) * tscale;
 	r = t4_read_reg(adapter, A_SGE_TIMER_VALUE_4_AND_5);
-	sp->timer_val[4] = core_ticks_to_us(adapter, G_TIMERVALUE4(r));
-	sp->timer_val[5] = core_ticks_to_us(adapter, G_TIMERVALUE5(r));
+	sp->timer_val[4] = core_ticks_to_us(adapter, G_TIMERVALUE4(r)) * tscale;
+	sp->timer_val[5] = core_ticks_to_us(adapter, G_TIMERVALUE5(r)) * tscale;
 
 	r = t4_read_reg(adapter, A_SGE_CONM_CTRL);
 	sp->fl_starve_threshold = G_EGRTHRESHOLD(r) * 2 + 1;
@@ -8134,24 +8179,7 @@ int t4_port_init(struct adapter *adap, int mbox, int pf, int vf, int port_id)
 
 	if (!(adap->flags & IS_VF) ||
 	    adap->params.vfres.r_caps & FW_CMD_CAP_PORT) {
-		c.op_to_portid = htonl(V_FW_CMD_OP(FW_PORT_CMD) |
-				       F_FW_CMD_REQUEST | F_FW_CMD_READ |
-				       V_FW_PORT_CMD_PORTID(j));
-		c.action_to_len16 = htonl(
-			V_FW_PORT_CMD_ACTION(FW_PORT_ACTION_GET_PORT_INFO) |
-			FW_LEN16(c));
-		ret = t4_wr_mbox(adap, mbox, &c, sizeof(c), &c);
-		if (ret)
-			return ret;
-
-		ret = be32_to_cpu(c.u.info.lstatus_to_modtype);
-		p->mdio_addr = (ret & F_FW_PORT_CMD_MDIOCAP) ?
-			G_FW_PORT_CMD_MDIOADDR(ret) : -1;
-		p->port_type = G_FW_PORT_CMD_PTYPE(ret);
-		p->mod_type = G_FW_PORT_CMD_MODTYPE(ret);
-
-		init_link_config(&p->link_cfg, be16_to_cpu(c.u.info.pcap),
-		    		 be16_to_cpu(c.u.info.acap));
+ 		t4_update_port_info(p);
 	}
 
 	ret = t4_alloc_vi(adap, mbox, j, pf, vf, 1, addr, &rss_size);
@@ -8167,7 +8195,7 @@ int t4_port_init(struct adapter *adap, int mbox, int pf, int vf, int port_id)
 	p->rx_chan_map = t4_get_mps_bg_map(adap, j);
 	p->lport = j;
 	p->vi[0].rss_size = rss_size;
-	t4_os_set_hw_addr(adap, p->port_id, addr);
+	t4_os_set_hw_addr(p, addr);
 
 	param = V_FW_PARAMS_MNEM(FW_PARAMS_MNEM_DEV) |
 	    V_FW_PARAMS_PARAM_X(FW_PARAMS_PARAM_DEV_RSSINFO) |
@@ -9381,6 +9409,79 @@ int t4_sched_params(struct adapter *adapter, int type, int level, int mode,
 	cmd.u.params.min = cpu_to_be32(minrate);
 	cmd.u.params.max = cpu_to_be32(maxrate);
 	cmd.u.params.weight = cpu_to_be16(weight);
+	cmd.u.params.pktsize = cpu_to_be16(pktsize);
+
+	return t4_wr_mbox_meat(adapter,adapter->mbox, &cmd, sizeof(cmd),
+			       NULL, sleep_ok);
+}
+
+int t4_sched_params_ch_rl(struct adapter *adapter, int channel, int ratemode,
+    unsigned int maxrate, int sleep_ok)
+{
+	struct fw_sched_cmd cmd;
+
+	memset(&cmd, 0, sizeof(cmd));
+	cmd.op_to_write = cpu_to_be32(V_FW_CMD_OP(FW_SCHED_CMD) |
+				      F_FW_CMD_REQUEST |
+				      F_FW_CMD_WRITE);
+	cmd.retval_len16 = cpu_to_be32(FW_LEN16(cmd));
+
+	cmd.u.params.sc = FW_SCHED_SC_PARAMS;
+	cmd.u.params.type = FW_SCHED_TYPE_PKTSCHED;
+	cmd.u.params.level = FW_SCHED_PARAMS_LEVEL_CH_RL;
+	cmd.u.params.ch = channel;
+	cmd.u.params.rate = ratemode;		/* REL or ABS */
+	cmd.u.params.max = cpu_to_be32(maxrate);/*  %  or kbps */
+
+	return t4_wr_mbox_meat(adapter,adapter->mbox, &cmd, sizeof(cmd),
+			       NULL, sleep_ok);
+}
+
+int t4_sched_params_cl_wrr(struct adapter *adapter, int channel, int cl,
+    int weight, int sleep_ok)
+{
+	struct fw_sched_cmd cmd;
+
+	if (weight < 0 || weight > 100)
+		return -EINVAL;
+
+	memset(&cmd, 0, sizeof(cmd));
+	cmd.op_to_write = cpu_to_be32(V_FW_CMD_OP(FW_SCHED_CMD) |
+				      F_FW_CMD_REQUEST |
+				      F_FW_CMD_WRITE);
+	cmd.retval_len16 = cpu_to_be32(FW_LEN16(cmd));
+
+	cmd.u.params.sc = FW_SCHED_SC_PARAMS;
+	cmd.u.params.type = FW_SCHED_TYPE_PKTSCHED;
+	cmd.u.params.level = FW_SCHED_PARAMS_LEVEL_CL_WRR;
+	cmd.u.params.ch = channel;
+	cmd.u.params.cl = cl;
+	cmd.u.params.weight = cpu_to_be16(weight);
+
+	return t4_wr_mbox_meat(adapter,adapter->mbox, &cmd, sizeof(cmd),
+			       NULL, sleep_ok);
+}
+
+int t4_sched_params_cl_rl_kbps(struct adapter *adapter, int channel, int cl,
+    int mode, unsigned int maxrate, int pktsize, int sleep_ok)
+{
+	struct fw_sched_cmd cmd;
+
+	memset(&cmd, 0, sizeof(cmd));
+	cmd.op_to_write = cpu_to_be32(V_FW_CMD_OP(FW_SCHED_CMD) |
+				      F_FW_CMD_REQUEST |
+				      F_FW_CMD_WRITE);
+	cmd.retval_len16 = cpu_to_be32(FW_LEN16(cmd));
+
+	cmd.u.params.sc = FW_SCHED_SC_PARAMS;
+	cmd.u.params.type = FW_SCHED_TYPE_PKTSCHED;
+	cmd.u.params.level = FW_SCHED_PARAMS_LEVEL_CL_RL;
+	cmd.u.params.mode = mode;
+	cmd.u.params.ch = channel;
+	cmd.u.params.cl = cl;
+	cmd.u.params.unit = FW_SCHED_PARAMS_UNIT_BITRATE;
+	cmd.u.params.rate = FW_SCHED_PARAMS_RATE_ABS;
+	cmd.u.params.max = cpu_to_be32(maxrate);
 	cmd.u.params.pktsize = cpu_to_be16(pktsize);
 
 	return t4_wr_mbox_meat(adapter,adapter->mbox, &cmd, sizeof(cmd),

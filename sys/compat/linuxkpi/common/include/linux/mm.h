@@ -91,7 +91,7 @@ CTASSERT((VM_PROT_ALL & -(1 << 8)) == 0);
 #define	FAULT_FLAG_REMOTE	(1 << 7)
 #define	FAULT_FLAG_INSTRUCTION	(1 << 8)
 
-typedef int (*pte_fn_t)(pte_t *, pgtable_t, unsigned long addr, void *data);
+typedef int (*pte_fn_t)(linux_pte_t *, pgtable_t, unsigned long addr, void *data);
 
 struct vm_area_struct {
 	vm_offset_t vm_start;
@@ -256,16 +256,6 @@ vm_get_page_prot(unsigned long vm_flags)
 {
 	return (vm_flags & VM_PROT_ALL);
 }
-
-extern int vm_insert_mixed(struct vm_area_struct *, unsigned long addr, pfn_t pfn);
-
-extern int
-vm_insert_pfn(struct vm_area_struct *, unsigned long addr,
-    unsigned long pfn);
-
-extern int
-vm_insert_pfn_prot(struct vm_area_struct *, unsigned long addr,
-    unsigned long pfn, pgprot_t pgprot);
 
 static inline vm_page_t
 vmalloc_to_page(const void *addr)

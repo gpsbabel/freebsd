@@ -49,7 +49,6 @@ __FBSDID("$FreeBSD$");
 
 #include <sys/kbio.h>
 #include <dev/kbd/kbdreg.h>
-#include <dev/kbd/kbdtables.h>
 
 #include <dev/hyperv/include/hyperv.h>
 #include <dev/hyperv/utilities/hv_utilreg.h>
@@ -298,7 +297,6 @@ hv_kbd_read_channel(struct vmbus_channel *channel, void *context)
 	int ret = 0;
 
 	hv_kbd_sc *sc = (hv_kbd_sc*)context;
-	channel = vmbus_get_channel(sc->dev);
 	buf = sc->buf;
 	buflen = sc->buflen;
 	for (;;) {

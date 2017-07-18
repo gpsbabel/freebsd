@@ -68,6 +68,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/kerneldump.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
+#include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <fstab.h>
@@ -278,7 +279,7 @@ static int
 check_space(const char *savedir, off_t dumpsize, int bounds)
 {
 	FILE *fp;
-	off_t minfree, spacefree, totfree, needed;
+	off_t available, minfree, spacefree, totfree, needed;
 	struct statfs fsbuf;
 	char buf[100];
 
@@ -294,24 +295,50 @@ check_space(const char *savedir, off_t dumpsize, int bounds)
 	else {
 		if (fgets(buf, sizeof(buf), fp) == NULL)
 			minfree = 0;
-		else
-			minfree = atoi(buf);
+		else {
+			char *endp;
+
+			errno = 0;
+			minfree = strtoll(buf, &endp, 10);
+			if (minfree == 0 && errno != 0)
+				minfree = -1;
+			else {
+				while (*endp != '\0' && isspace(*endp))
+					endp++;
+				if (*endp != '\0' || minfree < 0)
+					minfree = -1;
+			}
+			if (minfree < 0)
+				syslog(LOG_WARNING,
+				    "`minfree` didn't contain a valid size "
+				    "(`%s`). Defaulting to 0", buf);
+		}
 		(void)fclose(fp);
 	}
 
+	available = minfree > 0 ? spacefree - minfree : totfree;
 	needed = dumpsize / 1024 + 2;	/* 2 for info file */
 	needed -= saved_dump_size(bounds);
-	if ((minfree > 0 ? spacefree : totfree) - needed < minfree) {
+	if (available < needed) {
 		syslog(LOG_WARNING,
-	"no dump, not enough free space on device (%lld available, need %lld)",
-		    (long long)(minfree > 0 ? spacefree : totfree),
-		    (long long)needed);
+		    "no dump: not enough free space on device (need at least "
+		    "%jdkB for dump; %jdkB available; %jdkB reserved)",
+		    (intmax_t)needed,
+		    (intmax_t)available + minfree,
+		    (intmax_t)minfree);
 		return (0);
 	}
 	if (spacefree - needed < 0)
 		syslog(LOG_WARNING,
 		    "dump performed, but free space threshold crossed");
 	return (1);
+}
+
+static bool
+compare_magic(const struct kerneldumpheader *kdh, const char *magic)
+{
+
+	return (strncmp(kdh->magic, magic, sizeof(kdh->magic)) == 0);
 }
 
 #define BLOCKSIZE (1<<12)
@@ -518,8 +545,8 @@ DoFile(const char *savedir, const char *device)
 	}
 
 	if (verbose) {
-		printf("mediasize = %lld\n", (long long)mediasize);
-		printf("sectorsize = %u\n", sectorsize);
+		printf("mediasize = %lld bytes\n", (long long)mediasize);
+		printf("sectorsize = %u bytes\n", sectorsize);
 	}
 
 	if (sectorsize < sizeof(kdhl)) {
@@ -544,7 +571,7 @@ DoFile(const char *savedir, const char *device)
 	}
 	memcpy(&kdhl, temp, sizeof(kdhl));
 	istextdump = 0;
-	if (strncmp(kdhl.magic, TEXTDUMPMAGIC, sizeof kdhl) == 0) {
+	if (compare_magic(&kdhl, TEXTDUMPMAGIC)) {
 		if (verbose)
 			printf("textdump magic on last dump header on %s\n",
 			    device);
@@ -558,8 +585,7 @@ DoFile(const char *savedir, const char *device)
 			if (force == 0)
 				goto closefd;
 		}
-	} else if (memcmp(kdhl.magic, KERNELDUMPMAGIC, sizeof kdhl.magic) ==
-	    0) {
+	} else if (compare_magic(&kdhl, KERNELDUMPMAGIC)) {
 		if (dtoh32(kdhl.version) != KERNELDUMPVERSION) {
 			syslog(LOG_ERR,
 			    "unknown version (%d) in last dump header on %s",
@@ -578,8 +604,7 @@ DoFile(const char *savedir, const char *device)
 		if (force == 0)
 			goto closefd;
 
-		if (memcmp(kdhl.magic, KERNELDUMPMAGIC_CLEARED,
-			    sizeof kdhl.magic) == 0) {
+		if (compare_magic(&kdhl, KERNELDUMPMAGIC_CLEARED)) {
 			if (verbose)
 				printf("forcing magic on %s\n", device);
 			memcpy(kdhl.magic, KERNELDUMPMAGIC,

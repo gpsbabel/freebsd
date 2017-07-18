@@ -26,6 +26,8 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD$");
 
+#include "opt_mmccam.h"
+
 #include <sys/param.h>
 #include <sys/systm.h>
 #include <sys/bus.h>
@@ -132,9 +134,11 @@ static const struct sdhci_device {
 	    SDHCI_QUIRK_WAIT_WHILE_BUSY |
 	    SDHCI_QUIRK_PRESET_VALUE_BROKEN },
 	{ 0x5aca8086,	0xffff,	"Intel Apollo Lake SDXC Controller",
+	    SDHCI_QUIRK_BROKEN_DMA |	/* APL18 erratum */
 	    SDHCI_QUIRK_WAIT_WHILE_BUSY |
 	    SDHCI_QUIRK_PRESET_VALUE_BROKEN },
 	{ 0x5acc8086,	0xffff,	"Intel Apollo Lake eMMC 5.0 Controller",
+	    SDHCI_QUIRK_BROKEN_DMA |	/* APL18 erratum */
 	    SDHCI_QUIRK_ALL_SLOTS_NON_REMOVABLE |
 	    SDHCI_QUIRK_INTEL_POWER_UP_RESET |
 	    SDHCI_QUIRK_WAIT_WHILE_BUSY |
@@ -340,6 +344,7 @@ sdhci_pci_attach(device_t dev)
 	}
 	sc->quirks &= ~sdhci_quirk_clear;
 	sc->quirks |= sdhci_quirk_set;
+
 	/* Some controllers need to be bumped into the right mode. */
 	if (sc->quirks & SDHCI_QUIRK_LOWER_FREQUENCY)
 		sdhci_lower_frequency(dev);
@@ -393,8 +398,13 @@ sdhci_pci_attach(device_t dev)
 		device_printf(dev, "Can't setup IRQ\n");
 	pci_enable_busmaster(dev);
 	/* Process cards detection. */
-	for (i = 0; i < sc->num_slots; i++)
+	for (i = 0; i < sc->num_slots; i++) {
+#ifdef MMCCAM
+		sdhci_cam_start_slot(&sc->slots[i]);
+#else
 		sdhci_start_slot(&sc->slots[i]);
+#endif
+	}
 
 	return (0);
 }
@@ -515,4 +525,7 @@ static devclass_t sdhci_pci_devclass;
 DRIVER_MODULE(sdhci_pci, pci, sdhci_pci_driver, sdhci_pci_devclass, NULL,
     NULL);
 MODULE_DEPEND(sdhci_pci, sdhci, 1, 1, 1);
+
+#ifndef MMCCAM
 MMC_DECLARE_BRIDGE(sdhci_pci);
+#endif

@@ -46,6 +46,15 @@ SUBDIR=	\
 	${_asmc} \
 	ata \
 	ath \
+	ath_dfs \
+	ath_hal \
+	ath_hal_ar5210 \
+	ath_hal_ar5211 \
+	ath_hal_ar5212 \
+	ath_hal_ar5416 \
+	ath_hal_ar9300 \
+	ath_main \
+	ath_rate \
 	ath_pci \
 	${_autofs} \
 	${_auxio} \
@@ -73,6 +82,7 @@ SUBDIR=	\
 	cd9660_iconv \
 	${_ce} \
 	${_cfi} \
+	chacha20 \
 	${_chromebook_platform} \
 	${_ciss} \
 	cloudabi \
@@ -106,7 +116,7 @@ SUBDIR=	\
 	${_efirt} \
 	${_elink} \
 	${_em} \
-	en \
+	${_ena} \
 	${_ep} \
 	${_epic} \
 	esp \
@@ -115,10 +125,10 @@ SUBDIR=	\
 	${_ex} \
 	${_exca} \
 	ext2fs \
-	${_fatm} \
 	fdc \
 	fdescfs \
 	${_fe} \
+	${_ffec} \
 	filemon \
 	firewire \
 	firmware \
@@ -129,7 +139,6 @@ SUBDIR=	\
 	${_glxiic} \
 	${_glxsb} \
 	gpio \
-	hatm \
 	hifn \
 	hme \
 	${_hpt27xx} \
@@ -288,7 +297,6 @@ SUBDIR=	\
 	ow \
 	${_padlock} \
 	${_padlock_rng} \
-	patm \
 	${_pccard} \
 	${_pcfclock} \
 	pcn \
@@ -359,8 +367,6 @@ SUBDIR=	\
 	sysvipc \
 	tcp \
 	${_ti} \
-	tests/framework \
-	tests/callout_test \
 	tl \
 	tmpfs \
 	${_toecore} \
@@ -379,7 +385,6 @@ SUBDIR=	\
 	uinput \
 	unionfs \
 	usb \
-	utopia \
 	${_vesa} \
 	${_virtio} \
 	vge \
@@ -499,7 +504,6 @@ _pfsync=	pfsync
 
 .if ${MK_SOURCELESS_UCODE} != "no"
 _bce=		bce
-_fatm=		fatm
 _fxp=		fxp
 _ispfw=		ispfw
 _sf=		sf
@@ -519,6 +523,10 @@ _rtwnfw=	rtwnfw
 	${MACHINE_ARCH} != "powerpc" && ${MACHINE_ARCH} != "powerpcspe" && \
 	${MACHINE_CPUARCH} != "riscv"
 _cxgbe=		cxgbe
+.endif
+
+.if ${MK_TESTS} != "no" || defined(ALL_MODULES)
+SUBDIR+=	tests
 .endif
 
 .if ${MK_ZFS} != "no" || defined(ALL_MODULES)
@@ -569,6 +577,7 @@ _drm=		drm
 _drm2=		drm2
 _ed=		ed
 _em=		em
+_ena=		ena
 _ep=		ep
 _et=		et
 _exca=		exca
@@ -756,6 +765,7 @@ _cfi=		cfi
 _cpufreq=	cpufreq
 _drm=		drm
 _exca=		exca
+_ffec=		ffec
 _pccard=	pccard
 _wi=		wi
 .endif
@@ -782,6 +792,10 @@ _cloudabi32=	cloudabi32
 _cloudabi64=	cloudabi64
 .endif
 
+.endif
+
+.if ${MACHINE_ARCH} == "armv6"
+_ffec=		ffec
 .endif
 
 SUBDIR+=${MODULES_EXTRA}
