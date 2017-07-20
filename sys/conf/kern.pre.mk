@@ -196,7 +196,7 @@ MD_ROOT_SIZE_CONFIGURED!=	grep MD_ROOT_SIZE opt_md.h || true ; echo
 SYSTEM_OBJS+= embedfs_${MFS_IMAGE:T:R}.o
 .endif
 .endif
-SYSTEM_LD= @${LD} -m ${LD_EMULATION} -Bdynamic -T ${LDSCRIPT} ${_LDFLAGS} \
+SYSTEM_LD= @${LD} -N -m ${LD_EMULATION} -Bdynamic -T ${LDSCRIPT} ${_LDFLAGS} \
 	--no-warn-mismatch --warn-common --export-dynamic \
 	--dynamic-linker /red/herring \
 	-o ${.TARGET} -X ${SYSTEM_OBJS} vers.o
