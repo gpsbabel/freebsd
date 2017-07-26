@@ -235,14 +235,12 @@ pagetable_l2:
 	.space	PAGE_SIZE
 pagetable_l2_devmap:
 	.space	PAGE_SIZE
-pagetable_l2_sbi:
-	.space	PAGE_SIZE
-pagetable_l3_sbi:
-	.space	PAGE_SIZE
 
-	.globl memory_info
-memory_info:
-	.space	(24)
+	/* Not in use, but required for linking. */
+	.align 3
+	.globl __global_pointer$
+__global_pointer$:
+	.space	8
 
 	.globl init_pt_va
 init_pt_va:
