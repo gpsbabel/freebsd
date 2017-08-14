@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2015 Ruslan Bukin <br@bsdpad.com>
+ * Copyright (c) 2015-2017 Ruslan Bukin <br@bsdpad.com>
  * All rights reserved.
  *
  * Portions of this software were developed by SRI International and the
@@ -35,28 +35,25 @@
 #include <machine/asm.h>
 __FBSDID("$FreeBSD$");
 
-# this puts _gp into .dynsym, so symlook_obj can now find that (see reloc.c)
+# this puts __global_pointer$ into .dynsym, so symlook_obj can now find that
+# (see reloc.c)
 	.weak	__global_pointer$
 __global_pointer$:
 
 	.section .init,"ax",@progbits
-	.align	2
+	.align	0
 	.globl	_init
 	.type	_init,@function
 _init:
 	addi	sp, sp, -16
 	sd	ra, 0(sp)
-	# compressed extension requires this nop
-	nop
 
 	.section .fini,"ax",@progbits
-	.align	2
+	.align	0
 	.globl	_fini
 	.type	_fini,@function
 _fini:
 	addi	sp, sp, -16
 	sd	ra, 0(sp)
-	# compressed extension requires this nop
-	nop
 
 	.section .note.GNU-stack,"",%progbits

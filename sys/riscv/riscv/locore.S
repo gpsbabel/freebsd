@@ -53,12 +53,17 @@
 	.text
 	.globl _start
 _start:
+	/* Get the physical address kernel loaded to */
+	la	t0, virt_map
+	ld	t1, 0(t0)
+	sub	t1, t1, t0
+	li	t2, KERNBASE
+	sub	s9, t2, t1	/* s9 = physmem base */
+	mv	s10, a0		/* s10 = hart id */
+	mv	s11, a1		/* s11 = dtbp */
+
 	li	t0, SSTATUS_SUM
 	csrs	sstatus, t0
-
-	mv	s10, a0		# hart id
-	mv	s11, a1		# dtbp
-	ld	t0, 0(a1)
 
 	/* Direct secondary cores to mpentry */
 	bnez	s10, mpentry
@@ -87,8 +92,7 @@ _start:
 
 	/* Level 2 superpages (512 x 2MiB) */
 	la	s1, pagetable_l2
-	li	s6, 0x80000000
-	srli	t4, s6, 21		/* Div physmem base by 2 MiB */
+	srli	t4, s9, 21		/* Div physmem base by 2 MiB */
 	li	t2, 512			/* Build 512 entries */
 	add	t3, t4, t2
 	li	t5, 0
@@ -140,8 +144,7 @@ _start:
 
 	/* Setup supervisor trap vector */
 	la	t0, va
-	li	t1, 0x80000000
-	sub	t0, t0, t1
+	sub	t0, t0, s9
 	li	t1, KERNBASE
 	add	t0, t0, t1
 	csrw	stvec, t0
@@ -149,7 +152,7 @@ _start:
 	/* Set page tables base register */
 	la	s2, pagetable_l1
 	srli	s2, s2, PAGE_SHIFT
-	li	t0, (8 << 60)
+	li	t0, SATP_MODE_SV39
 	or	s2, s2, t0
 	sfence.vma
 	csrw	sptbr, s2
@@ -177,23 +180,18 @@ va:
 	bltu	a0, s1, 1b
 
 	/* Fill riscv_bootparams */
-	addi	sp, sp, -24
+	addi	sp, sp, -40
 
 	la	t0, pagetable_l1
 	sd	t0, 0(sp) /* kern_l1pt */
+	sd	s9, 8(sp) /* kern_phys */
 
 	la	t0, initstack_end
-	sd	t0, 8(sp) /* kern_stack */
+	sd	t0, 16(sp) /* kern_stack */
 
-	li	t0, (VM_MAX_KERNEL_ADDRESS - L2_SIZE - L2_SIZE)
-#if 0
-	mv	t0, s11
-	li	t1, 0x80000000
-	sub	t0, t0, t1
-	li	t1, KERNBASE
-	add	t0, t0, t1
-#endif
-	sd	t0, 16(sp) /* dtbp */
+	li	t0, (VM_MAX_KERNEL_ADDRESS - 2 * L2_SIZE)
+	sd	t0, 24(sp) /* dtbp_virt */
+	sd	s11, 32(sp) /* dtbp_phys */
 
 	mv	a0, sp
 	call	_C_LABEL(initriscv)	/* Off we go */
@@ -236,6 +234,10 @@ pagetable_l2:
 pagetable_l2_devmap:
 	.space	PAGE_SIZE
 
+        .align 3
+virt_map:
+        .quad   virt_map
+
 	/* Not in use, but required for linking. */
 	.align 3
 	.globl __global_pointer$
@@ -264,15 +266,13 @@ ENTRY(mpentry)
 	li	t1, (PAGE_SIZE * KSTACK_PAGES)
 	mulw	t1, t1, s10
 	add	t0, t0, t1
-	li	t1, 0x80000000
-	sub	t0, t0, t1
+	sub	t0, t0, s9
 	li	t1, KERNBASE
 	add	sp, t0, t1
 
 	/* Setup supervisor trap vector */
 	la	t0, mpva
-	li	t1, 0x80000000
-	sub	t0, t0, t1
+	sub	t0, t0, s9
 	li	t1, KERNBASE
 	add	t0, t0, t1
 	csrw	stvec, t0
@@ -280,7 +280,7 @@ ENTRY(mpentry)
 	/* Set page tables base register */
 	la	s2, pagetable_l1
 	srli	s2, s2, PAGE_SHIFT
-	li	t0, (8 << 60)
+	li	t0, SATP_MODE_SV39
 	or	s2, s2, t0
 	sfence.vma
 	csrw	sptbr, s2

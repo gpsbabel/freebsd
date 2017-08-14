@@ -168,7 +168,7 @@ ENTRY(cpu_throw)
 	/* Switch to the new pmap */
 	ld	t0, PCB_L1ADDR(x13)
 	srli	t0, t0, PAGE_SHIFT
-	li	t1, (8 << 60)
+	li	t1, SATP_MODE_SV39
 	or	t0, t0, t1
 	csrw	sptbr, t0
 
@@ -286,7 +286,7 @@ ENTRY(cpu_switch)
 	/* Switch to the new pmap */
 	ld	t0, PCB_L1ADDR(x13)
 	srli	t0, t0, PAGE_SHIFT
-	li	t1, (8 << 60)
+	li	t1, SATP_MODE_SV39
 	or	t0, t0, t1
 	csrw	sptbr, t0
 
@@ -356,17 +356,7 @@ ENTRY(fork_trampoline)
 	/* Ensure interrupts disabled */
 	li	t1, ~SSTATUS_SIE
 	and	t0, t0, t1
-	/* Allow supervisor access userspace. */
-	li	t1, SSTATUS_SUM
-	or	t0, t0, t1
 	csrw	sstatus, t0
-
-
-	csrr	t0, sstatus
-	li	t1, SSTATUS_SUM
-	and	t1, t1, t0
-1:
-	beqz	t1, 1b
 
 	/* Restore exception program counter */
 	ld	t0, (TF_SEPC)(sp)
