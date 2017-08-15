@@ -6,15 +6,15 @@ This is a port of [FreeBSD Operating System](http://www.freebsd.org) to RISC-V i
 ### Prepare your environment
 On FreeBSD 11.0 machine install the required packages:
 ```
-$ sudo pkg install riscv64-xtoolchain-gcc qemu-riscv riscv-isa-sim
+$ sudo pkg install riscv64-xtoolchain-gcc riscv-isa-sim
 ```
 
 ## Quick way
 
 ### You can use pre-built images, otherwise proceed to next step.
 ```
-fetch https://artifact.ci.freebsd.org/snapshot/head/latest/riscv/riscv64/bbl-spike.xz
-unxz bbl-spike.xz
+fetch https://artifact.ci.freebsd.org/snapshot/head/latest/riscv/riscv64/bbl.xz
+unxz bbl.xz
 ```
 
 ## Complete build from scratch
@@ -53,10 +53,7 @@ options 	ROOTDEVNAME=\"ufs:/dev/md0\"
 ### Build FreeBSD kernel
 ```
 $ cd freebsd-riscv
-for Spike:
-$ make -j4 CROSS_TOOLCHAIN=riscv64-gcc TARGET_ARCH=riscv64 KERNCONF=SPIKE buildkernel
-for QEMU:
-$ make -j4 CROSS_TOOLCHAIN=riscv64-gcc TARGET_ARCH=riscv64 KERNCONF=QEMU buildkernel
+$ make -j4 CROSS_TOOLCHAIN=riscv64-gcc TARGET_ARCH=riscv64 buildkernel
 ```
 
 ### Build BBL
@@ -64,20 +61,21 @@ $ make -j4 CROSS_TOOLCHAIN=riscv64-gcc TARGET_ARCH=riscv64 KERNCONF=QEMU buildke
 $ git clone https://github.com/freebsd-riscv/riscv-pk
 $ cd riscv-pk
 $ mkdir build && cd build
+$ setenv OBJCOPY riscv64-freebsd-objcopy
+$ setenv READELF riscv64-freebsd-readelf
+$ setenv RANLIB riscv64-freebsd-ranlib
 $ setenv CFLAGS "-nostdlib"
 $ ../configure --host=riscv64-unknown-freebsd11.0 --with-payload=path_to_freebsd_kernel
-$ gmake LIBS=''
+$ gmake bbl
+$ unsetenv OBJCOPY
+$ unsetenv READELF
+$ unsetenv RANLIB
 $ unsetenv CFLAGS
 ```
 
 ### Run Spike simulator
 ```
-$ spike -m1024 -p2 /path/to/bbl
-```
-
-### Run QEMU emulator
-```
-$ qemu-system-riscv64 -m 2048M -kernel /path/to/bbl -nographic
+$ spike /path/to/bbl
 ```
 
 Additional information is available on [FreeBSD Wiki](http://wiki.freebsd.org/riscv).
